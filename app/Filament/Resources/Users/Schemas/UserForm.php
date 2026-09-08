@@ -12,65 +12,95 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Hash;
 
+/**
+ * Карточка сотрудника в модалке.
+ *
+ * Фото стоит первым и занимает одну колонку из четырёх: раньше оно уходило
+ * во всю ширину и выталкивало остальные поля вниз, из-за чего форма не
+ * помещалась на экран.
+ */
 class UserForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->components([
-            Section::make()
-                ->columns(2)
+        // Схема в одну колонку: по умолчанию секции встают рядом и в модалке
+        // сжимают поля до нечитаемых обрубков вроде «12 000» → «1».
+        return $schema->columns(1)->components([
+            Section::make('Сотрудник')
+                ->columns(4)
                 ->schema([
-                    TextInput::make('name')->label('Имя')->required(),
-                    TextInput::make('email')->label('E-mail')->email()->required()->unique(ignoreRecord: true),
-                    TextInput::make('phone')
-                        ->label('Телефон')
-                        ->tel()
-                        ->telRegex(Validation::PHONE_REGEX)
-                        ->mask(Validation::PHONE_MASK)
-                        ->placeholder('+7 (700) 000-00-00')
-                        ->rule(static fn (): Closure => Validation::phone()),
-
-                    Select::make('role')
-                        ->label('Роль')
-                        ->options(UserRole::class)
-                        ->default(UserRole::Manager->value)
-                        ->required()
-                        ->native(false),
-
-                    TextInput::make('password')
-                        ->label('Пароль')
-                        ->password()
-                        ->revealable()
-                        ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? Hash::make($state) : null)
-                        // При редактировании пустое поле означает «пароль не меняем»,
-                        // иначе каждое сохранение карточки затирало бы пароль.
-                        ->dehydrated(fn (?string $state): bool => filled($state))
-                        ->required(fn (?string $operation): bool => $operation === 'create'),
-
-                    Toggle::make('is_active')
-                        ->label('Доступ в систему')
-                        ->helperText('Выключенный сотрудник не войдёт в панель.')
-                        ->default(true),
-
-                    // Фото сотрудник обычно ставит себе сам в «Моём профиле»;
-                    // здесь оно на случай, когда карточку заводит кадровик.
                     FileUpload::make('avatar_path')
                         ->label('Фото')
                         ->avatar()
                         ->image()
                         ->imageEditor()
+                        ->imageEditorAspectRatios(['1:1'])
                         ->directory('avatars')
                         ->disk('public')
                         ->maxSize(4096)
-                        ->columnSpanFull(),
+                        ->columnSpan(1),
+
+                    Grid::make(3)
+                        ->columnSpan(3)
+                        ->schema([
+                            TextInput::make('name')
+                                ->label('Имя')
+                                ->required()
+                                ->minLength(2)
+                                ->maxLength(255)
+                                ->columnSpan(2),
+
+                            Select::make('role')
+                                ->label('Роль')
+                                ->options(UserRole::class)
+                                ->default(UserRole::Manager->value)
+                                ->required()
+                                ->native(false),
+
+                            TextInput::make('email')
+                                ->label('E-mail')
+                                ->email()
+                                ->required()
+                                ->unique(ignoreRecord: true)
+                                ->columnSpan(2),
+
+                            TextInput::make('phone')
+                                ->label('Телефон')
+                                ->tel()
+                                ->telRegex(Validation::PHONE_REGEX)
+                                ->mask(Validation::PHONE_MASK)
+                                ->placeholder('+7 (700) 000-00-00')
+                                ->rule(static fn (): Closure => Validation::phone()),
+
+                            TextInput::make('password')
+                                ->label('Пароль')
+                                ->password()
+                                ->revealable()
+                                ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? Hash::make($state) : null)
+                                // При редактировании пустое поле означает «пароль не меняем»,
+                                // иначе каждое сохранение карточки затирало бы пароль.
+                                ->dehydrated(fn (?string $state): bool => filled($state))
+                                ->required(fn (?string $operation): bool => $operation === 'create')
+                                ->helperText(fn (?string $operation): ?string => $operation === 'edit'
+                                    ? 'Пусто — пароль не меняется'
+                                    : null)
+                                ->columnSpan(2),
+
+                            Toggle::make('is_active')
+                                ->label('Доступ в систему')
+                                ->helperText('Выключенный в панель не войдёт')
+                                ->default(true)
+                                ->inline(false),
+                        ]),
                 ]),
 
             Section::make('Условия работы')
-                ->description('Оклад и даты видит и правит только администратор.')
+                ->description('Видит и правит только администратор')
                 ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)
                 ->columns(3)
                 ->schema([

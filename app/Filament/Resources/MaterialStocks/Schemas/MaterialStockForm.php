@@ -15,7 +15,9 @@ class MaterialStockForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->components([
+        // Схема в одну колонку: по умолчанию секции встают рядом и в модалке
+        // сжимают поля до нечитаемых обрубков вроде «12 000» → «1».
+        return $schema->columns(1)->components([
             Section::make()
                 ->columns(2)
                 ->schema([

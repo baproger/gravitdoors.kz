@@ -1237,3 +1237,41 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     .gravit-ring__label { font-size: 0.75rem; }
     .gravit-bar__track { height: 4.5rem; }
 }
+
+/* Компактная bento-полоса над таблицей: цифры-подсказки, а не главный контент. */
+.gravit-bento--compact {
+    margin-bottom: 1rem;
+}
+
+.gravit-bento--compact .gravit-tile {
+    padding: 0.75rem 1rem;
+}
+
+.gravit-bento--compact .gravit-tile__value {
+    margin-top: 0.15rem;
+    font-size: 1.25rem;
+}
+
+/* ---------- Плотность форм и модалок ---------- */
+
+/* Заголовок секции ближе к полям: в компактном режиме Filament оставляет
+   шапке столько же воздуха, сколько всей форме. */
+.fi-sc-section.fi-compact > header {
+    padding-block: 0.6rem;
+}
+
+.fi-modal-window .fi-sc-section {
+    box-shadow: none;
+}
+
+/* Поля дат и чисел не сжимаются ниже читаемого: в узкой колонке браузер
+   обрезал «05.11.1988» до «05.11.198». */
+.fi-fo-date-time-picker input,
+.fi-input[type='date'],
+.fi-input[type='number'] {
+    min-width: 0;
+}
+
+.fi-fo-field-wrp {
+    min-width: 0;
+}

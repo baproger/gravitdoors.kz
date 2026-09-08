@@ -62,7 +62,7 @@ class UsersTable
             ->filters([
                 SelectFilter::make('role')->label('Роль')->options(UserRole::class),
             ])
-            ->recordActions([EditAction::make(), DeleteAction::make()])
+            ->recordActions([EditAction::make()->iconButton(), DeleteAction::make()->iconButton()])
             ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
     }
 }
