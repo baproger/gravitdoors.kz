@@ -7,7 +7,6 @@ namespace Tests\Feature;
 use App\Enums\DealStatus;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
-use App\Filament\Pages\DoorCalculator;
 use App\Filament\Pages\FactoryKanban;
 use App\Filament\Pages\SalesKanban;
 use App\Filament\Resources\Deals\Pages\EditDeal;
@@ -47,7 +46,6 @@ class AdminPanelSmokeTest extends TestCase
     {
         return [
             'дашборд' => ['/admin'],
-            'калькулятор' => ['/admin/calculator'],
             'канбан продаж' => ['/admin/kanban/sales'],
             'канбан завода' => ['/admin/kanban/factory'],
             'сделки' => ['/admin/deals'],
@@ -180,17 +178,6 @@ class AdminPanelSmokeTest extends TestCase
             ->assertDontSee($deal->number);
     }
 
-    public function test_calculator_recalculates_on_state_change(): void
-    {
-        Livewire::test(DoorCalculator::class)
-            ->set('data.height', 2000)
-            ->set('data.width', 1000)
-            ->set('data.metal_thickness', 'metal_1_5')
-            ->set('data.lock_system', 'lock_kale')
-            ->assertOk()
-            ->assertSee('Металл 1.5 мм');
-    }
-
     private function makeDeal(): Deal
     {
         $deal = Deal::create([
@@ -200,6 +187,14 @@ class AdminPanelSmokeTest extends TestCase
             'pipeline_type' => PipelineType::Sales,
             'current_stage_id' => $this->stage('contract')->id,
             'manager_id' => $this->admin->id,
+            'client_address' => 'ул. Тестовая 1',
+            'city' => 'Алматы',
+            'measured_at' => now()->subDay(),
+            'due_date' => now()->addWeeks(2),
+            'contract_number' => 'ДГ-ТЕСТ-001',
+            'contract_date' => now()->subDays(2),
+            'documents' => ['deals/contract-test.pdf'],
+            'prepayment' => 50_000,
         ]);
 
         DoorConfiguration::create([

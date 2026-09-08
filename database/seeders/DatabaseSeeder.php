@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Администратор Gravit',
                 'password' => Hash::make('password'),
                 'role' => UserRole::Admin->value,
-                'phone' => '+7 701 000 00 01',
+                'phone' => '+7 (701) 000-00-01',
             ],
         );
 

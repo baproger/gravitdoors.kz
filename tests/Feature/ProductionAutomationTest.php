@@ -81,17 +81,57 @@ class ProductionAutomationTest extends TestCase
         Event::assertDispatched(ProductionCompleted::class);
     }
 
-    public function test_dragging_order_past_qc_stage_also_completes_production(): void
+    public function test_dragging_order_through_stages_completes_production(): void
     {
         $deal = $this->makeSalesDeal();
         $this->production->moveToStage($deal, $this->salesStage('handed_to_production'));
         $order = $deal->refresh()->productionOrder;
 
-        // Канбан: карточку перетащили сразу на ОТК, затем закрыли этап кнопкой.
-        $this->production->moveToStage($order, $this->factoryStage('qc_packing'));
+        // Канбан: карточку тащат по этапам цеха один за другим.
+        foreach (['welding', 'painting', 'insulation_mdf', 'hardware', 'qc_packing'] as $code) {
+            $this->production->moveToStage($order->refresh(), $this->factoryStage($code));
+        }
+
         $this->production->completeCurrentStage($order->refresh());
 
         $this->assertSame(DealStatus::ReadyToShip, $deal->refresh()->status_id);
+    }
+
+    public function test_stages_cannot_be_skipped(): void
+    {
+        $deal = $this->makeSalesDeal();
+        $this->production->moveToStage($deal, $this->salesStage('handed_to_production'));
+        $order = $deal->refresh()->productionOrder;
+
+        $this->expectException(ProductionException::class);
+        $this->expectExceptionMessageMatches('/следующий этап/u');
+
+        // С раскроя сразу на упаковку — дверь так не делается.
+        $this->production->moveToStage($order, $this->factoryStage('qc_packing'));
+    }
+
+    public function test_deal_cannot_enter_a_stage_with_unmet_requirements(): void
+    {
+        $deal = $this->makeSalesDeal();
+        // Договор не подписан — на передачу в производство пускать нельзя.
+        $deal->update(['contract_number' => null, 'documents' => null]);
+
+        $this->expectException(ProductionException::class);
+        $this->expectExceptionMessageMatches('/Номер договора/u');
+
+        $this->production->moveToStage($deal->refresh(), $this->salesStage('handed_to_production'));
+    }
+
+    public function test_moving_backwards_ignores_requirements(): void
+    {
+        $deal = $this->makeSalesDeal();
+        $deal->update(['measured_at' => null]);
+
+        // Возврат назад не должен упираться в регламент: менеджер откатывает
+        // сделку именно тогда, когда данные оказались неверными.
+        $this->production->moveToStage($deal->refresh(), $this->salesStage('new'));
+
+        $this->assertSame('new', $deal->refresh()->currentStage->code);
     }
 
     public function test_handoff_is_idempotent(): void
@@ -182,10 +222,19 @@ class ProductionAutomationTest extends TestCase
         $deal = Deal::create([
             'title' => 'ЖК «Тест», кв. 1',
             'client_name' => 'Тестовый клиент',
-            'client_phone' => '+7 700 000 00 00',
+            'client_phone' => '+7 (700) 000-00-00',
             'status_id' => DealStatus::InWork,
             'pipeline_type' => PipelineType::Sales,
             'current_stage_id' => $this->salesStage('contract')->id,
+            'manager_id' => User::factory()->create()->id,
+            'client_address' => 'ул. Тестовая 1',
+            'city' => 'Алматы',
+            'measured_at' => now()->subDay(),
+            'due_date' => now()->addWeeks(2),
+            'contract_number' => 'ДГ-ТЕСТ-001',
+            'contract_date' => now()->subDays(2),
+            'documents' => ['deals/contract-test.pdf'],
+            'prepayment' => 50_000,
         ]);
 
         DoorConfiguration::create([

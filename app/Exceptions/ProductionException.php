@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions;
 
+use App\Enums\StageRequirement;
 use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\MaterialStock;
@@ -41,6 +42,28 @@ class ProductionException extends DomainException
     public static function noConfiguration(Deal $deal): self
     {
         return new self("У сделки {$deal->number} не заполнена спецификация двери — нечего передавать в цех.");
+    }
+
+    /** Перепрыгивание этапов: сделка должна идти по воронке подряд. */
+    public static function stageSkipped(Deal $deal, FactoryStage $stage, FactoryStage $expected): self
+    {
+        return new self(sprintf(
+            'Нельзя перепрыгнуть на «%s»: следующий этап — «%s». Сделка должна двигаться по воронке подряд.',
+            $stage->name,
+            $expected->name,
+        ));
+    }
+
+    /**
+     * @param  list<StageRequirement>  $missing
+     */
+    public static function requirementsNotMet(FactoryStage $stage, array $missing): self
+    {
+        $list = collect($missing)
+            ->map(fn ($requirement): string => '• '.$requirement->getLabel().' — '.$requirement->hint())
+            ->implode("\n");
+
+        return new self("Для этапа «{$stage->name}» не хватает данных:\n{$list}");
     }
 
     public static function insufficientStock(MaterialStock $material, float $required): self

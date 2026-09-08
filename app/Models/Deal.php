@@ -9,7 +9,9 @@ use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PipelineType;
+use App\Observers\DealObserver;
 use Database\Factories\DealFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -28,6 +30,7 @@ use Illuminate\Support\Str;
  * @property DealStatus $status_id
  * @property PipelineType $pipeline_type
  */
+#[ObservedBy(DealObserver::class)]
 class Deal extends Model
 {
     /** @use HasFactory<DealFactory> */
@@ -37,7 +40,7 @@ class Deal extends Model
         'number', 'title',
         'client_name', 'client_type', 'client_company', 'client_bin',
         'client_phone', 'client_email', 'client_phone_extra', 'client_address', 'city', 'source',
-        'contract_number', 'contract_date', 'measured_at',
+        'contract_number', 'contract_date', 'documents', 'measured_at',
         'total_price', 'cost_price', 'prepayment', 'payment_method',
         'delivery_cost', 'installation_cost',
         'status_id', 'pipeline_type', 'current_stage_id',
@@ -61,6 +64,7 @@ class Deal extends Model
             'due_date' => 'date',
             'contract_date' => 'date',
             'measured_at' => 'date',
+            'documents' => 'array',
             'stage_entered_at' => 'datetime',
             'production_started_at' => 'datetime',
             'production_finished_at' => 'datetime',

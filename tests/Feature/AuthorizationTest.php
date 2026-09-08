@@ -39,13 +39,6 @@ class AuthorizationTest extends TestCase
         $this->get('/admin/kanban/sales')->assertForbidden();
     }
 
-    public function test_workshop_staff_cannot_open_calculator(): void
-    {
-        $this->actingAs($this->user(UserRole::Master));
-
-        $this->get('/admin/calculator')->assertForbidden();
-    }
-
     public function test_only_admin_configures_pipeline_stages(): void
     {
         $this->actingAs($this->user(UserRole::Manager));

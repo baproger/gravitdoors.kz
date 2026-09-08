@@ -61,11 +61,12 @@
                     <div class="mt-2 space-y-3">
                         @foreach ($configurations as $configuration)
                             <div @class(['border-t border-slate-200 pt-3 dark:border-slate-700' => ! $loop->first])>
-                                @if ($configurations->count() > 1)
-                                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {{ $configuration->displayName() }}
-                                    </p>
-                                @endif
+                                <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                    @if ($configurations->count() > 1)
+                                        Позиция {{ $configuration->position }} ·
+                                    @endif
+                                    {{ $configuration->productName() }}
+                                </p>
 
                                 <p class="text-lg font-semibold">{{ $configuration->humanSize() }}</p>
 

@@ -118,7 +118,7 @@
                                 @if ($configs->isNotEmpty())
                                     <p class="gravit-card__spec">
                                         @if ($configs->count() === 1)
-                                            {{ $configs->first()->humanSize() }} · {{ $configs->first()->quantity }} шт
+                                            {{ $configs->first()->productName() }} · {{ $configs->first()->humanSize() }} · {{ $configs->first()->quantity }} шт
                                         @else
                                             {{ $configs->count() }} позиции · {{ $deal->doorsCount() }} шт
                                         @endif

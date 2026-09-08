@@ -549,3 +549,36 @@
     font-size: 0.78rem;
     gap: 0.6rem;
 }
+
+/* Следующий доступный этап подсвечен пунктиром, заблокированный — приглушён. */
+.gravit-step--next {
+    border-color: rgb(47 111 237 / 0.45);
+    border-style: dashed;
+    color: rgb(47 111 237);
+}
+
+.dark .gravit-step--next { color: rgb(147 197 253); }
+
+.gravit-step--blocked {
+    border-color: rgb(217 119 6 / 0.5);
+    color: rgb(180 83 9);
+}
+
+.dark .gravit-step--blocked { color: rgb(252 211 77); }
+
+.gravit-step--locked {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.gravit-stepper__hint {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--gravit-radius-sm);
+    background: rgb(217 119 6 / 0.08);
+    color: rgb(180 83 9);
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.dark .gravit-stepper__hint { color: rgb(252 211 77); }

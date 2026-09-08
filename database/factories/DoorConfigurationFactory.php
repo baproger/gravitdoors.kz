@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\DoorCategory;
+use App\Enums\DoorModel;
 use App\Enums\OpeningSide;
 use App\Models\Deal;
 use App\Models\DoorConfiguration;
@@ -19,6 +21,8 @@ class DoorConfigurationFactory extends Factory
         return [
             'deal_id' => Deal::factory(),
             'position' => 1,
+            'category' => fake()->randomElement(DoorCategory::cases())->value,
+            'model' => fake()->randomElement(DoorModel::cases())->value,
             'height' => fake()->randomElement([1900, 2050, 2200]),
             'width' => fake()->randomElement([860, 900, 950, 1050]),
             'opening_side' => fake()->randomElement(OpeningSide::cases())->value,

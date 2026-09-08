@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\FactoryStages\Schemas;
 
 use App\Enums\PipelineType;
+use App\Enums\StageRequirement;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -95,6 +97,16 @@ class FactoryStageForm
                         ->numeric()
                         ->default(0)
                         ->suffix(config('gravit.currency.symbol')),
+                ]),
+
+            Section::make('Что обязательно заполнить')
+                ->description('Без этих данных сделку на этап не пустят. Так менеджеры не «проскакивают» воронку с пустой карточкой.')
+                ->schema([
+                    CheckboxList::make('required_fields')
+                        ->hiddenLabel()
+                        ->options(StageRequirement::class)
+                        ->columns(2)
+                        ->bulkToggleable(),
                 ]),
 
             Section::make('Автоматизация')

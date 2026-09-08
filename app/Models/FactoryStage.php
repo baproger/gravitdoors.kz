@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PipelineType;
+use App\Enums\StageRequirement;
 use Database\Factories\FactoryStageFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,7 +25,7 @@ class FactoryStage extends Model
     protected $fillable = [
         'pipeline_type', 'code', 'name', 'order', 'estimated_hours', 'operation_cost',
         'color', 'icon', 'description', 'is_initial', 'is_final',
-        'triggers_production', 'completes_production', 'is_active',
+        'triggers_production', 'completes_production', 'required_fields', 'is_active',
     ];
 
     protected function casts(): array
@@ -39,6 +40,7 @@ class FactoryStage extends Model
             'triggers_production' => 'boolean',
             'completes_production' => 'boolean',
             'is_active' => 'boolean',
+            'required_fields' => 'array',
         ];
     }
 
@@ -70,6 +72,33 @@ class FactoryStage extends Model
     public function scopeOrdered(Builder $query): void
     {
         $query->orderBy('order')->orderBy('id');
+    }
+
+    /**
+     * Требования этапа как перечисления.
+     *
+     * @return list<StageRequirement>
+     */
+    public function requirements(): array
+    {
+        return collect($this->required_fields ?? [])
+            ->map(fn (string $value): ?StageRequirement => StageRequirement::tryFrom($value))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Чего не хватает сделке для входа на этап.
+     *
+     * @return list<StageRequirement>
+     */
+    public function missingFor(Deal $deal): array
+    {
+        return array_values(array_filter(
+            $this->requirements(),
+            fn (StageRequirement $requirement): bool => ! $requirement->isSatisfiedBy($deal),
+        ));
     }
 
     public function next(): ?self

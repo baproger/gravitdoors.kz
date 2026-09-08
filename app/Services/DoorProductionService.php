@@ -66,6 +66,8 @@ class DoorProductionService
                 return $deal;
             }
 
+            $this->guardTransition($deal, $from, $stage);
+
             // Движение вперёд по цеху закрывает предыдущий этап как выполненный;
             // возврат назад (брак, переделка) помечает его как отклонённый.
             if ($deal->isFactoryOrder() && $from) {
@@ -510,6 +512,34 @@ class DoorProductionService
         }
 
         return $required;
+    }
+
+    /**
+     * Правила перехода: вперёд — только на соседний этап и только с заполненными
+     * обязательными полями. Назад — свободно: возврат нужен, когда менеджер
+     * ошибся или клиент передумал, и запирать его нечем.
+     */
+    private function guardTransition(Deal $deal, ?FactoryStage $from, FactoryStage $to): void
+    {
+        $movingForward = $from === null || $to->order > $from->order;
+
+        if (! $movingForward) {
+            return;
+        }
+
+        if ($from !== null) {
+            $expected = $from->next();
+
+            if ($expected !== null && ! $expected->is($to)) {
+                throw ProductionException::stageSkipped($deal, $to, $expected);
+            }
+        }
+
+        $missing = $to->missingFor($deal);
+
+        if ($missing !== []) {
+            throw ProductionException::requirementsNotMet($to, $missing);
+        }
     }
 
     /** Общая часть входа на этап для канбана и для кнопки «Готово ✓». */

@@ -138,10 +138,19 @@ class DealCardTest extends TestCase
         $deal = Deal::create([
             'title' => 'ЖК «Тест», кв. 10',
             'client_name' => 'Тестовый клиент',
-            'client_phone' => '+7 700 000 00 00',
+            'client_phone' => '+7 (700) 000-00-00',
             'status_id' => DealStatus::InWork,
             'pipeline_type' => PipelineType::Sales,
             'current_stage_id' => $this->stage('contract')->id,
+            'manager_id' => User::factory()->create()->id,
+            'client_address' => 'ул. Тестовая 1',
+            'city' => 'Алматы',
+            'measured_at' => now()->subDay(),
+            'due_date' => now()->addWeeks(2),
+            'contract_number' => 'ДГ-ТЕСТ-001',
+            'contract_date' => now()->subDays(2),
+            'documents' => ['deals/contract-test.pdf'],
+            'prepayment' => 50_000,
             ...$attributes,
         ]);
 

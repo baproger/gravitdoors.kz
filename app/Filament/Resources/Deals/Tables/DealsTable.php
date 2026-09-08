@@ -158,16 +158,39 @@ class DealsTable
                             && ! $record->status_id->isClosed()
                             && ! $record->productionOrder()->exists())
                         ->action(function (Deal $record, DoorProductionService $production): void {
+                            // Через moveToStage, а не напрямую: иначе кнопка обходила бы
+                            // регламент этапов, который проверяется при переходе.
+                            $stage = FactoryStage::query()
+                                ->ofPipeline(PipelineType::Sales)
+                                ->active()
+                                ->where('triggers_production', true)
+                                ->ordered()
+                                ->first();
+
+                            if (! $stage) {
+                                Notification::make()->danger()
+                                    ->title('Этап передачи в производство не настроен')
+                                    ->send();
+
+                                return;
+                            }
+
                             try {
-                                $order = $production->handOffToProduction($record, auth()->user());
+                                $production->moveToStage($record, $stage, auth()->user());
+
+                                $order = $record->refresh()->productionOrder;
 
                                 Notification::make()
                                     ->success()
                                     ->title('Наряд создан')
-                                    ->body("Производственный наряд {$order->number} принят цехом.")
+                                    ->body("Производственный наряд {$order?->number} принят цехом.")
                                     ->send();
                             } catch (ProductionException $e) {
-                                Notification::make()->danger()->title('Не удалось передать в цех')->body($e->getMessage())->send();
+                                Notification::make()->danger()
+                                    ->title('Не удалось передать в цех')
+                                    ->body($e->getMessage())
+                                    ->persistent()
+                                    ->send();
                             }
                         }),
 

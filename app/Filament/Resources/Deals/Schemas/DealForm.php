@@ -7,6 +7,8 @@ namespace App\Filament\Resources\Deals\Schemas;
 use App\Enums\ClientType;
 use App\Enums\DealSource;
 use App\Enums\DealStatus;
+use App\Enums\DoorCategory;
+use App\Enums\DoorModel;
 use App\Enums\PaymentMethod;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
@@ -14,7 +16,10 @@ use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\User;
 use App\Support\Money;
+use App\Support\Validation;
+use Closure;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -28,6 +33,7 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Filament\Support\Contracts\HasLabel;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -107,35 +113,58 @@ class DealForm
                     ->label('Контактное лицо')
                     ->placeholder('Асхат Жумабеков')
                     ->required()
+                    ->minLength(2)
                     ->maxLength(255),
 
                 TextInput::make('client_phone')
                     ->label('Телефон')
                     ->tel()
-                    ->placeholder('+7 700 000 00 00')
-                    ->required(),
+                    ->telRegex(Validation::PHONE_REGEX)
+                    ->mask(Validation::PHONE_MASK)
+                    ->placeholder('+7 (700) 000-00-00')
+                    ->required()
+                    ->rule(static fn (): Closure => Validation::phone()),
 
-                TextInput::make('client_phone_extra')->label('Доп. телефон')->tel(),
-                TextInput::make('client_email')->label('E-mail')->email(),
+                TextInput::make('client_phone_extra')
+                    ->label('Доп. телефон')
+                    ->tel()
+                    ->telRegex(Validation::PHONE_REGEX)
+                    ->mask(Validation::PHONE_MASK)
+                    ->placeholder('+7 (700) 000-00-00')
+                    ->rule(static fn (): Closure => Validation::phone()),
+
+                TextInput::make('client_email')
+                    ->label('E-mail')
+                    ->email()
+                    ->maxLength(255)
+                    ->placeholder('client@mail.kz'),
 
                 // Реквизиты нужны только компании — физлицу они лишний шум.
                 TextInput::make('client_company')
                     ->label('Название компании')
                     ->placeholder('ТОО «Строй-Инвест»')
-                    ->required(fn (Get $get): bool => $get('client_type') === ClientType::Company->value)
+                    ->required(fn (Get $get): bool => self::isCompany($get('client_type')))
                     ->visible(fn (Get $get): bool => self::isCompany($get('client_type'))),
 
                 TextInput::make('client_bin')
                     ->label('БИН / ИИН')
-                    ->maxLength(20)
+                    ->placeholder('150340012345')
+                    ->maxLength(12)
+                    ->rule(static fn (): Closure => Validation::bin())
+                    ->required(fn (Get $get): bool => self::isCompany($get('client_type')))
                     ->visible(fn (Get $get): bool => self::isCompany($get('client_type'))),
 
-                TextInput::make('city')->label('Город')->placeholder('Алматы'),
-                DatePicker::make('measured_at')->label('Дата замера')->displayFormat('d.m.Y'),
+                TextInput::make('city')->label('Город')->placeholder('Алматы')->maxLength(100),
+
+                DatePicker::make('measured_at')
+                    ->label('Дата замера')
+                    ->displayFormat('d.m.Y')
+                    ->helperText('При сохранении замерщик получит уведомление'),
 
                 Textarea::make('client_address')
                     ->label('Адрес объекта')
                     ->rows(2)
+                    ->maxLength(500)
                     ->placeholder('ЖК «Алатау», ул. Розыбакиева 247, кв. 45')
                     ->columnSpanFull(),
             ]),
@@ -149,7 +178,10 @@ class DealForm
             Repeater::make('doorConfigurations')
                 ->hiddenLabel()
                 ->relationship()
-                ->columns(['default' => 1, 'sm' => 2, '2xl' => 3])
+                // Одна колонка: внутри позиции лежат самостоятельные блоки
+                // («Изделие», «Размеры», «Характеристики»), и деление репитера
+                // на колонки сплющивало их в нечитаемые полоски.
+                ->columns(1)
                 ->schema(DoorConfigurationSchema::components())
                 ->itemLabel(fn (array $state): string => self::positionLabel($state))
                 ->addActionLabel('Добавить дверь')
@@ -175,9 +207,19 @@ class DealForm
                 TextInput::make('prepayment')
                     ->label('Предоплата получена')
                     ->numeric()
+                    ->minValue(0)
                     ->default(0)
                     ->suffix(config('gravit.currency.symbol'))
-                    ->live(onBlur: true),
+                    ->live(onBlur: true)
+                    ->rule(static function (Get $get): Closure {
+                        return function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                            $total = (float) ($get('total_price') ?? 0);
+
+                            if ($total > 0 && (float) $value > $total) {
+                                $fail('Предоплата не может быть больше суммы сделки.');
+                            }
+                        };
+                    }),
 
                 Select::make('payment_method')
                     ->label('Способ оплаты')
@@ -188,6 +230,7 @@ class DealForm
                     ->label('Доставка')
                     ->helperText('Прибавляется к сумме сделки')
                     ->numeric()
+                    ->minValue(0)
                     ->default(0)
                     ->suffix(config('gravit.currency.symbol'))
                     ->live(onBlur: true),
@@ -196,6 +239,7 @@ class DealForm
                     ->label('Монтаж')
                     ->helperText('Прибавляется к сумме сделки')
                     ->numeric()
+                    ->minValue(0)
                     ->default(0)
                     ->suffix(config('gravit.currency.symbol'))
                     ->live(onBlur: true),
@@ -204,14 +248,10 @@ class DealForm
                     ->label('Сумма сделки')
                     ->helperText('Пересчитывается из спецификации и услуг при сохранении')
                     ->numeric()
+                    ->minValue(0)
                     ->default(0)
-                    ->suffix(config('gravit.currency.symbol')),
-
-                TextInput::make('cost_price')
-                    ->label('Себестоимость')
-                    ->numeric()
-                    ->default(0)
-                    ->suffix(config('gravit.currency.symbol')),
+                    ->suffix(config('gravit.currency.symbol'))
+                    ->columnSpanFull(),
             ]),
         ];
     }
@@ -221,12 +261,41 @@ class DealForm
     {
         return [
             Grid::make(2)->schema([
-                TextInput::make('contract_number')->label('№ договора'),
-                DatePicker::make('contract_date')->label('Дата договора')->displayFormat('d.m.Y'),
+                TextInput::make('contract_number')
+                    ->label('№ договора')
+                    ->placeholder('ДГ-2026-001')
+                    ->maxLength(64),
+
+                DatePicker::make('contract_date')
+                    ->label('Дата договора')
+                    ->displayFormat('d.m.Y')
+                    ->maxDate(now()->addYear()),
+
+                FileUpload::make('documents')
+                    ->label('Документы по сделке')
+                    ->helperText('Подписанный договор, счёт, акт. PDF, фото или Word, до 10 МБ каждый.')
+                    ->multiple()
+                    ->reorderable()
+                    ->openable()
+                    ->downloadable()
+                    ->directory('deals')
+                    ->disk('public')
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'image/jpeg',
+                        'image/png',
+                        'application/msword',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        'text/plain',
+                    ])
+                    ->maxSize(10240)
+                    ->maxFiles(10)
+                    ->columnSpanFull(),
 
                 Textarea::make('notes')
                     ->label('Заметка по сделке')
                     ->rows(4)
+                    ->maxLength(2000)
                     ->placeholder('Договорённости, особые условия, что обещали клиенту')
                     ->columnSpanFull(),
             ]),
@@ -255,6 +324,7 @@ class DealForm
                     ->label('Название сделки')
                     ->placeholder('ЖК «Алатау», кв. 45')
                     ->required()
+                    ->minLength(3)
                     ->maxLength(255),
 
                 Select::make('manager_id')
@@ -278,7 +348,10 @@ class DealForm
                 DatePicker::make('due_date')
                     ->label('Срок сдачи')
                     ->displayFormat('d.m.Y')
-                    ->default(fn (): string => now()->addWeeks(3)->toDateString()),
+                    ->default(fn (): string => now()->addWeeks(3)->toDateString())
+                    // Срок в прошлом можно оставить у старых сделок, но новую
+                    // так не заведёшь: это всегда опечатка.
+                    ->minDate(fn (?string $operation): ?string => $operation === 'create' ? now()->toDateString() : null),
 
                 Select::make('pipeline_type')
                     ->label('Воронка')
@@ -308,12 +381,33 @@ class DealForm
     private static function positionLabel(array $state): string
     {
         $position = $state['position'] ?? 1;
-        $size = filled($state['height'] ?? null) && filled($state['width'] ?? null)
-            ? " · {$state['height']}×{$state['width']}"
-            : '';
-        $label = filled($state['label'] ?? null) ? " · {$state['label']}" : '';
 
-        return "Позиция {$position}{$label}{$size}";
+        $product = collect([
+            self::enumLabel(DoorCategory::class, $state['category'] ?? null),
+            self::enumLabel(DoorModel::class, $state['model'] ?? null),
+        ])->filter()->implode(' ');
+
+        $size = filled($state['height'] ?? null) && filled($state['width'] ?? null)
+            ? " · {$state['height']}×{$state['width']} мм"
+            : '';
+
+        $quantity = ($state['quantity'] ?? 1) > 1 ? " · {$state['quantity']} шт" : '';
+
+        return "Позиция {$position}".($product !== '' ? " · {$product}" : '').$size.$quantity;
+    }
+
+    /**
+     * Состояние репитера отдаёт то строку, то enum — приводим к подписи и там, и там.
+     *
+     * @param  class-string<\BackedEnum&HasLabel>  $enum
+     */
+    private static function enumLabel(string $enum, mixed $value): ?string
+    {
+        if ($value instanceof $enum) {
+            return $value->getLabel();
+        }
+
+        return blank($value) ? null : $enum::tryFrom((string) $value)?->getLabel();
     }
 
     private static function summary(Get $get, ?Deal $record): HtmlString
@@ -322,7 +416,6 @@ class DealForm
         $delivery = (float) ($get('delivery_cost') ?? 0);
         $installation = (float) ($get('installation_cost') ?? 0);
         $total = (float) ($get('total_price') ?? 0);
-        $cost = (float) ($get('cost_price') ?? 0);
         $prepayment = (float) ($get('prepayment') ?? 0);
 
         $rows = [
@@ -333,10 +426,6 @@ class DealForm
             ['Предоплата', Money::format($prepayment), false],
             ['Остаток к оплате', Money::format(max(0, $total - $prepayment)), true],
         ];
-
-        if ($total > 0) {
-            $rows[] = ['Маржа', Money::format($total - $cost).' · '.round(($total - $cost) / $total * 100, 1).' %', false];
-        }
 
         $html = collect($rows)
             ->map(fn (array $row): string => sprintf(

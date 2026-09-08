@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\DoorCategory;
+use App\Enums\DoorModel;
 use App\Enums\DoorOptionCategory;
 use App\Enums\OpeningSide;
 use Database\Factories\DoorConfigurationFactory;
@@ -24,7 +26,7 @@ class DoorConfiguration extends Model
     use HasFactory;
 
     protected $fillable = [
-        'deal_id', 'position', 'label', 'height', 'width', 'opening_side', 'metal_thickness',
+        'deal_id', 'position', 'category', 'model', 'height', 'width', 'opening_side', 'metal_thickness',
         'outer_mdf_panel', 'inner_mdf_panel', 'lock_system', 'insulation_type',
         'color_coating', 'additional_options', 'quantity',
         'calculated_price', 'price_breakdown', 'comment',
@@ -34,6 +36,8 @@ class DoorConfiguration extends Model
     {
         return [
             'opening_side' => OpeningSide::class,
+            'category' => DoorCategory::class,
+            'model' => DoorModel::class,
             'position' => 'integer',
             'height' => 'integer',
             'width' => 'integer',
@@ -97,11 +101,19 @@ class DoorConfiguration extends Model
         return "{$this->height} × {$this->width} мм";
     }
 
-    /** Как позиция называется в списках: «Позиция 2 · Тамбурная». */
+    /** Как позиция называется в списках: «Позиция 2 · Premium Лион». */
     public function displayName(): string
     {
-        return filled($this->label)
-            ? "Позиция {$this->position} · {$this->label}"
+        $product = trim(($this->category?->getLabel() ?? '').' '.($this->model?->getLabel() ?? ''));
+
+        return $product !== ''
+            ? "Позиция {$this->position} · {$product}"
             : "Позиция {$this->position}";
+    }
+
+    /** Название изделия без номера позиции — для наряда и страницы клиента. */
+    public function productName(): string
+    {
+        return trim(($this->category?->getLabel() ?? '').' '.($this->model?->getLabel() ?? '')) ?: 'Дверь';
     }
 }

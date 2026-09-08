@@ -7,6 +7,8 @@ namespace Database\Seeders;
 use App\Enums\ClientType;
 use App\Enums\DealSource;
 use App\Enums\DealStatus;
+use App\Enums\DoorCategory;
+use App\Enums\DoorModel;
 use App\Enums\OpeningSide;
 use App\Enums\PaymentMethod;
 use App\Enums\PipelineType;
@@ -18,47 +20,68 @@ use App\Models\User;
 use App\Services\DoorProductionService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 /** Демонстрационные сделки: по одной в каждой колонке обеих воронок. */
 class DemoDataSeeder extends Seeder
 {
+    /**
+     * Заглушка подписанного договора: без файла сделку не пустят на этап
+     * передачи в производство — так задан регламент воронки.
+     */
+    private function demoContract(string $number): string
+    {
+        $path = "deals/{$number}.txt";
+
+        if (! Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->put($path, "Договор {$number} (демонстрационный файл)");
+        }
+
+        return $path;
+    }
+
     public function run(DoorProductionService $production): void
     {
         $manager = User::firstOrCreate(
             ['email' => 'manager@gravit.kz'],
-            ['name' => 'Айгуль Сериковна', 'password' => Hash::make('password'), 'role' => UserRole::Manager->value, 'phone' => '+7 701 000 00 02'],
+            ['name' => 'Айгуль Сериковна', 'password' => Hash::make('password'), 'role' => UserRole::Manager->value, 'phone' => '+7 (701) 000-00-02'],
+        );
+
+        User::firstOrCreate(
+            ['email' => 'surveyor@gravit.kz'],
+            ['name' => 'Бауыржан Замерщик', 'password' => Hash::make('password'), 'role' => UserRole::Surveyor->value, 'phone' => '+7 (701) 000-00-04'],
         );
 
         $master = User::firstOrCreate(
             ['email' => 'master@gravit.kz'],
-            ['name' => 'Ерлан Мастер', 'password' => Hash::make('password'), 'role' => UserRole::Master->value, 'phone' => '+7 701 000 00 03'],
+            ['name' => 'Ерлан Мастер', 'password' => Hash::make('password'), 'role' => UserRole::Master->value, 'phone' => '+7 (701) 000-00-03'],
         );
 
         $stages = FactoryStage::query()->ofPipeline(PipelineType::Sales)->ordered()->get()->keyBy('code');
 
         $clients = [
             [
-                'title' => 'ЖК «Алатау», кв. 45', 'name' => 'Асхат Жумабеков', 'phone' => '+7 707 111 22 33',
+                'title' => 'ЖК «Алатау», кв. 45', 'name' => 'Асхат Жумабеков', 'phone' => '+7 (707) 111-22-33',
                 'email' => 'ashat.zh@mail.kz', 'city' => 'Алматы', 'source' => DealSource::Instagram,
                 'address' => 'ул. Розыбакиева 247, ЖК «Алатау», кв. 45',
                 'stage' => 'new', 'status' => DealStatus::New, 'prepayment' => 0,
             ],
             [
-                'title' => 'Частный дом, Каскелен', 'name' => 'Марина Ким', 'phone' => '+7 705 444 55 66',
+                'title' => 'Частный дом, Каскелен', 'name' => 'Марина Ким', 'phone' => '+7 (705) 444-55-66',
                 'email' => 'm.kim@gmail.com', 'city' => 'Каскелен', 'source' => DealSource::Recommendation,
                 'address' => 'мкр. Алатау, ул. Абая 12',
                 'stage' => 'measurement', 'status' => DealStatus::InWork, 'prepayment' => 0,
                 'delivery' => 15_000, 'installation' => 25_000,
             ],
             [
-                'title' => 'ЖК «Керемет», кв. 112', 'name' => 'Данияр Оспанов', 'phone' => '+7 777 888 99 00',
+                'title' => 'ЖК «Керемет», кв. 112', 'name' => 'Данияр Оспанов', 'phone' => '+7 (777) 888-99-00',
                 'email' => 'd.ospanov@mail.ru', 'city' => 'Алматы', 'source' => DealSource::Site,
                 'address' => 'ул. Сейфуллина 500, ЖК «Керемет», кв. 112',
                 'stage' => 'contract', 'status' => DealStatus::InWork, 'prepayment' => 90_000,
                 'contract' => 'ДГ-2026-014', 'delivery' => 15_000, 'installation' => 30_000,
             ],
             [
-                'title' => 'Офис на Абая 150', 'name' => 'Ержан Тулегенов', 'phone' => '+7 727 355 66 77',
+                'title' => 'Офис на Абая 150', 'name' => 'Ержан Тулегенов', 'phone' => '+7 (727) 355-66-77',
                 'email' => 'info@stroyinvest.kz', 'city' => 'Алматы', 'source' => DealSource::Tender,
                 'address' => 'пр. Абая 150, БЦ «Алмалы», 3 этаж',
                 'company' => 'ТОО «Строй-Инвест»', 'bin' => '150340012345',
@@ -84,6 +107,7 @@ class DemoDataSeeder extends Seeder
                     'source' => $row['source'],
                     'contract_number' => $row['contract'] ?? null,
                     'contract_date' => isset($row['contract']) ? now()->subDays(random_int(3, 20)) : null,
+                    'documents' => isset($row['contract']) ? [$this->demoContract($row['contract'])] : null,
                     'measured_at' => $row['stage'] === 'new' ? null : now()->subDays(random_int(2, 15)),
                     'prepayment' => $row['prepayment'],
                     'payment_method' => $row['prepayment'] > 0 ? PaymentMethod::Kaspi : null,
@@ -100,7 +124,8 @@ class DemoDataSeeder extends Seeder
             DoorConfiguration::firstOrCreate(
                 ['deal_id' => $deal->id, 'position' => 1],
                 [
-                    'label' => 'Входная в квартиру',
+                    'category' => DoorCategory::Premium,
+                    'model' => DoorModel::Lion,
                     'height' => 2050,
                     'width' => random_int(0, 1) ? 950 : 860,
                     'opening_side' => random_int(0, 1) ? OpeningSide::Right->value : OpeningSide::Left->value,
@@ -121,7 +146,8 @@ class DemoDataSeeder extends Seeder
                 DoorConfiguration::firstOrCreate(
                     ['deal_id' => $deal->id, 'position' => 2],
                     [
-                        'label' => 'Тамбурная',
+                        'category' => DoorCategory::Comfort,
+                        'model' => DoorModel::Agora,
                         'height' => 2050,
                         'width' => 1050,
                         'opening_side' => OpeningSide::Left->value,

@@ -11,6 +11,7 @@ enum UserRole: string implements HasColor, HasLabel
 {
     case Admin = 'admin';
     case Manager = 'manager';
+    case Surveyor = 'surveyor';
     case Master = 'master';
     case Worker = 'worker';
 
@@ -19,6 +20,7 @@ enum UserRole: string implements HasColor, HasLabel
         return match ($this) {
             self::Admin => 'Администратор',
             self::Manager => 'Менеджер',
+            self::Surveyor => 'Замерщик',
             self::Master => 'Мастер цеха',
             self::Worker => 'Рабочий',
         };
@@ -29,14 +31,21 @@ enum UserRole: string implements HasColor, HasLabel
         return match ($this) {
             self::Admin => 'danger',
             self::Manager => 'info',
+            self::Surveyor => 'success',
             self::Master => 'warning',
             self::Worker => 'gray',
         };
     }
 
-    /** Видит ли роль деньги сделки (себестоимость, маржу). */
+    /** Видит ли роль деньги сделки (суммы, маржу). */
     public function seesMoney(): bool
     {
         return in_array($this, [self::Admin, self::Manager], true);
+    }
+
+    /** Выезжает ли роль на замеры — им уходят уведомления о назначенной дате. */
+    public function doesSurveys(): bool
+    {
+        return in_array($this, [self::Surveyor, self::Master], true);
     }
 }
