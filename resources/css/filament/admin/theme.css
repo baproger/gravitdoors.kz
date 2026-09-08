@@ -1,0 +1,440 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../app/Support/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+
+/*
+   Дизайн-слой Gravit ERP: Light SaaS + стекло.
+   Написан обычным CSS, а не через @apply, сознательно — канбан и калькулятор
+   это единственные кастомные экраны панели, и держать их правила в одном
+   читаемом файле дешевле, чем размазывать утилиты по разметке.
+ */
+
+:root {
+    --gravit-radius: 1rem;
+    --gravit-radius-sm: 0.75rem;
+    --gravit-glass: rgb(255 255 255 / 0.72);
+    --gravit-glass-strong: rgb(255 255 255 / 0.9);
+    --gravit-border: rgb(15 23 42 / 0.08);
+    --gravit-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.18);
+    --gravit-shadow-lift: 0 2px 4px rgb(15 23 42 / 0.06), 0 18px 40px -16px rgb(15 23 42 / 0.28);
+    --gravit-text: rgb(15 23 42);
+    --gravit-muted: rgb(100 116 139);
+    --gravit-surface: rgb(248 250 252 / 0.6);
+}
+
+.dark {
+    --gravit-glass: rgb(30 41 59 / 0.55);
+    --gravit-glass-strong: rgb(30 41 59 / 0.8);
+    --gravit-border: rgb(148 163 184 / 0.14);
+    --gravit-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --gravit-shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 18px 40px -16px rgb(0 0 0 / 0.7);
+    --gravit-text: rgb(241 245 249);
+    --gravit-muted: rgb(148 163 184);
+    --gravit-surface: rgb(15 23 42 / 0.4);
+}
+
+/* ---------- Панель фильтров ---------- */
+
+.gravit-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.gravit-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 18rem;
+    max-width: 26rem;
+}
+
+.gravit-search__icon {
+    position: absolute;
+    inset-inline-start: 0.85rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--gravit-muted);
+    pointer-events: none;
+}
+
+.gravit-search__input,
+.gravit-select {
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: var(--gravit-radius-sm);
+    background: var(--gravit-glass-strong);
+    backdrop-filter: blur(12px);
+    color: var(--gravit-text);
+    font-size: 0.875rem;
+    box-shadow: var(--gravit-shadow);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gravit-search__input {
+    padding-inline-start: 2.5rem;
+}
+
+.gravit-select {
+    flex: 0 1 14rem;
+    cursor: pointer;
+}
+
+.gravit-search__input:focus,
+.gravit-select:focus {
+    outline: none;
+    border-color: var(--gravit-focus, rgb(47 111 237 / 0.6));
+    box-shadow: 0 0 0 3px rgb(47 111 237 / 0.14);
+}
+
+/* ---------- Колонки ---------- */
+
+.gravit-columns {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    scroll-snap-type: x proximity;
+}
+
+.gravit-column {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 19rem;
+    max-height: calc(100vh - 17rem);
+    scroll-snap-align: start;
+    border: 1px solid var(--gravit-border);
+    border-radius: var(--gravit-radius);
+    background: var(--gravit-surface);
+    backdrop-filter: blur(16px);
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.gravit-column--over {
+    border-color: rgb(47 111 237 / 0.5);
+    background: rgb(47 111 237 / 0.06);
+    transform: translateY(-2px);
+}
+
+.gravit-column__head {
+    padding: 0.85rem 0.9rem 0.7rem;
+    border-bottom: 1px solid var(--gravit-border);
+}
+
+.gravit-column__title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gravit-text);
+}
+
+.gravit-column__icon {
+    width: 1rem;
+    height: 1rem;
+    color: var(--gravit-muted);
+}
+
+/* Цветная метка этапа берётся из настроек воронки (factory_stages.color). */
+.gravit-column[data-color='info'] .gravit-column__icon { color: rgb(37 99 235); }
+.gravit-column[data-color='primary'] .gravit-column__icon { color: rgb(47 111 237); }
+.gravit-column[data-color='success'] .gravit-column__icon { color: rgb(22 163 74); }
+.gravit-column[data-color='warning'] .gravit-column__icon { color: rgb(217 119 6); }
+.gravit-column[data-color='danger'] .gravit-column__icon { color: rgb(220 38 38); }
+
+.gravit-chip {
+    margin-inline-start: auto;
+    min-width: 1.5rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--gravit-glass-strong);
+    border: 1px solid var(--gravit-border);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-align: center;
+    color: var(--gravit-muted);
+}
+
+.gravit-column__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+    font-size: 0.6875rem;
+    color: var(--gravit-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.gravit-flag {
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.gravit-flag--warning { background: rgb(217 119 6 / 0.12); color: rgb(180 83 9); }
+.gravit-flag--success { background: rgb(22 163 74 / 0.12); color: rgb(21 128 61); }
+.dark .gravit-flag--warning { color: rgb(252 211 77); }
+.dark .gravit-flag--success { color: rgb(134 239 172); }
+
+.gravit-column__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.7rem;
+    overflow-y: auto;
+    min-height: 6rem;
+}
+
+.gravit-column__empty {
+    padding: 1.5rem 0.5rem;
+    border: 1px dashed var(--gravit-border);
+    border-radius: var(--gravit-radius-sm);
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--gravit-muted);
+}
+
+/* ---------- Карточка сделки ---------- */
+
+.gravit-card {
+    padding: 0.75rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: var(--gravit-radius-sm);
+    background: var(--gravit-glass);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--gravit-shadow);
+    cursor: grab;
+    transition: box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+
+.gravit-card:hover {
+    box-shadow: var(--gravit-shadow-lift);
+    transform: translateY(-1px);
+}
+
+.gravit-card:active { cursor: grabbing; }
+
+.gravit-card--dragging {
+    opacity: 0.45;
+    transform: rotate(1.2deg) scale(0.98);
+}
+
+.gravit-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.gravit-card__number {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--gravit-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.gravit-card__timer {
+    font-size: 0.6875rem;
+    color: var(--gravit-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.gravit-card__title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--gravit-text);
+}
+
+.gravit-card__client,
+.gravit-card__spec {
+    margin-top: 0.15rem;
+    font-size: 0.75rem;
+    color: var(--gravit-muted);
+}
+
+.gravit-card__bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.55rem;
+}
+
+.gravit-card__price {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--gravit-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.gravit-card__due {
+    font-size: 0.6875rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: var(--gravit-glass-strong);
+    border: 1px solid var(--gravit-border);
+    color: var(--gravit-muted);
+}
+
+.gravit-card__due--late {
+    background: rgb(220 38 38 / 0.1);
+    border-color: rgb(220 38 38 / 0.2);
+    color: rgb(185 28 28);
+}
+
+.dark .gravit-card__due--late { color: rgb(252 165 165); }
+
+.gravit-card__actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.55rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--gravit-border);
+}
+
+.gravit-card__link {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: rgb(47 111 237);
+    text-decoration: none;
+}
+
+.gravit-card__link:hover { text-decoration: underline; }
+.gravit-card__link--muted { color: var(--gravit-muted); }
+.dark .gravit-card__link { color: rgb(147 197 253); }
+
+.gravit-empty {
+    padding: 3rem 1rem;
+    width: 100%;
+    text-align: center;
+    color: var(--gravit-muted);
+    font-size: 0.875rem;
+}
+
+.gravit-empty a {
+    display: inline-block;
+    margin-top: 0.5rem;
+    color: rgb(47 111 237);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* ---------- Bento-сетка калькулятора ---------- */
+
+.gravit-bento {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.gravit-tile {
+    grid-column: span 12;
+    padding: 1.15rem 1.25rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: var(--gravit-radius);
+    background: var(--gravit-glass);
+    backdrop-filter: blur(14px);
+    box-shadow: var(--gravit-shadow);
+}
+
+@media (min-width: 1024px) {
+    .gravit-tile--half { grid-column: span 6; }
+    .gravit-tile--third { grid-column: span 4; }
+    .gravit-tile--two-thirds { grid-column: span 8; }
+}
+
+.gravit-tile__label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gravit-muted);
+}
+
+.gravit-tile__value {
+    margin-top: 0.35rem;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--gravit-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.gravit-tile__hint {
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--gravit-muted);
+}
+
+.gravit-lines { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.gravit-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.8125rem;
+    color: var(--gravit-text);
+}
+
+.gravit-line span:first-child { color: var(--gravit-muted); }
+.gravit-line span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.gravit-line--total {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--gravit-border);
+    font-size: 1rem;
+}
+
+/* Калькулятор: форма и итоги стоят рядом на широком экране и складываются на узком. */
+.gravit-calc__form,
+.gravit-calc__result {
+    grid-column: span 12;
+}
+
+.gravit-calc__result {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-content: start;
+}
+
+/* Базовое `span 12` от .gravit-tile здесь мешает: внутри итоговой панели
+   всего две колонки, и плитки иначе растягиваются на всю ширину. */
+.gravit-calc__result > .gravit-tile { grid-column: span 1; }
+.gravit-calc__result > .gravit-tile:last-child { grid-column: span 2; }
+
+@media (min-width: 1280px) {
+    .gravit-calc__form { grid-column: span 7; }
+    .gravit-calc__result { grid-column: span 5; }
+}
+
+/* Кнопка догрузки карточек в колонке канбана. */
+.gravit-more {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px dashed var(--gravit-border);
+    border-radius: var(--gravit-radius-sm);
+    background: transparent;
+    color: var(--gravit-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.gravit-more:hover {
+    background: var(--gravit-glass-strong);
+    color: var(--gravit-text);
+}
