@@ -104,7 +104,7 @@ class WorkshopScreen extends Component
     {
         $this->guard();
 
-        $order = Deal::query()->factory()->find($dealId);
+        $order = Deal::query()->factoryOrders()->find($dealId);
         $worker = $this->worker();
 
         if (! $order || ! $worker) {
@@ -121,7 +121,7 @@ class WorkshopScreen extends Component
     {
         $this->guard();
 
-        $order = Deal::query()->factory()->find($dealId);
+        $order = Deal::query()->factoryOrders()->find($dealId);
 
         if (! $order) {
             return;

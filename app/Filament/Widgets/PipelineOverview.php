@@ -25,7 +25,7 @@ class PipelineOverview extends StatsOverviewWidget
     {
         $salesOpen = Deal::query()->sales()->open()->count();
         $portfolio = (float) Deal::query()->sales()->open()->sum('total_price');
-        $inProduction = Deal::query()->factory()->open()->count();
+        $inProduction = Deal::query()->factoryOrders()->open()->count();
         $readyToShip = Deal::query()->sales()->where('status_id', DealStatus::ReadyToShip->value)->count();
 
         $payout = (float) ProductionLog::query()

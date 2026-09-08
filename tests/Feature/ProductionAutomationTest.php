@@ -102,7 +102,7 @@ class ProductionAutomationTest extends TestCase
         $second = $this->production->handOffToProduction($deal->refresh());
 
         $this->assertSame($first->id, $second->id);
-        $this->assertSame(1, Deal::query()->factory()->count(), 'Повторная передача создала второй наряд');
+        $this->assertSame(1, Deal::query()->factoryOrders()->count(), 'Повторная передача создала второй наряд');
     }
 
     public function test_handoff_writes_off_materials_from_stock(): void

@@ -148,8 +148,15 @@ class Deal extends Model
         $query->where('pipeline_type', PipelineType::Sales->value);
     }
 
-    /** @param Builder<Deal> $query */
-    public function scopeFactory(Builder $query): void
+    /**
+     * Только производственные наряды.
+     *
+     * Назван не `factory`: `Deal::factory()` уже занято Eloquent-фабрикой,
+     * и одинаковое имя означало бы разное в статическом вызове и на билдере.
+     *
+     * @param  Builder<Deal>  $query
+     */
+    public function scopeFactoryOrders(Builder $query): void
     {
         $query->where('pipeline_type', PipelineType::Factory->value);
     }

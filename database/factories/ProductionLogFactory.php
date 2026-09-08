@@ -19,7 +19,7 @@ class ProductionLogFactory extends Factory
     {
         return [
             'deal_id' => Deal::factory()->factoryOrder(),
-            'stage_id' => FactoryStage::factory()->factory(),
+            'stage_id' => FactoryStage::factory()->forFactoryPipeline(),
             'started_at' => now()->subHours(4),
             'status' => ProductionStatus::Pending->value,
             'payout' => 0,

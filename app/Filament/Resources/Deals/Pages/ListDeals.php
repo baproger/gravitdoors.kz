@@ -41,8 +41,8 @@ class ListDeals extends ListRecords
 
             'factory' => Tab::make('Завод')
                 ->icon('heroicon-o-cog-6-tooth')
-                ->badge(Deal::query()->factory()->open()->count())
-                ->modifyQueryUsing(fn ($query) => $query->factory()),
+                ->badge(Deal::query()->factoryOrders()->open()->count())
+                ->modifyQueryUsing(fn ($query) => $query->factoryOrders()),
 
             'all' => Tab::make('Все')
                 ->badge(Deal::query()->count()),

@@ -30,7 +30,8 @@ class FactoryStageFactory extends Factory
         ];
     }
 
-    public function factory(): static
+    /** Этап цеха, а не отдела продаж. */
+    public function forFactoryPipeline(): static
     {
         return $this->state(['pipeline_type' => PipelineType::Factory->value]);
     }

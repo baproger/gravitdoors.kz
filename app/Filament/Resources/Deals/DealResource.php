@@ -74,7 +74,7 @@ class DealResource extends Resource
         // Мастер и рабочий работают с нарядами, а не со сделками отдела продаж:
         // ограничение стоит на запросе, поэтому действует и в списке, и в поиске.
         if (! auth()->user()?->role->seesMoney()) {
-            $query->factory();
+            $query->factoryOrders();
         }
 
         return $query;
