@@ -1,10 +1,19 @@
 {{--
-    Канбан обеих воронок. Перетаскивание — нативный HTML5 drag & drop на Alpine:
-    внешняя библиотека сюда не тянется, потому что весь нужный функционал —
-    это dragstart / dragover / drop, а лишний JS-пакет пришлось бы отдельно
-    собирать в тему Filament.
+    Канбан обеих воронок.
+
+    Перетаскивание — нативный HTML5 drag & drop на Alpine: внешняя библиотека
+    сюда не тянется, весь нужный функционал это dragstart / dragover / drop.
+    На тач-экранах такие события не приходят вовсе, поэтому у каждой карточки
+    есть кнопки «← →» на соседние этапы: на телефоне это единственный рабочий
+    способ двигать сделку, а на десктопе — просто быстрее мышки.
 --}}
 <x-filament-panels::page>
+    @php
+        $stages = $this->getStages()->values();
+        $symbol = $this->getCurrencySymbol();
+        $showMoney = $this->canSeeMoney();
+    @endphp
+
     <div
         x-data="{
             draggingId: null,
@@ -49,13 +58,14 @@
 
         {{-- Колонки --}}
         <div class="gravit-columns">
-            @php($symbol = $this->getCurrencySymbol())
-            @php($showMoney = $this->canSeeMoney())
-
-            @forelse ($this->getStages() as $stage)
-                @php($sum = $stage->deals->sum(fn ($deal) => (float) $deal->total_price))
-                @php($total = $stage->deals_count ?? $stage->deals->count())
-                @php($hidden = max(0, $total - $stage->deals->count()))
+            @forelse ($stages as $index => $stage)
+                @php
+                    $previousStage = $stages->get($index - 1);
+                    $nextStage = $stages->get($index + 1);
+                    $sum = $stage->deals->sum(fn ($deal) => (float) $deal->total_price);
+                    $total = $stage->deals_count ?? $stage->deals->count();
+                    $hidden = max(0, $total - $stage->deals->count());
+                @endphp
 
                 <section
                     class="gravit-column"
@@ -107,6 +117,7 @@
                                 </div>
 
                                 <h3 class="gravit-card__title">{{ $deal->title }}</h3>
+
                                 <p class="gravit-card__client">
                                     {{ $deal->clientTitle() }}
                                     @if ($deal->client_phone)
@@ -143,6 +154,32 @@
                                 </div>
 
                                 <div class="gravit-card__actions">
+                                    <div class="gravit-card__move">
+                                        <button
+                                            type="button"
+                                            class="gravit-move"
+                                            @if ($previousStage)
+                                                wire:click="moveDeal({{ $deal->id }}, {{ $previousStage->id }})"
+                                                title="Вернуть на «{{ $previousStage->name }}»"
+                                                aria-label="Вернуть на «{{ $previousStage->name }}»"
+                                            @else
+                                                disabled aria-label="Это первый этап"
+                                            @endif
+                                        >←</button>
+
+                                        <button
+                                            type="button"
+                                            class="gravit-move"
+                                            @if ($nextStage)
+                                                wire:click="moveDeal({{ $deal->id }}, {{ $nextStage->id }})"
+                                                title="Перевести на «{{ $nextStage->name }}»"
+                                                aria-label="Перевести на «{{ $nextStage->name }}»"
+                                            @else
+                                                disabled aria-label="Это последний этап"
+                                            @endif
+                                        >→</button>
+                                    </div>
+
                                     <a href="{{ \App\Filament\Resources\Deals\DealResource::getUrl('edit', ['record' => $deal]) }}"
                                        class="gravit-card__link">Открыть</a>
                                     <a href="{{ route('track.show', $deal->qr_code_hash) }}" target="_blank"
@@ -150,7 +187,7 @@
                                 </div>
                             </article>
                         @empty
-                            <p class="gravit-column__empty">Перетащите сюда карточку</p>
+                            <p class="gravit-column__empty">Пусто — переносите карточки кнопками «←&nbsp;→» или мышкой</p>
                         @endforelse
 
                         @if ($hidden > 0)

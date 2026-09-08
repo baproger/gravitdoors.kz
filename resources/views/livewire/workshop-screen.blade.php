@@ -29,7 +29,7 @@
         </div>
     @else
         <header class="sticky top-0 z-10 border-b border-slate-200/70 bg-white/80 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
-            <div class="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-3 px-5 py-3">
+            <div class="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-3 py-2 sm:gap-3 sm:px-5 sm:py-3">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Gravit</p>
                     <h1 class="text-xl font-bold">Цех</h1>
@@ -58,10 +58,10 @@
             @endif
         </header>
 
-        <main class="mx-auto max-w-[1800px] p-5">
-            <div class="flex gap-4 overflow-x-auto pb-4">
+        <main class="mx-auto max-w-[1800px] p-3 sm:p-5">
+            <div class="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 sm:gap-4">
                 @foreach ($this->stages as $stage)
-                    <section class="flex w-80 shrink-0 flex-col rounded-2xl border border-slate-200/70 bg-white/60 backdrop-blur-xl dark:border-slate-800 dark:bg-white/5">
+                    <section class="flex w-[85vw] shrink-0 snap-start flex-col rounded-2xl sm:w-80 border border-slate-200/70 bg-white/60 backdrop-blur-xl dark:border-slate-800 dark:bg-white/5">
                         <header class="border-b border-slate-200/70 px-4 py-3 dark:border-slate-800">
                             <div class="flex items-center justify-between gap-2">
                                 <h2 class="text-base font-bold">{{ $stage->name }}</h2>
@@ -105,14 +105,14 @@
                                     <div class="mt-3 flex gap-2">
                                         <button
                                             wire:click="start({{ $order->id }})"
-                                            class="flex-1 rounded-xl border border-slate-300 px-3 py-3 text-sm font-semibold text-slate-700 transition active:scale-[0.98] dark:border-slate-600 dark:text-slate-200"
+                                            class="min-h-12 flex-1 rounded-xl border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition active:scale-[0.98] dark:border-slate-600 dark:text-slate-200"
                                         >
                                             Взял
                                         </button>
                                         <button
                                             wire:click="complete({{ $order->id }})"
                                             wire:confirm="Этап «{{ $stage->name }}» выполнен?"
-                                            class="flex-[2] rounded-xl bg-emerald-600 px-3 py-3 text-base font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98]"
+                                            class="min-h-12 flex-[2] rounded-xl bg-emerald-600 px-3 text-base font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98]"
                                         >
                                             Готово ✓
                                         </button>

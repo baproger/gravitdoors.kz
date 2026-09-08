@@ -709,3 +709,146 @@
         rgb(30 41 59 / 0.4) 100%
     );
 }
+
+/* ---------- Кнопки перемещения карточки ---------- */
+
+.gravit-card__move {
+    display: flex;
+    gap: 0.25rem;
+    margin-inline-end: auto;
+}
+
+.gravit-move {
+    min-width: 2rem;
+    min-height: 1.75rem;
+    padding: 0 0.4rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: 0.5rem;
+    background: var(--gravit-glass-strong);
+    color: var(--gravit-muted);
+    font-size: 0.8125rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.gravit-move:hover:not(:disabled) {
+    background: rgb(47 111 237 / 0.1);
+    border-color: rgb(47 111 237 / 0.35);
+    color: rgb(47 111 237);
+}
+
+.gravit-move:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* ---------- Адаптив ---------- */
+
+/*
+   Полоса этапов: до планшета она переносилась в четыре ряда и занимала пол-экрана.
+   Прокрутка со снапом читается как лента этапов и не съедает высоту.
+ */
+@media (max-width: 1023px) {
+    .gravit-stepper {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .gravit-step {
+        flex: 0 0 auto;
+        min-width: 9rem;
+        scroll-snap-align: center;
+    }
+}
+
+@media (max-width: 767px) {
+    /* Колонка почти во всю ширину: на телефоне канбан листается по одной. */
+    .gravit-column {
+        flex-basis: 85vw;
+        max-width: 85vw;
+        max-height: none;
+    }
+
+    .gravit-columns {
+        scroll-snap-type: x mandatory;
+        gap: 0.75rem;
+    }
+
+    .gravit-column {
+        scroll-snap-align: start;
+    }
+
+    /* Поиск и фильтр — в столбик, иначе селект сжимается до нечитаемого. */
+    .gravit-toolbar {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .gravit-search,
+    .gravit-select {
+        max-width: none;
+        flex: 1 1 auto;
+    }
+
+    /* Цели нажатия крупнее: пальцем в кнопку 24 px не попасть. */
+    .gravit-move {
+        min-width: 2.5rem;
+        min-height: 2.25rem;
+        font-size: 1rem;
+    }
+
+    .gravit-card__actions {
+        flex-wrap: wrap;
+        gap: 0.5rem 0.75rem;
+        align-items: center;
+    }
+
+    .gravit-card__link {
+        font-size: 0.75rem;
+    }
+
+    /* Bento: плитки уже во всю ширину, убираем лишний воздух. */
+    .gravit-tile {
+        padding: 0.9rem 1rem;
+    }
+
+    .gravit-tile__value {
+        font-size: 1.4rem;
+    }
+
+    .gravit-calc__result {
+        grid-template-columns: 1fr;
+    }
+
+    .gravit-calc__result > .gravit-tile,
+    .gravit-calc__result > .gravit-tile:last-child {
+        grid-column: span 1;
+    }
+
+    .gravit-line {
+        font-size: 0.8125rem;
+    }
+}
+
+/* Планшет: две колонки канбана в видимой области — компромисс между
+   обзором и читаемостью карточки. */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .gravit-column {
+        flex-basis: 17rem;
+    }
+}
+
+/* Мышь есть — показываем, что карточку можно тащить. На тач-экранах курсор
+   «grab» бессмысленен, а drag-события всё равно не приходят. */
+@media (hover: none) {
+    .gravit-card {
+        cursor: default;
+    }
+
+    .gravit-column__empty {
+        font-size: 0.75rem;
+    }
+}

@@ -51,12 +51,14 @@ class EventsRelationManager extends RelationManager
                     ->label('Кто')
                     ->placeholder('Система')
                     ->weight('semibold')
-                    ->searchable(),
+                    ->searchable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('type')
                     ->label('Событие')
                     ->badge()
-                    ->icon(fn (DealEvent $record): string => $record->type->getIcon()),
+                    ->icon(fn (DealEvent $record): string => $record->type->getIcon())
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('description')
                     ->label('Что произошло')

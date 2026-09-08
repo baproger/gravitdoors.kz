@@ -30,19 +30,17 @@ class DealsTable
         return $table
             ->defaultSort('id', 'desc')
             ->columns([
-                TextColumn::make('number')
-                    ->label('№')
-                    ->searchable()
-                    ->copyable()
-                    ->weight('semibold')
-                    ->size('sm'),
-
+                // Номер живёт в описании, а не отдельной колонкой: на телефоне
+                // он съедал треть ширины, оставляя названию три строки переноса.
                 TextColumn::make('title')
                     ->label('Сделка')
-                    ->description(fn (Deal $record): string => trim(
-                        $record->clientTitle().($record->city ? ' · '.$record->city : ''),
-                    ))
-                    ->searchable(['title', 'client_name', 'client_company', 'client_phone', 'client_bin'])
+                    ->description(fn (Deal $record): string => collect([
+                        $record->number,
+                        $record->clientTitle(),
+                        $record->city,
+                    ])->filter()->implode(' · '))
+                    ->searchable(['title', 'number', 'client_name', 'client_company', 'client_phone', 'client_bin'])
+                    ->weight('semibold')
                     ->wrap(),
 
                 TextColumn::make('client_phone')
@@ -53,7 +51,8 @@ class DealsTable
                         ? 'tel:'.preg_replace('/\D+/', '', $record->client_phone)
                         : null)
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visibleFrom('md'),
 
                 TextColumn::make('source')
                     ->label('Источник')
@@ -64,7 +63,10 @@ class DealsTable
 
                 TextColumn::make('pipeline_type')
                     ->label('Воронка')
-                    ->badge(),
+                    ->badge()
+                    // На телефоне в таблице остаётся только суть: номер, сделка,
+                    // этап и сумма. Остальное уезжает в горизонтальную прокрутку.
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('currentStage.name')
                     ->label('Этап')
@@ -76,7 +78,8 @@ class DealsTable
 
                 TextColumn::make('status_id')
                     ->label('Статус')
-                    ->badge(),
+                    ->badge()
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('total_price')
                     ->label('Сумма')
@@ -111,14 +114,16 @@ class DealsTable
                 TextColumn::make('manager.name')
                     ->label('Менеджер')
                     ->toggleable()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->visibleFrom('xl'),
 
                 TextColumn::make('due_date')
                     ->label('Срок')
                     ->date('d.m.Y')
                     ->sortable()
                     ->color(fn (Deal $record): string => $record->due_date?->isPast() ? 'danger' : 'gray')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->visibleFrom('md'),
             ])
             ->filters([
                 SelectFilter::make('pipeline_type')
