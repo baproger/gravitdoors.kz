@@ -150,6 +150,12 @@ class Deal extends Model
         return $this->hasMany(DoorConfiguration::class)->orderBy('position')->orderBy('id');
     }
 
+    /** @return HasMany<DealEvent, $this> */
+    public function events(): HasMany
+    {
+        return $this->hasMany(DealEvent::class);
+    }
+
     /** @return HasMany<ProductionLog, $this> */
     public function productionLogs(): HasMany
     {

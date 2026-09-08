@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\DealEventType;
 use App\Enums\DealStatus;
+use App\Enums\Department;
 use App\Enums\PipelineType;
 use App\Enums\ProductionStatus;
 use App\Events\DealHandedToProduction;
@@ -12,6 +14,7 @@ use App\Events\DealStageChanged;
 use App\Events\ProductionCompleted;
 use App\Exceptions\ProductionException;
 use App\Models\Deal;
+use App\Models\DealEvent;
 use App\Models\DoorConfiguration;
 use App\Models\DoorOption;
 use App\Models\FactoryStage;
@@ -177,6 +180,13 @@ class DoorProductionService
 
             $this->writeOffMaterials($order, $actor);
 
+            DealEvent::record(
+                $salesDeal,
+                DealEventType::HandedToProduction,
+                "Открыт наряд {$order->number}, материалы списаны со склада",
+                $actor,
+            );
+
             DealHandedToProduction::dispatch($salesDeal, $order, $actor);
 
             return $order;
@@ -209,6 +219,14 @@ class DoorProductionService
                 ])->save();
 
                 $this->moveSalesDealToReadyStage($salesDeal, $actor);
+
+                DealEvent::record(
+                    $salesDeal,
+                    DealEventType::ProductionCompleted,
+                    "Наряд {$order->number} закрыт, заказ готов к отгрузке",
+                    $actor,
+                    department: Department::Factory,
+                );
 
                 ProductionCompleted::dispatch($order, $salesDeal, $actor);
             }
@@ -370,6 +388,14 @@ class DoorProductionService
 
             $material->decrement('quantity', $quantity);
         }
+
+        DealEvent::record(
+            $order->salesDeal(),
+            DealEventType::Materials,
+            'Списано со склада: '.count($required).' позиций номенклатуры',
+            $actor,
+            department: Department::Warehouse,
+        );
     }
 
     /**
@@ -389,6 +415,7 @@ class DoorProductionService
             ->pluck('net', 'material_stock_id');
 
         $materials = MaterialStock::query()->findMany($balances->keys()->all())->keyBy('id');
+        $returned = 0;
 
         foreach ($balances as $materialId => $net) {
             $net = round((float) $net, 3);
@@ -409,6 +436,17 @@ class DoorProductionService
             ]);
 
             $material->increment('quantity', $net);
+            $returned++;
+        }
+
+        if ($returned > 0) {
+            DealEvent::record(
+                $order->salesDeal(),
+                DealEventType::Materials,
+                "Возвращено на склад: {$returned} позиций номенклатуры",
+                $actor,
+                department: Department::Warehouse,
+            );
         }
     }
 
@@ -441,6 +479,13 @@ class DoorProductionService
                     'status_id' => DealStatus::InWork,
                     'production_started_at' => null,
                 ])->save();
+
+                DealEvent::record(
+                    $salesDeal,
+                    DealEventType::ProductionCancelled,
+                    "Наряд {$order->number} отменён: {$reason}. Материалы возвращены на склад",
+                    $actor,
+                );
             }
 
             return $order->refresh();
@@ -556,6 +601,13 @@ class DoorProductionService
 
         $deal->setRelation('currentStage', $stage);
 
+        DealEvent::record(
+            $deal,
+            DealEventType::StageChanged,
+            $from ? "Этап: «{$from->name}» → «{$stage->name}»" : "Этап: «{$stage->name}»",
+            $actor,
+        );
+
         DealStageChanged::dispatch($deal, $from, $stage, $actor);
     }
 
@@ -587,6 +639,17 @@ class DoorProductionService
             'payout' => $status === ProductionStatus::Done ? $log->stage->operation_cost : 0,
             'comment' => $comment ?? $log->comment,
         ])->save();
+
+        if ($status === ProductionStatus::Done) {
+            DealEvent::record(
+                $deal->salesDeal(),
+                DealEventType::ProductionStage,
+                "Цех закрыл этап «{$log->stage->name}»"
+                    .($log->worker ? ", исполнитель {$log->worker->name}" : ''),
+                $log->worker ?? $worker,
+                department: Department::Factory,
+            );
+        }
     }
 
     /** @return Builder<ProductionLog> */

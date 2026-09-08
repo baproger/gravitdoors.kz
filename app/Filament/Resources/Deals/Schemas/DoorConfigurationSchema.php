@@ -34,7 +34,7 @@ class DoorConfigurationSchema
     {
         return [
             Section::make('Изделие')
-                ->columns(4)
+                ->columns(3)
                 ->schema([
                     Select::make('category')
                         ->label('Линейка')
@@ -59,14 +59,6 @@ class DoorConfigurationSchema
                         ->default(1)
                         ->required()
                         ->live(onBlur: true),
-
-                    TextInput::make('position')
-                        ->label('№ позиции')
-                        ->numeric()
-                        ->minValue(1)
-                        ->maxValue(99)
-                        ->default(1)
-                        ->required(),
                 ]),
 
             Section::make('Размеры проёма')

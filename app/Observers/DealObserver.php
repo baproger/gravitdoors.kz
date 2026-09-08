@@ -4,29 +4,95 @@ declare(strict_types=1);
 
 namespace App\Observers;
 
+use App\Enums\DealEventType;
 use App\Enums\UserRole;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
+use App\Models\DealEvent;
 use App\Models\User;
+use App\Support\DealFieldLabels;
+use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
 class DealObserver
 {
-    public function updated(Deal $deal): void
+    public function created(Deal $deal): void
     {
-        // Дата замера назначена или перенесена — замерщик должен узнать об этом
-        // сам, а не из устного «съезди завтра на Абая».
-        if ($deal->wasChanged('measured_at') && $deal->measured_at !== null) {
+        DealEvent::record(
+            $deal,
+            DealEventType::Created,
+            $deal->isFactoryOrder()
+                ? "Открыт производственный наряд {$deal->number}"
+                : "Создана сделка {$deal->number}",
+        );
+
+        if ($deal->measured_at !== null) {
             $this->notifySurveyors($deal);
         }
     }
 
-    public function created(Deal $deal): void
+    public function updated(Deal $deal): void
     {
-        if ($deal->measured_at !== null) {
+        $this->recordChanges($deal);
+
+        // Дата замера назначена или перенесена — замерщик должен узнать об этом
+        // сам, а не из устного «съезди завтра на Абая».
+        if ($deal->wasChanged('measured_at') && $deal->measured_at !== null) {
             $this->notifySurveyors($deal);
+
+            DealEvent::record(
+                $deal,
+                DealEventType::Survey,
+                'Замер назначен на '.$deal->measured_at->format('d.m.Y'),
+            );
         }
+
+        if ($deal->wasChanged('documents') && filled($deal->documents)) {
+            DealEvent::record(
+                $deal,
+                DealEventType::Document,
+                'Загружены документы: '.count($deal->documents).' шт',
+            );
+        }
+
+        if ($deal->wasChanged('prepayment') && (float) $deal->prepayment > (float) $deal->getOriginal('prepayment')) {
+            DealEvent::record(
+                $deal,
+                DealEventType::Payment,
+                'Оплата: '.Money::format((float) $deal->prepayment - (float) $deal->getOriginal('prepayment')),
+            );
+        }
+    }
+
+    /**
+     * Правки карточки одной записью: менеджер обычно меняет несколько полей за
+     * раз, и отдельная строка на каждое поле превратила бы ленту в шум.
+     */
+    private function recordChanges(Deal $deal): void
+    {
+        $changes = [];
+
+        foreach ($deal->getChanges() as $field => $new) {
+            if (! DealFieldLabels::isTracked($field)) {
+                continue;
+            }
+
+            $changes[$field] = [
+                'label' => DealFieldLabels::label($field),
+                'from' => DealFieldLabels::value($field, $deal->getOriginal($field)),
+                'to' => DealFieldLabels::value($field, $deal->{$field}),
+            ];
+        }
+
+        if ($changes === []) {
+            return;
+        }
+
+        $names = collect($changes)->pluck('label')->take(4)->implode(', ');
+        $more = count($changes) > 4 ? ' и ещё '.(count($changes) - 4) : '';
+
+        DealEvent::record($deal, DealEventType::Updated, "Изменено: {$names}{$more}", changes: $changes);
     }
 
     private function notifySurveyors(Deal $deal): void

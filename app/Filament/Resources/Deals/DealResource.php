@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Deals;
 use App\Filament\Resources\Deals\Pages\CreateDeal;
 use App\Filament\Resources\Deals\Pages\EditDeal;
 use App\Filament\Resources\Deals\Pages\ListDeals;
+use App\Filament\Resources\Deals\RelationManagers\EventsRelationManager;
 use App\Filament\Resources\Deals\RelationManagers\ProductionLogsRelationManager;
 use App\Filament\Resources\Deals\Schemas\DealForm;
 use App\Filament\Resources\Deals\Tables\DealsTable;
@@ -54,6 +55,7 @@ class DealResource extends Resource
     public static function getRelations(): array
     {
         return [
+            EventsRelationManager::class,
             ProductionLogsRelationManager::class,
         ];
     }

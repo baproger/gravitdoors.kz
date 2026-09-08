@@ -191,11 +191,10 @@ class DealForm
                 // Свёрнуто по умолчанию: в заказе на пять дверей развёрнутые
                 // позиции превращают карточку в бесконечную простыню.
                 ->collapsed(fn (?Deal $record): bool => ($record?->doorConfigurations()->count() ?? 0) > 1)
-                ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
-                    $data['position'] ??= 1;
-
-                    return $data;
-                }),
+                // Номер позиции больше не поле формы: его проставляет
+                // DoorConfigurationObserver и перенумеровывает после удаления.
+                ->addable()
+                ->deletable(),
         ];
     }
 

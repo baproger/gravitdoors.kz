@@ -8,7 +8,9 @@ use App\Enums\DoorCategory;
 use App\Enums\DoorModel;
 use App\Enums\DoorOptionCategory;
 use App\Enums\OpeningSide;
+use App\Observers\DoorConfigurationObserver;
 use Database\Factories\DoorConfigurationFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property OpeningSide $opening_side
  */
+#[ObservedBy(DoorConfigurationObserver::class)]
 class DoorConfiguration extends Model
 {
     /** @use HasFactory<DoorConfigurationFactory> */

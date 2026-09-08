@@ -18,6 +18,10 @@ class ProductionLogsRelationManager extends RelationManager
 {
     protected static string $relationship = 'productionLogs';
 
+    // Блок грузится сразу: ленивая подгрузка оставляла на странице
+    // бесконечное «Loading…», а история нужна вместе с карточкой.
+    protected static bool $isLazy = false;
+
     protected static ?string $title = 'Тайминг производства';
 
     /**
