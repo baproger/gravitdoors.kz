@@ -70,9 +70,29 @@ class WorkshopScreen extends Component
         $this->code = '';
     }
 
-    public function chooseWorker(int $workerId): void
+    /**
+     * Выбор исполнителя в шапке экрана.
+     *
+     * Значение приходит из <select> строкой, а пустая строка означает «не выбрано»,
+     * поэтому тип здесь свободный: со строгим int вызов падал с TypeError.
+     */
+    public function chooseWorker(int|string|null $workerId): void
     {
+        $workerId = filled($workerId) ? (int) $workerId : null;
+
+        // Выбирать можно только из тех, кого экран и показывает.
+        if ($workerId !== null && ! $this->workers->contains('id', $workerId)) {
+            return;
+        }
+
         $this->workerId = $workerId;
+
+        if ($workerId === null) {
+            session()->forget('workshop.worker_id');
+
+            return;
+        }
+
         session()->put('workshop.worker_id', $workerId);
     }
 

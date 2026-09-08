@@ -9,14 +9,19 @@ use App\Models\User;
 
 class UserPolicy
 {
+    /** Список сотрудников — инструмент руководителя. */
     public function viewAny(User $user): bool
     {
-        return $user->role === UserRole::Admin;
+        return in_array($user->role, [UserRole::Admin, UserRole::Manager], true);
     }
 
+    /**
+     * Свою карточку открывает любой сотрудник: там его выработка и зарплата.
+     * Чужую — только руководство.
+     */
     public function view(User $user, User $target): bool
     {
-        return $user->role === UserRole::Admin || $user->is($target);
+        return $user->is($target) || $this->viewAny($user);
     }
 
     public function create(User $user): bool

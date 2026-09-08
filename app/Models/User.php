@@ -7,22 +7,25 @@ namespace App\Models;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @property UserRole $role
  */
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements FilamentUser, HasAvatar
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     protected $fillable = [
         'name', 'email', 'password', 'role', 'phone', 'is_active',
+        'avatar_path', 'salary', 'hired_at', 'birth_date',
     ];
 
     protected $hidden = [
@@ -36,7 +39,47 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'role' => UserRole::class,
             'is_active' => 'boolean',
+            'salary' => 'decimal:2',
+            'hired_at' => 'date',
+            'birth_date' => 'date',
         ];
+    }
+
+    /** Аватар в шапке панели и в карточке сотрудника. */
+    public function getFilamentAvatarUrl(): ?string
+    {
+        return $this->avatar_path
+            ? Storage::disk('public')->url($this->avatar_path)
+            : null;
+    }
+
+    /** Инициалы для заглушки аватара. */
+    public function initials(): string
+    {
+        return collect(explode(' ', trim($this->name)))
+            ->filter()
+            ->take(2)
+            ->map(fn (string $part): string => mb_strtoupper(mb_substr($part, 0, 1)))
+            ->implode('');
+    }
+
+    /** Сколько сотрудник в компании: «7 мес.», «1 г. 3 мес.». */
+    public function tenure(): ?string
+    {
+        if (! $this->hired_at) {
+            return null;
+        }
+
+        $months = (int) $this->hired_at->diffInMonths(now());
+
+        if ($months < 12) {
+            return max(1, $months).' мес.';
+        }
+
+        $years = intdiv($months, 12);
+        $rest = $months % 12;
+
+        return $years.' г.'.($rest > 0 ? " {$rest} мес." : '');
     }
 
     /** Заблокированный сотрудник в панель не попадает даже с валидным паролем. */

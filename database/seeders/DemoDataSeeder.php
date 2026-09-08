@@ -44,17 +44,29 @@ class DemoDataSeeder extends Seeder
     {
         $manager = User::firstOrCreate(
             ['email' => 'manager@gravit.kz'],
-            ['name' => 'Айгуль Сериковна', 'password' => Hash::make('password'), 'role' => UserRole::Manager->value, 'phone' => '+7 (701) 000-00-02'],
+            [
+                'name' => 'Айгуль Сериковна', 'password' => Hash::make('password'),
+                'role' => UserRole::Manager->value, 'phone' => '+7 (701) 000-00-02',
+                'salary' => 250_000, 'hired_at' => now()->subMonths(19), 'birth_date' => '1994-03-12',
+            ],
         );
 
         User::firstOrCreate(
             ['email' => 'surveyor@gravit.kz'],
-            ['name' => 'Бауыржан Замерщик', 'password' => Hash::make('password'), 'role' => UserRole::Surveyor->value, 'phone' => '+7 (701) 000-00-04'],
+            [
+                'name' => 'Бауыржан Замерщик', 'password' => Hash::make('password'),
+                'role' => UserRole::Surveyor->value, 'phone' => '+7 (701) 000-00-04',
+                'salary' => 180_000, 'hired_at' => now()->subMonths(7), 'birth_date' => '1999-07-21',
+            ],
         );
 
         $master = User::firstOrCreate(
             ['email' => 'master@gravit.kz'],
-            ['name' => 'Ерлан Мастер', 'password' => Hash::make('password'), 'role' => UserRole::Master->value, 'phone' => '+7 (701) 000-00-03'],
+            [
+                'name' => 'Ерлан Мастер', 'password' => Hash::make('password'),
+                'role' => UserRole::Master->value, 'phone' => '+7 (701) 000-00-03',
+                'salary' => 220_000, 'hired_at' => now()->subMonths(31), 'birth_date' => '1988-11-05',
+            ],
         );
 
         $stages = FactoryStage::query()->ofPipeline(PipelineType::Sales)->ordered()->get()->keyBy('code');

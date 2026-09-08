@@ -20,6 +20,9 @@ class DatabaseSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'role' => UserRole::Admin->value,
                 'phone' => '+7 (701) 000-00-01',
+                'salary' => 400_000,
+                'hired_at' => now()->subYears(3),
+                'birth_date' => '1985-05-30',
             ],
         );
 

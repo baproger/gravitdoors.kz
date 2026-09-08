@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers\Filament;
 
+use App\Filament\Auth\EditProfile;
 use App\Filament\Widgets\LowStockWidget;
 use App\Filament\Widgets\PipelineOverview;
 use Filament\Enums\ThemeMode;
@@ -33,6 +34,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // Каждый правит свой профиль сам: имя, контакты, аватар и пароль.
+            // Роль и оклад остаются в разделе «Сотрудники» у администратора.
+            ->profile(EditProfile::class, isSimple: false)
             ->brandName('Gravit ERP')
             ->colors([
                 'primary' => Color::hex('#2F6FED'),

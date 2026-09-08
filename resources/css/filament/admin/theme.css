@@ -852,3 +852,388 @@
         font-size: 0.75rem;
     }
 }
+
+/* ---------- Карточка сотрудника ---------- */
+
+.gravit-profile {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+@media (min-width: 1024px) {
+    .gravit-profile {
+        grid-template-columns: minmax(0, 1fr) 20rem;
+    }
+
+    /* Карточка человека едет вместе со страницей — контакты нужны на любом
+       месте прокрутки, а не только вверху. */
+    .gravit-profile__side {
+        position: sticky;
+        top: 1rem;
+    }
+}
+
+.gravit-profile__main {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.gravit-profile__pair {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+@media (min-width: 1280px) {
+    .gravit-profile__pair {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.gravit-tile__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.gravit-count {
+    margin-inline-start: 0.35rem;
+    color: var(--gravit-muted);
+    font-weight: 500;
+}
+
+.gravit-select--sm {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+}
+
+/* ---------- Кольца показателей ---------- */
+
+.gravit-rings {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.gravit-ring {
+    position: relative;
+    text-align: center;
+}
+
+/* Обёртка задаёт систему координат для цифры: без неё абсолютный центр
+   растягивался на всю колонку, и число уезжало вбок от кольца. */
+.gravit-ring__chart {
+    position: relative;
+    width: 6.5rem;
+    height: 6.5rem;
+    margin: 0 auto;
+}
+
+.gravit-ring__svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.gravit-ring__track,
+.gravit-ring__value {
+    fill: none;
+    stroke-width: 3;
+}
+
+.gravit-ring__track {
+    stroke: rgb(15 23 42 / 0.08);
+}
+
+.dark .gravit-ring__track {
+    stroke: rgb(148 163 184 / 0.18);
+}
+
+.gravit-ring__value {
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.4s ease;
+}
+
+.gravit-ring[data-color='primary'] .gravit-ring__value { stroke: rgb(47 111 237); }
+.gravit-ring[data-color='info'] .gravit-ring__value { stroke: rgb(37 99 235); }
+.gravit-ring[data-color='warning'] .gravit-ring__value { stroke: rgb(217 119 6); }
+
+.gravit-ring__center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    pointer-events: none;
+}
+
+.gravit-ring__num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gravit-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.gravit-ring__of {
+    font-size: 0.8125rem;
+    color: var(--gravit-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.gravit-ring__label {
+    margin-top: 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gravit-text);
+}
+
+.gravit-ring__hint {
+    font-size: 0.6875rem;
+    color: var(--gravit-muted);
+}
+
+/* ---------- Столбики активности ---------- */
+
+.gravit-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.6875rem;
+    color: var(--gravit-muted);
+}
+
+.gravit-legend--wide {
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+.gravit-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 0.15rem;
+    vertical-align: middle;
+}
+
+.gravit-dot--primary { background: rgb(47 111 237); }
+.gravit-dot--warning { background: rgb(217 119 6); }
+.gravit-dot--success { background: rgb(22 163 74); }
+
+.gravit-bars {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+}
+
+.gravit-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.gravit-bar__track {
+    position: relative;
+    width: 100%;
+    height: 6rem;
+    border-radius: 0.5rem;
+    background: rgb(15 23 42 / 0.05);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.dark .gravit-bar__track { background: rgb(148 163 184 / 0.12); }
+
+.gravit-bar__fill {
+    width: 100%;
+    min-height: 0.35rem;
+}
+
+.gravit-bar__fill--primary { background: rgb(47 111 237); }
+.gravit-bar__fill--warning { background: rgb(217 119 6); }
+
+.gravit-bar__day {
+    font-size: 0.6875rem;
+    color: var(--gravit-muted);
+}
+
+.gravit-bar__day--today {
+    color: rgb(47 111 237);
+    font-weight: 700;
+}
+
+/* ---------- Зарплата ---------- */
+
+.gravit-split {
+    display: flex;
+    height: 0.5rem;
+    margin-top: 0.6rem;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgb(22 163 74);
+}
+
+.gravit-split__salary {
+    background: rgb(47 111 237);
+}
+
+/* ---------- Списки ---------- */
+
+.gravit-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0.5rem;
+}
+
+.gravit-list__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--gravit-border);
+}
+
+.gravit-list__row:first-child { border-top: 0; }
+
+.gravit-list__main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    text-decoration: none;
+}
+
+.gravit-list__title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gravit-text);
+}
+
+a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
+
+.gravit-list__sub {
+    font-size: 0.6875rem;
+    color: var(--gravit-muted);
+}
+
+.gravit-list__value {
+    flex: 0 0 auto;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--gravit-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.gravit-list__empty {
+    padding: 1rem 0;
+    font-size: 0.75rem;
+    color: var(--gravit-muted);
+}
+
+/* ---------- Блок сотрудника ---------- */
+
+.gravit-person {
+    text-align: center;
+}
+
+.gravit-person__avatar {
+    width: 6rem;
+    height: 6rem;
+    margin: 0 auto 0.75rem;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.gravit-person__avatar--initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, rgb(47 111 237), rgb(79 70 229));
+    color: #fff;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.gravit-person__name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--gravit-text);
+}
+
+.gravit-person__role {
+    font-size: 0.75rem;
+    color: var(--gravit-muted);
+}
+
+.gravit-person__email {
+    display: inline-block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: rgb(47 111 237);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.gravit-person__facts {
+    margin-top: 1rem;
+    text-align: start;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.gravit-person__facts > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+}
+
+.gravit-person__facts dt { color: var(--gravit-muted); }
+
+.gravit-person__facts dd {
+    font-weight: 600;
+    color: var(--gravit-text);
+    text-align: end;
+}
+
+.gravit-person__facts dd a { color: inherit; text-decoration: none; }
+
+.gravit-person__action {
+    display: block;
+    margin-top: 1rem;
+    padding: 0.55rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: var(--gravit-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(47 111 237);
+    text-decoration: none;
+}
+
+.gravit-person__action:hover { background: var(--gravit-glass-strong); }
+
+@media (max-width: 639px) {
+    .gravit-rings { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+    .gravit-ring__chart { width: 5rem; height: 5rem; }
+    .gravit-ring__num { font-size: 1.15rem; }
+    .gravit-ring__label { font-size: 0.75rem; }
+    .gravit-bar__track { height: 4.5rem; }
+}

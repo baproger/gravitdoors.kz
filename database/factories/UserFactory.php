@@ -31,6 +31,8 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'role' => UserRole::Manager->value,
             'is_active' => true,
+            'salary' => 200_000,
+            'hired_at' => now()->subMonths(10),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];

@@ -95,6 +95,47 @@ class WorkshopScreenTest extends TestCase
         $this->assertEqualsWithDelta(3000, (float) $log->payout, 0.01);
     }
 
+    /**
+     * Регрессия: <select> отдаёт строку, и строгий int в chooseWorker ронял
+     * экран цеха с TypeError при первом же выборе исполнителя.
+     */
+    public function test_worker_can_be_chosen_from_the_select(): void
+    {
+        $this->makeOrder();
+        $worker = User::factory()->create(['role' => UserRole::Worker->value]);
+
+        Livewire::test(WorkshopScreen::class)
+            ->set('code', Setting::workshopCode())
+            ->call('enter')
+            ->call('chooseWorker', (string) $worker->id)
+            ->assertHasNoErrors()
+            ->assertSet('workerId', $worker->id);
+    }
+
+    public function test_empty_choice_resets_the_worker(): void
+    {
+        $worker = User::factory()->create(['role' => UserRole::Worker->value]);
+
+        Livewire::test(WorkshopScreen::class)
+            ->set('code', Setting::workshopCode())
+            ->call('enter')
+            ->call('chooseWorker', (string) $worker->id)
+            ->call('chooseWorker', '')
+            ->assertSet('workerId', null);
+    }
+
+    public function test_a_stranger_cannot_be_set_as_the_worker(): void
+    {
+        // Менеджера в списке цеха нет — подставить его id снаружи не выйдет.
+        $manager = User::factory()->create(['role' => UserRole::Manager->value]);
+
+        Livewire::test(WorkshopScreen::class)
+            ->set('code', Setting::workshopCode())
+            ->call('enter')
+            ->call('chooseWorker', (string) $manager->id)
+            ->assertSet('workerId', null);
+    }
+
     public function test_actions_are_blocked_without_the_code(): void
     {
         $order = $this->makeOrder();

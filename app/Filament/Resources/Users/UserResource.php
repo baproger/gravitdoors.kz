@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Users;
 
-use App\Filament\Resources\Users\Pages\ManageUsers;
+use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Filament\Resources\Users\Pages\ViewUser;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
@@ -43,8 +44,26 @@ class UserResource extends Resource
         return UsersTable::configure($table);
     }
 
+    /**
+     * В раздел пускаем любого авторизованного: свою карточку сотрудник открыть
+     * должен. Что именно ему покажут, решают политики view/update, а пункт меню
+     * остаётся только у руководства.
+     */
+    public static function canAccess(): bool
+    {
+        return auth()->check();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canViewAny();
+    }
+
     public static function getPages(): array
     {
-        return ['index' => ManageUsers::route('/')];
+        return [
+            'index' => ListUsers::route('/'),
+            'view' => ViewUser::route('/{record}'),
+        ];
     }
 }
