@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ClientType;
+use App\Enums\DealSource;
 use App\Enums\DealStatus;
+use App\Enums\PaymentMethod;
 use App\Enums\PipelineType;
 use Database\Factories\DealFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,8 +34,13 @@ class Deal extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'number', 'title', 'client_name', 'client_phone', 'client_address',
-        'total_price', 'cost_price', 'status_id', 'pipeline_type', 'current_stage_id',
+        'number', 'title',
+        'client_name', 'client_type', 'client_company', 'client_bin',
+        'client_phone', 'client_email', 'client_phone_extra', 'client_address', 'city', 'source',
+        'contract_number', 'contract_date', 'measured_at',
+        'total_price', 'cost_price', 'prepayment', 'payment_method',
+        'delivery_cost', 'installation_cost',
+        'status_id', 'pipeline_type', 'current_stage_id',
         'qr_code_hash', 'parent_deal_id', 'manager_id', 'due_date',
         'stage_entered_at', 'production_started_at', 'production_finished_at', 'notes',
     ];
@@ -42,9 +50,17 @@ class Deal extends Model
         return [
             'status_id' => DealStatus::class,
             'pipeline_type' => PipelineType::class,
+            'client_type' => ClientType::class,
+            'source' => DealSource::class,
+            'payment_method' => PaymentMethod::class,
             'total_price' => 'decimal:2',
             'cost_price' => 'decimal:2',
+            'prepayment' => 'decimal:2',
+            'delivery_cost' => 'decimal:2',
+            'installation_cost' => 'decimal:2',
             'due_date' => 'date',
+            'contract_date' => 'date',
+            'measured_at' => 'date',
             'stage_entered_at' => 'datetime',
             'production_started_at' => 'datetime',
             'production_finished_at' => 'datetime',
@@ -188,6 +204,31 @@ class Deal extends Model
     public function doorsCount(): int
     {
         return (int) $this->configurations()->sum('quantity');
+    }
+
+    /** Сколько клиент ещё должен. */
+    public function remainingPayment(): float
+    {
+        return max(0.0, round((float) $this->total_price - (float) $this->prepayment, 2));
+    }
+
+    public function isPaidInFull(): bool
+    {
+        return $this->remainingPayment() <= 0.0 && (float) $this->total_price > 0.0;
+    }
+
+    /** Услуги сверх стоимости самих дверей. */
+    public function servicesCost(): float
+    {
+        return round((float) $this->delivery_cost + (float) $this->installation_cost, 2);
+    }
+
+    /** Как клиента показывать в списках: компанию — по названию, физлицо — по имени. */
+    public function clientTitle(): string
+    {
+        return $this->client_type === ClientType::Company && filled($this->client_company)
+            ? $this->client_company
+            : $this->client_name;
     }
 
     public function getProfitAttribute(): float

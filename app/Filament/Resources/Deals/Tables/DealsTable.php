@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Deals\Tables;
 
+use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\PipelineType;
 use App\Exceptions\ProductionException;
@@ -38,9 +39,28 @@ class DealsTable
 
                 TextColumn::make('title')
                     ->label('Сделка')
-                    ->description(fn (Deal $record): string => $record->client_name)
-                    ->searchable(['title', 'client_name', 'client_phone'])
+                    ->description(fn (Deal $record): string => trim(
+                        $record->clientTitle().($record->city ? ' · '.$record->city : ''),
+                    ))
+                    ->searchable(['title', 'client_name', 'client_company', 'client_phone', 'client_bin'])
                     ->wrap(),
+
+                TextColumn::make('client_phone')
+                    ->label('Телефон')
+                    ->icon('heroicon-m-phone')
+                    ->copyable()
+                    ->url(fn (Deal $record): ?string => $record->client_phone
+                        ? 'tel:'.preg_replace('/\D+/', '', $record->client_phone)
+                        : null)
+                    ->placeholder('—')
+                    ->toggleable(),
+
+                TextColumn::make('source')
+                    ->label('Источник')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('pipeline_type')
                     ->label('Воронка')
@@ -63,6 +83,17 @@ class DealsTable
                     ->formatStateUsing(fn ($state): string => Money::format($state))
                     ->sortable()
                     ->alignEnd()
+                    ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
+
+                TextColumn::make('remaining')
+                    ->label('Остаток')
+                    ->state(fn (Deal $record): string => $record->isPaidInFull()
+                        ? 'оплачено'
+                        : Money::format($record->remainingPayment()))
+                    ->badge()
+                    ->color(fn (Deal $record): string => $record->isPaidInFull() ? 'success' : 'warning')
+                    ->alignEnd()
+                    ->toggleable()
                     ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
 
                 TextColumn::make('margin')
@@ -102,6 +133,15 @@ class DealsTable
                 SelectFilter::make('current_stage_id')
                     ->label('Этап')
                     ->options(fn (): array => FactoryStage::query()->active()->ordered()->pluck('name', 'id')->all()),
+
+                SelectFilter::make('manager_id')
+                    ->label('Менеджер')
+                    ->relationship('manager', 'name')
+                    ->searchable(),
+
+                SelectFilter::make('source')
+                    ->label('Источник')
+                    ->options(DealSource::class),
             ])
             ->recordActions([
                 ActionGroup::make([

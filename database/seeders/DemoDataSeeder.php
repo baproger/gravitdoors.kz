@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\ClientType;
+use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\OpeningSide;
+use App\Enums\PaymentMethod;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
 use App\Models\Deal;
@@ -34,21 +37,61 @@ class DemoDataSeeder extends Seeder
         $stages = FactoryStage::query()->ofPipeline(PipelineType::Sales)->ordered()->get()->keyBy('code');
 
         $clients = [
-            ['ЖК «Алатау», кв. 45', 'Асхат Жумабеков', '+7 707 111 22 33', 'new', DealStatus::New],
-            ['Частный дом, Каскелен', 'Марина Ким', '+7 705 444 55 66', 'measurement', DealStatus::InWork],
-            ['ЖК «Керемет», кв. 112', 'Данияр Оспанов', '+7 777 888 99 00', 'contract', DealStatus::InWork],
-            ['Офис на Абая 150', 'ТОО «Строй-Инвест»', '+7 727 355 66 77', 'contract', DealStatus::InWork],
+            [
+                'title' => 'ЖК «Алатау», кв. 45', 'name' => 'Асхат Жумабеков', 'phone' => '+7 707 111 22 33',
+                'email' => 'ashat.zh@mail.kz', 'city' => 'Алматы', 'source' => DealSource::Instagram,
+                'address' => 'ул. Розыбакиева 247, ЖК «Алатау», кв. 45',
+                'stage' => 'new', 'status' => DealStatus::New, 'prepayment' => 0,
+            ],
+            [
+                'title' => 'Частный дом, Каскелен', 'name' => 'Марина Ким', 'phone' => '+7 705 444 55 66',
+                'email' => 'm.kim@gmail.com', 'city' => 'Каскелен', 'source' => DealSource::Recommendation,
+                'address' => 'мкр. Алатау, ул. Абая 12',
+                'stage' => 'measurement', 'status' => DealStatus::InWork, 'prepayment' => 0,
+                'delivery' => 15_000, 'installation' => 25_000,
+            ],
+            [
+                'title' => 'ЖК «Керемет», кв. 112', 'name' => 'Данияр Оспанов', 'phone' => '+7 777 888 99 00',
+                'email' => 'd.ospanov@mail.ru', 'city' => 'Алматы', 'source' => DealSource::Site,
+                'address' => 'ул. Сейфуллина 500, ЖК «Керемет», кв. 112',
+                'stage' => 'contract', 'status' => DealStatus::InWork, 'prepayment' => 90_000,
+                'contract' => 'ДГ-2026-014', 'delivery' => 15_000, 'installation' => 30_000,
+            ],
+            [
+                'title' => 'Офис на Абая 150', 'name' => 'Ержан Тулегенов', 'phone' => '+7 727 355 66 77',
+                'email' => 'info@stroyinvest.kz', 'city' => 'Алматы', 'source' => DealSource::Tender,
+                'address' => 'пр. Абая 150, БЦ «Алмалы», 3 этаж',
+                'company' => 'ТОО «Строй-Инвест»', 'bin' => '150340012345',
+                'stage' => 'contract', 'status' => DealStatus::InWork, 'prepayment' => 150_000,
+                'contract' => 'ДГ-2026-018', 'delivery' => 20_000, 'installation' => 45_000,
+            ],
         ];
 
-        foreach ($clients as [$title, $client, $phone, $stageCode, $status]) {
+        foreach ($clients as $row) {
+            $title = $row['title'];
+
             $deal = Deal::firstOrCreate(
                 ['title' => $title],
                 [
-                    'client_name' => $client,
-                    'client_phone' => $phone,
-                    'status_id' => $status,
+                    'client_name' => $row['name'],
+                    'client_type' => isset($row['company']) ? ClientType::Company : ClientType::Individual,
+                    'client_company' => $row['company'] ?? null,
+                    'client_bin' => $row['bin'] ?? null,
+                    'client_phone' => $row['phone'],
+                    'client_email' => $row['email'],
+                    'client_address' => $row['address'],
+                    'city' => $row['city'],
+                    'source' => $row['source'],
+                    'contract_number' => $row['contract'] ?? null,
+                    'contract_date' => isset($row['contract']) ? now()->subDays(random_int(3, 20)) : null,
+                    'measured_at' => $row['stage'] === 'new' ? null : now()->subDays(random_int(2, 15)),
+                    'prepayment' => $row['prepayment'],
+                    'payment_method' => $row['prepayment'] > 0 ? PaymentMethod::Kaspi : null,
+                    'delivery_cost' => $row['delivery'] ?? 0,
+                    'installation_cost' => $row['installation'] ?? 0,
+                    'status_id' => $row['status'],
                     'pipeline_type' => PipelineType::Sales,
-                    'current_stage_id' => $stages[$stageCode]->id,
+                    'current_stage_id' => $stages[$row['stage']]->id,
                     'manager_id' => $manager->id,
                     'due_date' => now()->addDays(random_int(7, 25)),
                 ],

@@ -85,15 +85,15 @@ class AdminPanelSmokeTest extends TestCase
 
         $this->get("/admin/deals/{$deal->id}/edit")
             ->assertOk()
-            ->assertSee('Двери заказа')
-            ->assertSee('Толщина металла');
+            ->assertSee('Толщина металла')
+            ->assertSee('Тип клиента');
     }
 
     public function test_deal_create_page_shows_door_positions(): void
     {
         $this->get('/admin/deals/create')
             ->assertOk()
-            ->assertSee('Двери заказа');
+            ->assertSee('Толщина металла');
     }
 
     /** У наряда завода своих позиций нет — секция не должна показываться. */
@@ -104,7 +104,7 @@ class AdminPanelSmokeTest extends TestCase
 
         $this->get("/admin/deals/{$order->id}/edit")
             ->assertOk()
-            ->assertDontSee('Двери заказа');
+            ->assertDontSee('Толщина металла');
     }
 
     /**

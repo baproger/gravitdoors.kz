@@ -107,7 +107,13 @@
                                 </div>
 
                                 <h3 class="gravit-card__title">{{ $deal->title }}</h3>
-                                <p class="gravit-card__client">{{ $deal->client_name }}</p>
+                                <p class="gravit-card__client">
+                                    {{ $deal->clientTitle() }}
+                                    @if ($deal->client_phone)
+                                        <a href="tel:{{ preg_replace('/\D+/', '', $deal->client_phone) }}"
+                                           class="gravit-card__phone">{{ $deal->client_phone }}</a>
+                                    @endif
+                                </p>
 
                                 @if ($configs->isNotEmpty())
                                     <p class="gravit-card__spec">

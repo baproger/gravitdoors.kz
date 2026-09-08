@@ -248,13 +248,17 @@ class DoorProductionService
 
         $summary = $this->calculator->applyToDeal($salesDeal->refresh());
 
+        // Доставка и монтаж — часть суммы для клиента, но не часть расчёта дверей:
+        // они задаются в карточке и прибавляются к итогу поверх спецификации.
+        $total = round($summary->total + $salesDeal->servicesCost(), 2);
+
         $salesDeal->forceFill([
-            'total_price' => $summary->total,
+            'total_price' => $total,
             'cost_price' => $summary->estimatedCost,
         ])->save();
 
         $salesDeal->productionOrder()->update([
-            'total_price' => $summary->total,
+            'total_price' => $total,
             'cost_price' => $summary->estimatedCost,
         ]);
 
