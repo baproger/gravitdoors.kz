@@ -160,7 +160,12 @@ class DealForm
                 DatePicker::make('measured_at')
                     ->label('Дата замера')
                     ->displayFormat('d.m.Y')
-                    ->helperText('При сохранении замерщик получит уведомление'),
+                    ->helperText('При сохранении замерщик получит уведомление')
+                    ->hint(fn (?Deal $record): ?string => $record?->isMeasurementOverdue()
+                        ? 'Просрочен на '.$record->measurementOverdueDays().' дн.'
+                        : null)
+                    ->hintColor('danger')
+                    ->hintIcon(fn (?Deal $record): ?string => $record?->isMeasurementOverdue() ? 'heroicon-m-exclamation-triangle' : null),
 
                 Textarea::make('client_address')
                     ->label('Адрес объекта')

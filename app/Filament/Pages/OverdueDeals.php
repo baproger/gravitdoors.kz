@@ -56,7 +56,7 @@ class OverdueDeals extends Page implements HasTable
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::scopedQuery()->overdue()->count();
+        $count = static::scopedQuery()->overdue()->count() + static::scopedQuery()->measurementOverdue()->count();
 
         return $count > 0 ? (string) $count : null;
     }
@@ -71,6 +71,7 @@ class OverdueDeals extends Page implements HasTable
     {
         return [
             'due' => ['label' => 'Срок сдачи прошёл', 'count' => static::scopedQuery()->overdue()->count()],
+            'measurement' => ['label' => 'Замер не проведён', 'count' => static::scopedQuery()->measurementOverdue()->count()],
             'stage' => ['label' => 'Застряли на этапе', 'count' => count($this->stuckIds())],
         ];
     }
@@ -85,21 +86,27 @@ class OverdueDeals extends Page implements HasTable
         $money = auth()->user()?->role->seesMoney() ?? false;
 
         return $table
-            ->query(fn (): Builder => $this->mode === 'stage'
-                ? static::scopedQuery()->whereIn('id', $this->stuckIds())->with(['currentStage', 'manager'])
-                : static::scopedQuery()->overdue()->with(['currentStage', 'manager']))
-            ->defaultSort(fn (Builder $query) => $this->mode === 'stage'
-                ? $query->orderBy('stage_entered_at')
-                : $query->orderBy('due_date'))
+            ->query(fn (): Builder => match ($this->mode) {
+                'stage' => static::scopedQuery()->whereIn('id', $this->stuckIds())->with(['currentStage', 'manager']),
+                'measurement' => static::scopedQuery()->measurementOverdue()->with(['currentStage', 'manager']),
+                default => static::scopedQuery()->overdue()->with(['currentStage', 'manager']),
+            })
+            ->defaultSort(fn (Builder $query) => match ($this->mode) {
+                'stage' => $query->orderBy('stage_entered_at'),
+                'measurement' => $query->orderBy('measured_at'),
+                default => $query->orderBy('due_date'),
+            })
             ->recordUrl(fn (Deal $record): string => DealResource::getUrl('edit', ['record' => $record]))
             ->recordClasses('od-row')
             ->paginated([25, 50])
             ->columns([
                 TextColumn::make('overdue')
                     ->label('Просрочка')
-                    ->state(fn (Deal $record): string => $this->mode === 'stage'
-                        ? self::hours($record->stageOverdueHours()).' сверх нормы'
-                        : $record->overdueDays().' '.Plural::choose($record->overdueDays(), 'день', 'дня', 'дней'))
+                    ->state(fn (Deal $record): string => match ($this->mode) {
+                        'stage' => self::hours($record->stageOverdueHours()).' сверх нормы',
+                        'measurement' => $record->measurementOverdueDays().' '.Plural::choose($record->measurementOverdueDays(), 'день', 'дня', 'дней'),
+                        default => $record->overdueDays().' '.Plural::choose($record->overdueDays(), 'день', 'дня', 'дней'),
+                    })
                     ->badge()
                     ->color('danger')
                     ->weight(FontWeight::Bold),
@@ -126,6 +133,13 @@ class OverdueDeals extends Page implements HasTable
                         ? 'норматив '.self::hours((float) ($record->currentStage?->estimated_hours ?? 0)).', стоит '.self::hours($record->hours_on_stage)
                         : ($record->isStageOverdue() ? 'и на этапе дольше нормы' : null)),
 
+                TextColumn::make('measured_at')
+                    ->label('Дата замера')
+                    ->date('d.m.Y')
+                    ->color('danger')
+                    ->weight(FontWeight::SemiBold)
+                    ->visible(fn (): bool => $this->mode === 'measurement'),
+
                 TextColumn::make('due_date')
                     ->label('Срок сдачи')
                     ->date('d.m.Y')
@@ -148,7 +162,11 @@ class OverdueDeals extends Page implements HasTable
             ])
             ->emptyStateIcon('heroicon-o-check-badge')
             ->emptyStateHeading('Просроченных нет')
-            ->emptyStateDescription($this->mode === 'stage' ? 'Все сделки укладываются в нормативы этапов.' : 'Все открытые сделки в срок.');
+            ->emptyStateDescription(match ($this->mode) {
+                'stage' => 'Все сделки укладываются в нормативы этапов.',
+                'measurement' => 'Все назначенные замеры проведены вовремя.',
+                default => 'Все открытые сделки в срок.',
+            });
     }
 
     /** Цех видит только наряды — как и в остальной панели. */

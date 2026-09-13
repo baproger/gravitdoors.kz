@@ -38,7 +38,7 @@ class DealsTable
             // Этап, наряд и менеджер — одним запросом на страницу, а не по запросу на строку:
             // пометка «ждёт завод» и имя ответственного есть в каждой строке.
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['currentStage', 'manager', 'productionOrder.currentStage']))
-            ->recordClasses(fn (Deal $record): ?string => self::isOverdue($record) ? 'dl-row--overdue' : null)
+            ->recordClasses(fn (Deal $record): ?string => self::isOverdue($record) || $record->isMeasurementOverdue() ? 'dl-row--overdue' : null)
             ->columns([
                 // Строка из блоков вместо десяти колонок: название больше не сжимается
                 // до 90 px с переносом на пять строк, а на телефоне блоки встают
@@ -96,7 +96,7 @@ class DealsTable
                             ->label('На этапе')
                             ->state(fn (Deal $record): ?string => self::stageNote($record))
                             ->color(fn (Deal $record): string => match (true) {
-                                $record->status_id === DealStatus::Cancelled => 'danger',
+                                $record->status_id === DealStatus::Cancelled, $record->isMeasurementOverdue() => 'danger',
                                 $record->activeProductionOrder() !== null => 'info',
                                 default => 'gray',
                             })
@@ -339,6 +339,10 @@ class DealsTable
     {
         if ($record->status_id->isClosed()) {
             return $record->status_id->getLabel();
+        }
+
+        if ($record->isMeasurementOverdue()) {
+            return 'замер просрочен на '.$record->measurementOverdueDays().' дн.';
         }
 
         if ($order = $record->activeProductionOrder()) {

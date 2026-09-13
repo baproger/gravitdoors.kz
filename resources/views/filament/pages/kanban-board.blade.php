@@ -108,7 +108,7 @@
                                 @dragstart="start($event, {{ $deal->id }})"
                                 @dragend="draggingId = null; overStage = null"
                                 :class="draggingId === {{ $deal->id }} && 'gravit-card--dragging'"
-                                class="gravit-card {{ $deal->isOverdue() ? 'gravit-card--overdue' : '' }}"
+                                class="gravit-card {{ $deal->isOverdue() || $deal->isMeasurementOverdue() ? 'gravit-card--overdue' : '' }}"
                                 wire:key="deal-{{ $deal->id }}"
                             >
                                 <div class="gravit-card__top">
@@ -155,6 +155,12 @@
                                         </span>
                                     @endif
                                 </div>
+
+                                @if ($deal->isMeasurementOverdue())
+                                    <p class="gravit-card__alert" title="Дата замера {{ $deal->measured_at->format('d.m.Y') }} прошла, сделка не продвинулась">
+                                        Замер просрочен {{ $deal->measurementOverdueDays() }} дн.
+                                    </p>
+                                @endif
 
                                 @if ($waiting)
                                     <p class="gravit-card__waiting" title="Дальше сделку переведёт производство">

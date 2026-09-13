@@ -73,6 +73,40 @@ class OverdueDealsTest extends TestCase
             ->assertCanNotSeeTableRecords([$fresh]);
     }
 
+    public function test_measurement_is_overdue_only_before_the_stage_that_needs_it(): void
+    {
+        // Дата замера прошла, сделка ещё на «Замере» — замерщик не съездил.
+        $missed = $this->deal('Не замерили', now()->addDays(10));
+        $missed->forceFill(['measured_at' => now()->subDays(2), 'current_stage_id' => $this->stage('measurement')->id])->saveQuietly();
+
+        // Та же дата в прошлом, но сделка уже на договоре — замер был, это история.
+        $done = $this->deal('Замер был', now()->addDays(10));
+        $done->forceFill(['measured_at' => now()->subDays(2), 'current_stage_id' => $this->stage('contract')->id])->saveQuietly();
+
+        $this->assertTrue($missed->refresh()->isMeasurementOverdue());
+        $this->assertSame(2, $missed->measurementOverdueDays());
+        $this->assertFalse($done->refresh()->isMeasurementOverdue());
+
+        Livewire::test(OverdueDeals::class)
+            ->set('mode', 'measurement')
+            ->assertCanSeeTableRecords([$missed])
+            ->assertCanNotSeeTableRecords([$done])
+            ->assertSee('2 дня');
+
+        // Считается в бейдже вместе с просроченным сроком сдачи.
+        $this->assertSame('1', OverdueDeals::getNavigationBadge());
+    }
+
+    public function test_missed_measurement_is_red_on_kanban_card_and_list(): void
+    {
+        $deal = $this->deal('Пропущен замер', now()->addDays(10));
+        $deal->forceFill(['measured_at' => now()->subDays(3), 'current_stage_id' => $this->stage('measurement')->id])->saveQuietly();
+
+        $this->get('/admin/kanban/sales')->assertOk()->assertSee('Замер просрочен 3 дн.');
+        $this->get("/admin/deals/{$deal->id}/edit")->assertOk()->assertSee('прошло 3 дня');
+        $this->get('/admin/deals')->assertOk()->assertSee('замер просрочен на 3 дн.');
+    }
+
     public function test_overdue_is_red_on_kanban_and_in_the_card(): void
     {
         $deal = $this->deal('Горит', now()->subDays(4));

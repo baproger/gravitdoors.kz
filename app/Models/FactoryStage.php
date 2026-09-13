@@ -172,6 +172,20 @@ class FactoryStage extends Model
             ->first();
     }
 
+    /**
+     * Этап, для входа на который нужен проведённый замер. До него дата замера
+     * в прошлом означает «замерщик не съездил», после — просто история.
+     */
+    public static function measurementGate(): ?self
+    {
+        return static::query()
+            ->ofPipeline(PipelineType::Sales)
+            ->active()
+            ->ordered()
+            ->get()
+            ->first(fn (self $stage): bool => in_array(StageRequirement::MeasuredAt->value, $stage->required_fields ?? [], true));
+    }
+
     /** Первый этап воронки: явно помеченный is_initial, иначе самый верхний по порядку. */
     public static function firstOf(PipelineType $type): ?self
     {

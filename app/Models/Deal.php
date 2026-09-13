@@ -413,6 +413,44 @@ class Deal extends Model
         return $this->isOverdue() ? (int) $this->due_date->diffInDays(today()) : 0;
     }
 
+    /**
+     * Замер назначен, дата прошла, а сделка так и не дошла до этапа, которому
+     * замер нужен. Если ни один этап замера не требует — не отслеживается.
+     */
+    public function isMeasurementOverdue(): bool
+    {
+        if ($this->isFactoryOrder() || $this->measured_at === null || $this->status_id->isClosed() || ! $this->measured_at->lt(today())) {
+            return false;
+        }
+
+        $gate = FactoryStage::measurementGate();
+
+        return $gate !== null && ($this->currentStage?->order ?? 0) < $gate->order;
+    }
+
+    public function measurementOverdueDays(): int
+    {
+        return $this->isMeasurementOverdue() ? (int) $this->measured_at->diffInDays(today()) : 0;
+    }
+
+    /** Открытые сделки с просроченным замером — самые давние первыми. */
+    public function scopeMeasurementOverdue(Builder $query): void
+    {
+        $gate = FactoryStage::measurementGate();
+
+        if ($gate === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->sales()->open()
+            ->whereNotNull('measured_at')
+            ->whereDate('measured_at', '<', today())
+            ->whereHas('currentStage', fn (Builder $q) => $q->where('order', '<', $gate->order))
+            ->orderBy('measured_at');
+    }
+
     /** Стоит на этапе дольше норматива (estimated_hours этапа, если он задан). */
     public function isStageOverdue(): bool
     {
