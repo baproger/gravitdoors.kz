@@ -90,7 +90,8 @@ class DemoDataSeeder extends Seeder
                 'stage' => 'new', 'status' => DealStatus::New, 'prepayment' => 0,
             ],
             [
-                'title' => 'Частный дом, Каскелен', 'name' => 'Марина Ким', 'phone' => '+7 (705) 444-55-66',
+                // Просроченная: чтобы «Просроченные» и красные метки было на чём показать.
+                'title' => 'Частный дом, Каскелен', 'name' => 'Марина Ким', 'phone' => '+7 (705) 444-55-66', 'due' => now()->subDays(4),
                 'email' => 'm.kim@gmail.com', 'city' => 'Каскелен', 'source' => DealSource::Recommendation,
                 'address' => 'мкр. Алатау, ул. Абая 12',
                 'stage' => 'measurement', 'status' => DealStatus::InWork, 'prepayment' => 0,
@@ -138,7 +139,7 @@ class DemoDataSeeder extends Seeder
                     'pipeline_type' => PipelineType::Sales,
                     'current_stage_id' => $stages[$row['stage']]->id,
                     'manager_id' => $manager->id,
-                    'due_date' => now()->addDays(random_int(7, 25)),
+                    'due_date' => $row['due'] ?? now()->addDays(random_int(7, 25)),
                 ],
             );
 

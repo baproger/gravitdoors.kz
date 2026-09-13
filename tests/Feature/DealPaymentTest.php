@@ -138,6 +138,7 @@ class DealPaymentTest extends TestCase
             'client_name' => 'Клиент',
             'client_phone' => '+7 (700) 000-00-00',
             'total_price' => 300_000,
+            'due_date' => now()->addWeeks(2),
             'status_id' => DealStatus::InWork,
             'pipeline_type' => PipelineType::Sales,
             'current_stage_id' => FactoryStage::query()->ofPipeline(PipelineType::Sales)->where('code', 'contract')->value('id'),

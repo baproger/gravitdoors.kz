@@ -81,7 +81,16 @@
                                 @php($configs = $order->configurations())
                                 @php($late = $order->hours_on_stage > (float) $stage->estimated_hours && (float) $stage->estimated_hours > 0)
 
-                                <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                                <article @class([
+                                    'rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900',
+                                    'border-rose-400 ring-2 ring-rose-200 dark:border-rose-500 dark:ring-rose-900' => $order->isOverdue(),
+                                    'border-slate-200 dark:border-slate-700' => ! $order->isOverdue(),
+                                ])>
+                                    @if ($order->isOverdue())
+                                        <p class="mb-2 rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
+                                            Срок сдачи прошёл — просрочка {{ $order->overdueDays() }} дн.
+                                        </p>
+                                    @endif
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-xs font-bold tracking-wide text-slate-400">{{ $order->number }}</span>
                                         <span @class([

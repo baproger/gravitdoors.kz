@@ -399,6 +399,45 @@ class Deal extends Model
     }
 
     /** Сколько часов сделка стоит на текущем этапе — для «⏱» на канбане. */
+    /** Срок сдачи прошёл, а сделка ещё открыта. У закрытой срок уже не важен. */
+    public function isOverdue(): bool
+    {
+        return $this->due_date !== null
+            && ! $this->status_id->isClosed()
+            && $this->due_date->lt(today());
+    }
+
+    /** На сколько дней просрочен срок сдачи; 0 — не просрочен. */
+    public function overdueDays(): int
+    {
+        return $this->isOverdue() ? (int) $this->due_date->diffInDays(today()) : 0;
+    }
+
+    /** Стоит на этапе дольше норматива (estimated_hours этапа, если он задан). */
+    public function isStageOverdue(): bool
+    {
+        $limit = (float) ($this->currentStage?->estimated_hours ?? 0);
+
+        return $limit > 0
+            && ! $this->status_id->isClosed()
+            && $this->stage_entered_at !== null
+            && $this->hours_on_stage > $limit;
+    }
+
+    /** На сколько часов превышен норматив этапа; 0 — в норме. */
+    public function stageOverdueHours(): float
+    {
+        return $this->isStageOverdue()
+            ? round($this->hours_on_stage - (float) $this->currentStage->estimated_hours, 1)
+            : 0.0;
+    }
+
+    /** Открытые сделки и наряды с прошедшим сроком сдачи — самые просроченные первыми. */
+    public function scopeOverdue(Builder $query): void
+    {
+        $query->open()->whereNotNull('due_date')->whereDate('due_date', '<', today())->orderBy('due_date');
+    }
+
     public function getHoursOnStageAttribute(): float
     {
         return $this->stage_entered_at ? round($this->stage_entered_at->diffInMinutes(now()) / 60, 1) : 0.0;

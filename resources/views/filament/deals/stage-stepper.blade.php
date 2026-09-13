@@ -70,7 +70,8 @@
                 <span class="gravit-step__name">{{ $stage->name }}</span>
 
                 @if ($isCurrent && $record->hours_on_stage >= 1)
-                    <span class="gravit-step__timer">{{ $record->hours_on_stage }} ч</span>
+                    <span @class(['gravit-step__timer', 'gravit-step__timer--late' => $record->isStageOverdue()])
+                          title="{{ $record->isStageOverdue() ? 'Дольше норматива на '.$record->stageOverdueHours().' ч' : '' }}">{{ $record->hours_on_stage }} ч</span>
                 @endif
 
                 @if ($isNext && $missing !== [])
@@ -81,6 +82,12 @@
             </button>
         @endforeach
     </div>
+
+    @if ($record->isOverdue())
+        <p class="gravit-stepper__hint gravit-stepper__hint--overdue">
+            Срок сдачи {{ $record->due_date->format('d.m.Y') }} прошёл — просрочка {{ $record->overdueDays() }} {{ \App\Support\Plural::choose($record->overdueDays(), 'день', 'дня', 'дней') }}.
+        </p>
+    @endif
 
     @if ($waitingOrder)
         {{-- Фраза собирается целиком: с @if посреди текста перед точкой оставался пробел. --}}

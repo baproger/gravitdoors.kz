@@ -108,13 +108,14 @@
                                 @dragstart="start($event, {{ $deal->id }})"
                                 @dragend="draggingId = null; overStage = null"
                                 :class="draggingId === {{ $deal->id }} && 'gravit-card--dragging'"
-                                class="gravit-card"
+                                class="gravit-card {{ $deal->isOverdue() ? 'gravit-card--overdue' : '' }}"
                                 wire:key="deal-{{ $deal->id }}"
                             >
                                 <div class="gravit-card__top">
                                     <span class="gravit-card__number">{{ $deal->number }}</span>
                                     @if ($deal->hours_on_stage >= 1)
-                                        <span class="gravit-card__timer">⏱ {{ $deal->hours_on_stage }} ч</span>
+                                        <span @class(['gravit-card__timer', 'gravit-card__timer--late' => $deal->isStageOverdue()])
+                                              title="{{ $deal->isStageOverdue() ? 'На этапе дольше норматива на '.$deal->stageOverdueHours().' ч' : 'На этапе' }}">⏱ {{ $deal->hours_on_stage }} ч</span>
                                     @endif
                                 </div>
 
@@ -148,9 +149,9 @@
                                     @if ($deal->due_date)
                                         <span @class([
                                             'gravit-card__due',
-                                            'gravit-card__due--late' => $deal->due_date->isPast(),
-                                        ])>
-                                            {{ $deal->due_date->format('d.m') }}
+                                            'gravit-card__due--late' => $deal->isOverdue(),
+                                        ]) title="{{ $deal->isOverdue() ? 'Срок сдачи прошёл' : 'Срок сдачи' }}">
+                                            {{ $deal->isOverdue() ? 'просрочено '.$deal->overdueDays().' дн.' : $deal->due_date->format('d.m') }}
                                         </span>
                                     @endif
                                 </div>
