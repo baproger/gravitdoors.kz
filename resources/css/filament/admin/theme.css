@@ -1851,3 +1851,495 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 .fi-no-notification-body {
     font-size: var(--gd-font-sm);
 }
+
+/* ==========================================================================
+   Настройка воронок (как в Битрикс24)
+   ========================================================================== */
+
+/* Палитра этапов — те же названия цветов, что у колонок канбана. */
+.gp-row,
+.gp-flow__chip,
+.gp-color__swatch {
+    --stage: rgb(148 163 184);
+}
+
+[data-color='gray'] { --stage: rgb(148 163 184); }
+[data-color='info'] { --stage: rgb(14 165 233); }
+[data-color='primary'] { --stage: rgb(47 111 237); }
+[data-color='success'] { --stage: rgb(22 163 74); }
+[data-color='warning'] { --stage: rgb(217 119 6); }
+[data-color='danger'] { --stage: rgb(225 29 72); }
+
+.gp {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gd-page-gap, 1rem);
+}
+
+/* ---------- Вкладки воронок ---------- */
+
+.gp-tabs {
+    display: inline-flex;
+    align-self: flex-start;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--gs-line-soft);
+    border-radius: 0.75rem;
+    background: var(--gs-2);
+}
+
+.gp-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.55rem;
+    color: var(--gravit-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.gp-tab:hover { color: var(--gravit-text); }
+
+.gp-tab--active {
+    background: var(--gs-1);
+    color: var(--gravit-text);
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+}
+
+.gp-tab__icon { width: 1rem; height: 1rem; }
+
+.gp-tab__count {
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: var(--gs-2);
+    color: var(--gravit-muted);
+    font-size: 0.6875rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.gp-tab--active .gp-tab__count {
+    background: rgb(47 111 237 / 0.1);
+    color: rgb(37 99 235);
+}
+
+/* ---------- Превью воронки ---------- */
+
+.gp-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.625rem 0.875rem;
+    background: var(--gs-1);
+    border: 1px solid var(--gs-line);
+    border-radius: var(--gs-r-1, 1rem);
+    box-shadow: var(--gs-shadow);
+}
+
+.gp-flow__label {
+    color: var(--gravit-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.gp-flow__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.gp-flow__chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.6rem;
+    border: 1px solid color-mix(in srgb, var(--stage) 35%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--stage) 12%, transparent);
+    color: var(--gravit-text);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.gp-flow__chip--final {
+    border-style: dashed;
+}
+
+.gp-flow__arrow {
+    color: var(--gravit-muted);
+    font-size: 0.875rem;
+}
+
+.gp-flow__bolt { font-size: 0.7rem; }
+
+.gp-alert {
+    padding: 0.55rem 0.8rem;
+    border: 1px solid rgb(217 119 6 / 0.3);
+    border-radius: 0.75rem;
+    background: rgb(217 119 6 / 0.08);
+    color: rgb(146 64 14);
+    font-size: 0.8125rem;
+}
+
+.dark .gp-alert { color: rgb(252 211 77); }
+
+/* ---------- Группы ---------- */
+
+.gp-groups {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--gd-page-gap, 1rem);
+    align-items: start;
+}
+
+@media (min-width: 1440px) {
+    .gp-groups {
+        grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    }
+}
+
+.gp-group {
+    padding: 0.75rem;
+    background: var(--gs-1);
+    border: 1px solid var(--gs-line);
+    border-radius: var(--gs-r-1, 1rem);
+    box-shadow: var(--gs-shadow);
+}
+
+.gp-group__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 0.75rem;
+    margin-bottom: 0.5rem;
+    padding-inline: 0.25rem;
+}
+
+.gp-group__title {
+    color: var(--gravit-text);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.gp-group__count {
+    margin-inline-start: 0.25rem;
+    color: var(--gravit-muted);
+    font-weight: 500;
+}
+
+.gp-group__hint {
+    color: var(--gravit-muted);
+    font-size: 0.75rem;
+}
+
+.gp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* ---------- Строка этапа ---------- */
+
+.gp-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.375rem 0.375rem 0.25rem;
+    border: 1px solid var(--gs-line-soft);
+    border-inline-start: 4px solid var(--stage);
+    border-radius: 0.625rem;
+    background: var(--gs-2);
+    transition: box-shadow 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+}
+
+.gp-row:hover {
+    background: var(--gs-1);
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
+}
+
+/* Линия над строкой показывает, куда встанет перетаскиваемый этап. */
+.gp-row--over {
+    box-shadow: 0 -3px 0 0 rgb(47 111 237);
+}
+
+.gp-row--dragging { opacity: 0.45; }
+
+.gp-row--hidden .gp-row__name,
+.gp-row--hidden .gp-color__dot {
+    opacity: 0.55;
+}
+
+.gp-row__handle {
+    padding: 0.25rem 0.2rem;
+    color: var(--gravit-muted);
+    font-size: 0.8125rem;
+    letter-spacing: -0.2em;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.gp-row__handle:active { cursor: grabbing; }
+
+.gp-color { position: relative; }
+
+.gp-color__dot {
+    display: block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--gs-1);
+    border-radius: 999px;
+    background: var(--stage);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--stage) 45%, transparent);
+    cursor: pointer;
+}
+
+.gp-color__palette {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: -0.4rem;
+    z-index: 30;
+    display: flex;
+    gap: 0.3rem;
+    padding: 0.4rem;
+    border: 1px solid var(--gs-line);
+    border-radius: 0.625rem;
+    background: var(--gs-1);
+    box-shadow: 0 12px 28px -12px rgb(15 23 42 / 0.35);
+}
+
+.gp-color__swatch {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 999px;
+    background: var(--stage);
+    cursor: pointer;
+    transition: transform 0.1s ease;
+}
+
+.gp-color__swatch:hover { transform: scale(1.12); }
+
+.gp-color__swatch.is-current {
+    outline: 2px solid var(--stage);
+    outline-offset: 2px;
+}
+
+.gp-row__main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.gp-row__name {
+    width: 100%;
+    padding: 0.3rem 0.45rem;
+    border: 1px solid transparent;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--gravit-text);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.gp-row__name:hover { border-color: var(--gs-line); }
+
+.gp-row__name:focus {
+    border-color: rgb(47 111 237);
+    background: var(--gs-1);
+    box-shadow: 0 0 0 3px rgb(47 111 237 / 0.15);
+}
+
+.gp-row__desc {
+    padding-inline: 0.45rem;
+    overflow: hidden;
+    color: var(--gravit-muted);
+    font-size: 0.71875rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gp-row__meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.25rem;
+}
+
+.gp-chip {
+    padding: 0.1rem 0.45rem;
+    border: 1px solid var(--gs-line-soft);
+    border-radius: 999px;
+    background: var(--gs-1);
+    color: var(--gravit-text);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.gp-chip--muted { color: var(--gravit-muted); }
+.gp-chip--strong { font-weight: 700; }
+
+.gp-chip--warning {
+    border-color: rgb(217 119 6 / 0.3);
+    background: rgb(217 119 6 / 0.1);
+    color: rgb(146 64 14);
+}
+
+.gp-chip--success {
+    border-color: rgb(22 163 74 / 0.3);
+    background: rgb(22 163 74 / 0.1);
+    color: rgb(21 128 61);
+}
+
+.dark .gp-chip--warning { color: rgb(252 211 77); }
+.dark .gp-chip--success { color: rgb(134 239 172); }
+
+.gp-row__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+}
+
+.gp-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.45rem;
+    color: var(--gravit-muted);
+    font-size: 0.8125rem;
+    line-height: 1;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.gp-icon-btn:hover:not(:disabled) {
+    border-color: var(--gs-line);
+    background: var(--gs-1);
+    color: var(--gravit-text);
+}
+
+.gp-icon-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.gp-icon { width: 1rem; height: 1rem; }
+
+.gp-menu { position: relative; }
+
+.gp-menu__list {
+    position: absolute;
+    top: calc(100% + 0.3rem);
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    min-width: 15rem;
+    padding: 0.25rem;
+    border: 1px solid var(--gs-line);
+    border-radius: 0.625rem;
+    background: var(--gs-1);
+    box-shadow: 0 16px 36px -14px rgb(15 23 42 / 0.4);
+}
+
+.gp-menu__item {
+    padding: 0.45rem 0.6rem;
+    border-radius: 0.45rem;
+    color: var(--gravit-text);
+    font-size: 0.8125rem;
+    text-align: start;
+}
+
+.gp-menu__item:hover { background: var(--gs-2); }
+
+.gp-menu__item--danger { color: rgb(225 29 72); }
+.gp-menu__item--danger:hover { background: rgb(225 29 72 / 0.08); }
+
+.gp-empty {
+    padding: 0.75rem;
+    border: 1px dashed var(--gs-line);
+    border-radius: 0.625rem;
+    color: var(--gravit-muted);
+    font-size: 0.75rem;
+    text-align: center;
+}
+
+/* ---------- Добавление этапа ---------- */
+
+.gp-add {
+    display: flex;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+}
+
+.gp-add__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    border: 1px dashed var(--gs-line);
+    border-radius: 0.625rem;
+    background: transparent;
+    color: var(--gravit-text);
+    font-size: 0.8125rem;
+    outline: none;
+}
+
+.gp-add__input:focus {
+    border-style: solid;
+    border-color: rgb(47 111 237);
+    background: var(--gs-1);
+    box-shadow: 0 0 0 3px rgb(47 111 237 / 0.15);
+}
+
+.gp-add__btn {
+    flex: 0 0 auto;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid rgb(47 111 237 / 0.35);
+    border-radius: 0.625rem;
+    color: rgb(37 99 235);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    transition: background 0.15s ease;
+}
+
+.gp-add__btn:hover { background: rgb(47 111 237 / 0.08); }
+
+/* ---------- Телефон ---------- */
+
+@media (max-width: 639px) {
+    .gp-tabs { align-self: stretch; }
+    .gp-tab { flex: 1 1 0; justify-content: center; }
+
+    /* Строка в две линии: название с цветом сверху, метки и кнопки снизу. */
+    .gp-row {
+        grid-template-columns: auto auto minmax(0, 1fr);
+        grid-template-areas:
+            "handle color main"
+            "meta meta actions";
+        row-gap: 0.25rem;
+    }
+
+    .gp-row__handle { grid-area: handle; }
+    .gp-color { grid-area: color; }
+    .gp-row__main { grid-area: main; }
+    .gp-row__meta { grid-area: meta; justify-content: flex-start; padding-inline-start: 0.25rem; }
+    .gp-row__actions { grid-area: actions; }
+
+    .gp-icon-btn { width: 2.25rem; height: 2.25rem; }
+}

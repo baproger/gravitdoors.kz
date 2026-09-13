@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\FactoryStages;
 
-use App\Filament\Resources\FactoryStages\Pages\ManageFactoryStages;
-use App\Filament\Resources\FactoryStages\Schemas\FactoryStageForm;
-use App\Filament\Resources\FactoryStages\Tables\FactoryStagesTable;
+use App\Filament\Resources\FactoryStages\Pages\PipelineStages;
 use App\Models\FactoryStage;
 use BackedEnum;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Table;
 use UnitEnum;
 
 /**
- * Конструктор воронок: добавление, сортировка и переименование этапов
- * обеих воронок без правки кода. Здесь же включаются флаги автоматизации
- * «передать в производство» и «завершает производство».
+ * Настройка воронок продаж и завода.
+ *
+ * У ресурса одна страница — конструктор воронок. Таблица и форма со
+ * служебными полями «Порядок» и «Код» убраны: порядок задаётся
+ * перетаскиванием, код генерируется сам, а правила целостности живут
+ * в PipelineStageService.
  */
 class FactoryStageResource extends Resource
 {
@@ -38,20 +37,10 @@ class FactoryStageResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
-    public static function form(Schema $schema): Schema
-    {
-        return FactoryStageForm::configure($schema);
-    }
-
-    public static function table(Table $table): Table
-    {
-        return FactoryStagesTable::configure($table);
-    }
-
     public static function getPages(): array
     {
         return [
-            'index' => ManageFactoryStages::route('/'),
+            'index' => PipelineStages::route('/'),
         ];
     }
 }
