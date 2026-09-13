@@ -6,6 +6,7 @@ use App\Models\User;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Pages\BasePage;
 use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Table;
@@ -58,6 +59,11 @@ class AppServiceProvider extends ServiceProvider
         // Компактные секции: шапка тоньше, воздуха меньше — форма помещается
         // на экран без прокрутки.
         Section::configureUsing(fn (Section $section) => $section->compact());
+
+        // «Сохранить / Отмена» прилипают к низу экрана. У карточки сделки правая
+        // колонка выше формы, и кнопки оказывались далеко под вкладками —
+        // приходилось листать вниз, чтобы сохранить правку в первом же поле.
+        BasePage::stickyFormActions();
 
         // Без deferLoading: отложенная загрузка экономит доли секунды, но строки
         // приезжают вторым запросом — таблица моргает, а страница отдаётся пустой.

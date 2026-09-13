@@ -583,133 +583,6 @@
 
 .dark .gravit-stepper__hint { color: rgb(252 211 77); }
 
-/* ---------- Блоки формы: лёгкий градиент вместо плоской заливки ---------- */
-
-/*
-   Секции стояли встык одинаково белые и сливались в одно полотно. Мягкий
-   вертикальный градиент отделяет блок от фона, не превращая форму в пестроту.
- */
-.fi-sc-section,
-.fi-section {
-    background-image: linear-gradient(
-        180deg,
-        rgb(255 255 255) 0%,
-        rgb(248 250 252) 55%,
-        rgb(236 242 250) 100%
-    );
-    border-color: rgb(15 23 42 / 0.1);
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 10px 24px -18px rgb(15 23 42 / 0.35);
-}
-
-/* Заголовок блока на тон светлее тела — граница шапки читается без линейки. */
-.fi-sc-section > header,
-.fi-section > header {
-    background-image: linear-gradient(180deg, rgb(255 255 255) 0%, rgb(252 253 255) 100%);
-}
-
-.dark .fi-sc-section > header,
-.dark .fi-section > header {
-    background-image: none;
-}
-
-.dark .fi-sc-section,
-.dark .fi-section {
-    background-image: linear-gradient(
-        180deg,
-        rgb(51 65 85 / 0.45) 0%,
-        rgb(30 41 59 / 0.35) 45%,
-        rgb(15 23 42 / 0.25) 100%
-    );
-}
-
-/* Вложенный блок внутри позиции двери — на тон холоднее, чтобы читалась
-   вложенность: «Изделие» и «Характеристики» лежат внутри карточки позиции. */
-.fi-fo-repeater-item .fi-sc-section,
-.fi-fo-repeater-item .fi-section {
-    background-image: linear-gradient(
-        180deg,
-        rgb(244 247 251) 0%,
-        rgb(249 251 253) 100%
-    );
-    box-shadow: none;
-}
-
-.dark .fi-fo-repeater-item .fi-sc-section,
-.dark .fi-fo-repeater-item .fi-section {
-    background-image: linear-gradient(
-        180deg,
-        rgb(30 41 59 / 0.55) 0%,
-        rgb(15 23 42 / 0.3) 100%
-    );
-}
-
-/* Карточка позиции: слева тонкая цветная кромка — видно границу позиций. */
-.fi-fo-repeater-item {
-    background-image: linear-gradient(
-        180deg,
-        rgb(255 255 255) 0%,
-        rgb(246 249 253) 100%
-    );
-    border-inline-start: 3px solid rgb(47 111 237 / 0.4);
-}
-
-.dark .fi-fo-repeater-item {
-    background-image: linear-gradient(
-        180deg,
-        rgb(51 65 85 / 0.4) 0%,
-        rgb(15 23 42 / 0.25) 100%
-    );
-}
-
-/* Bento-плитки и колонки канбана — тот же приём, чтобы стиль был единым. */
-.gravit-tile {
-    background-image: linear-gradient(
-        180deg,
-        rgb(255 255 255) 0%,
-        rgb(245 248 252) 100%
-    );
-}
-
-.dark .gravit-tile {
-    background-image: linear-gradient(
-        180deg,
-        rgb(51 65 85 / 0.45) 0%,
-        rgb(15 23 42 / 0.25) 100%
-    );
-}
-
-.gravit-column {
-    background-image: linear-gradient(
-        180deg,
-        rgb(255 255 255 / 0.7) 0%,
-        rgb(241 245 249 / 0.35) 100%
-    );
-}
-
-.dark .gravit-column {
-    background-image: linear-gradient(
-        180deg,
-        rgb(51 65 85 / 0.35) 0%,
-        rgb(15 23 42 / 0.2) 100%
-    );
-}
-
-.gravit-card {
-    background-image: linear-gradient(
-        180deg,
-        rgb(255 255 255 / 0.92) 0%,
-        rgb(248 250 252 / 0.7) 100%
-    );
-}
-
-.dark .gravit-card {
-    background-image: linear-gradient(
-        180deg,
-        rgb(51 65 85 / 0.6) 0%,
-        rgb(30 41 59 / 0.4) 100%
-    );
-}
-
 /* ---------- Кнопки перемещения карточки ---------- */
 
 .gravit-card__move {
@@ -1252,26 +1125,249 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     font-size: 1.25rem;
 }
 
-/* ---------- Плотность форм и модалок ---------- */
+/* ==========================================================================
+   Система поверхностей
+   --------------------------------------------------------------------------
+   Раньше градиент, тень и скругление вешались на каждый слой отдельно:
+   секция внутри вкладки внутри карточки — три фона, три тени и радиусы
+   8/12/16 px вперемешку. Блоки сливались в кашу.
 
-/* Заголовок секции ближе к полям: в компактном режиме Filament оставляет
-   шапке столько же воздуха, сколько всей форме. */
-.fi-sc-section.fi-compact > header {
-    padding-block: 0.6rem;
+   Теперь три уровня, и каждый отличается от соседнего одним признаком:
+     1 — карточка страницы: белая, рамка, мягкая тень, лёгкий градиент;
+     2 — блок внутри карточки: плоский светло-серый, без тени;
+     3 — блок внутри блока: снова белый, чтобы вложенность читалась.
+   ========================================================================== */
+
+:root {
+    --gs-page: rgb(243 245 249);
+    --gs-1: rgb(255 255 255);
+    --gs-1-end: rgb(251 252 254);
+    --gs-2: rgb(247 249 252);
+    --gs-3: rgb(255 255 255);
+    --gs-line: rgb(15 23 42 / 0.08);
+    --gs-line-soft: rgb(15 23 42 / 0.055);
+    --gs-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 12px 32px -20px rgb(15 23 42 / 0.22);
+    --gs-r-1: 1rem;
+    --gs-r-2: 0.75rem;
+    --gs-r-3: 0.625rem;
+    --gs-gap: 1.5rem;
 }
 
-.fi-modal-window .fi-sc-section {
+.dark {
+    --gs-page: rgb(9 12 20);
+    --gs-1: rgb(24 30 43);
+    --gs-1-end: rgb(20 26 38);
+    --gs-2: rgb(17 22 33);
+    --gs-3: rgb(26 33 47);
+    --gs-line: rgb(148 163 184 / 0.14);
+    --gs-line-soft: rgb(148 163 184 / 0.1);
+    --gs-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 12px 32px -20px rgb(0 0 0 / 0.7);
+}
+
+/* Фон страницы на тон темнее карточек — белое на белом не отделяется. */
+.fi-body {
+    background-color: var(--gs-page);
+    background-image: radial-gradient(1200px 400px at 70% -120px, rgb(47 111 237 / 0.06), transparent 70%);
+    background-attachment: fixed;
+}
+
+/* Ритм страницы: один отступ между всеми крупными блоками. */
+.fi-page-content {
+    row-gap: var(--gs-gap);
+}
+
+/* ---------- Уровень 1: карточки страницы ---------- */
+
+.fi-section,
+.fi-sc-tabs.fi-contained,
+.fi-ta-ctn,
+.fi-wi-stats-overview-stat,
+.gravit-tile,
+.gravit-stepper {
+    background-color: var(--gs-1);
+    background-image: linear-gradient(180deg, var(--gs-1) 0%, var(--gs-1-end) 100%);
+    border: 1px solid var(--gs-line);
+    border-radius: var(--gs-r-1);
+    box-shadow: var(--gs-shadow);
+    --tw-ring-shadow: 0 0 #0000;
+}
+
+.fi-section,
+.fi-sc-tabs.fi-contained,
+.fi-ta-ctn {
+    overflow: clip;
+}
+
+/* Шапка карточки: без своей заливки, отделена линией. Своя заливка шапки
+   давала ступеньку в углах и «срезала» верх у сводки. */
+.fi-section-header {
+    background: transparent;
+    border-bottom: 1px solid var(--gs-line-soft);
+}
+
+.fi-section.fi-collapsed .fi-section-header {
+    border-bottom-color: transparent;
+}
+
+.fi-section-header-heading {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+}
+
+.fi-section-header-description {
+    margin-top: 0.125rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+}
+
+/* Навигация вкладок отделена от содержимого линией, а не фоном. */
+.fi-sc-tabs.fi-contained > .fi-tabs {
+    border-bottom: 1px solid var(--gs-line-soft);
+    background: transparent;
+}
+
+/* ---------- Уровень 2: блоки внутри карточки ---------- */
+
+.fi-sc-tabs .fi-section,
+.fi-section .fi-section,
+.fi-modal-window .fi-section,
+.fi-fo-repeater-item {
+    background-color: var(--gs-2);
+    background-image: none;
+    border: 1px solid var(--gs-line-soft);
+    border-radius: var(--gs-r-2);
     box-shadow: none;
 }
 
-/* Поля дат и чисел не сжимаются ниже читаемого: в узкой колонке браузер
-   обрезал «05.11.1988» до «05.11.198». */
+/* Позиция в списке (дверь, платёж) — с цветной кромкой: так видно, где
+   кончается одна позиция и начинается следующая. */
+.fi-fo-repeater-item {
+    border-inline-start: 3px solid rgb(47 111 237 / 0.45);
+}
+
+.fi-fo-repeater-item-header {
+    border-bottom: 1px solid var(--gs-line-soft);
+}
+
+.fi-fo-repeater-item.fi-collapsed .fi-fo-repeater-item-header {
+    border-bottom-color: transparent;
+}
+
+.fi-fo-repeater-item-header-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+/* ---------- Уровень 3: блок внутри блока ---------- */
+
+.fi-fo-repeater-item .fi-section,
+.fi-section .fi-section .fi-section {
+    background-color: var(--gs-3);
+    border-color: var(--gs-line-soft);
+    border-radius: var(--gs-r-3);
+}
+
+/* ---------- Модалки ---------- */
+
+.fi-modal-window {
+    border-radius: 1.25rem;
+    box-shadow: 0 24px 64px -24px rgb(15 23 42 / 0.45);
+}
+
+.fi-modal-header {
+    border-bottom: 1px solid var(--gs-line-soft);
+}
+
+.fi-modal-footer {
+    border-top: 1px solid var(--gs-line-soft);
+}
+
+/* ---------- Поля ---------- */
+
+/* Поля дат и чисел не сжимаются ниже читаемого. */
+.fi-fo-field-wrp,
 .fi-fo-date-time-picker input,
 .fi-input[type='date'],
 .fi-input[type='number'] {
     min-width: 0;
 }
 
-.fi-fo-field-wrp {
-    min-width: 0;
+/* ---------- Кнопки формы ---------- */
+
+/* «Сохранить» стоит отдельной строкой под карточками — отступ сверху такой же,
+   как между карточками, а не случайный. */
+.fi-form-actions {
+    margin-top: 0;
+}
+
+/* ---------- Bento-полоса над таблицей ---------- */
+
+.gravit-bento--compact {
+    margin-bottom: 0;
+}
+
+.gravit-bento--compact .gravit-tile {
+    padding: 0.875rem 1.125rem;
+}
+
+.gravit-bento--compact .gravit-tile__value {
+    margin-top: 0.15rem;
+    font-size: 1.25rem;
+}
+
+/* ---------- Канбан: колонки — уровень 2, карточки — уровень 1 ---------- */
+
+.gravit-column {
+    background: var(--gs-2);
+    background-image: none;
+    border: 1px solid var(--gs-line-soft);
+    border-radius: var(--gs-r-1);
+    box-shadow: none;
+}
+
+.gravit-card {
+    background: var(--gs-1);
+    background-image: none;
+    border: 1px solid var(--gs-line);
+    border-radius: var(--gs-r-2);
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+}
+
+.gravit-card:hover {
+    box-shadow: var(--gs-shadow);
+}
+
+@media (max-width: 767px) {
+    :root { --gs-gap: 1rem; }
+
+    .fi-section,
+    .fi-sc-tabs.fi-contained,
+    .fi-ta-ctn,
+    .gravit-tile {
+        border-radius: var(--gs-r-2);
+    }
+}
+
+/* ---------- Закреплённая панель «Сохранить / Отмена» ---------- */
+
+/* Filament делает панель белой и без границ — поверх белой формы она
+   сливалась с полями. Отделяем её как плавающую карточку уровня 1. */
+.fi-sc-actions.fi-sticky > .fi-ac {
+    border: 1px solid var(--gs-line);
+    border-radius: var(--gs-r-1);
+    background: rgb(255 255 255 / 0.86);
+    backdrop-filter: blur(12px) saturate(1.4);
+    box-shadow: 0 -2px 6px rgb(15 23 42 / 0.04), 0 16px 40px -18px rgb(15 23 42 / 0.35);
+    padding: 0.75rem 1rem;
+}
+
+.dark .fi-sc-actions.fi-sticky > .fi-ac {
+    background: rgb(24 30 43 / 0.86);
+}
+
+/* Запас снизу страницы: иначе закреплённая панель закрывает последнее поле
+   и историю сделки, до которых уже не долистать. */
+.fi-page:has(.fi-sc-actions.fi-sticky) .fi-page-content {
+    padding-bottom: 5rem;
 }

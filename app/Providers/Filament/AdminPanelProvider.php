@@ -39,7 +39,11 @@ class AdminPanelProvider extends PanelProvider
             ->profile(EditProfile::class, isSimple: false)
             ->brandName('Gravit ERP')
             ->colors([
-                'primary' => Color::hex('#2F6FED'),
+                // Готовая синяя палитра, а не Color::hex('#2F6FED'): из светлого hex
+                // Filament строил палитру, у которой тёмный тон не проходил проверку
+                // контраста с белым текстом, и кнопки рисовались бледными с тёмной
+                // подписью — «Сохранить» выглядела отключённой.
+                'primary' => Color::Blue,
                 'gray' => Color::Slate,
                 'warning' => Color::Amber,
                 'success' => Color::Emerald,

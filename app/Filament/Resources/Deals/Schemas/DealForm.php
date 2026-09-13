@@ -209,7 +209,9 @@ class DealForm
                     Repeater::make('payments')
                         ->hiddenLabel()
                         ->relationship()
-                        ->columns(['default' => 1, 'md' => 4])
+                        // Три поля в ряд: при четырёх «Kaspi перевод» в выпадающем
+                        // списке переносился на две строки.
+                        ->columns(['default' => 1, 'md' => 3])
                         ->defaultItems(0)
                         ->addActionLabel('Добавить платёж')
                         ->reorderable(false)
@@ -241,7 +243,8 @@ class DealForm
                             TextInput::make('comment')
                                 ->label('Комментарий')
                                 ->placeholder('№ операции, кто платил')
-                                ->maxLength(255),
+                                ->maxLength(255)
+                                ->columnSpanFull(),
 
                             // Без чека платёж не принимаем: бухгалтерии нужно подтверждение,
                             // а «клиент сказал, что перевёл» сверить потом нечем.
