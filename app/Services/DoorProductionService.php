@@ -522,7 +522,8 @@ class DoorProductionService
 
         $options = DoorOption::query()
             ->with('materialStock')
-            ->active()
+            // Без фильтра по активности: дверь делается из того, что в ней
+            // выбрано, даже если позицию уже сняли с продажи.
             ->whereNotNull('material_stock_id')
             ->where(function ($query) use ($selected): void {
                 foreach ($selected as $pair) {

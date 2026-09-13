@@ -129,16 +129,29 @@ class DoorPriceCalculator
     /**
      * Варианты для выпадающих списков конфигуратора.
      *
+     * Снятые с продажи позиции новым дверям не предлагаются. Но если позиция
+     * уже выбрана в двери ($keep), она остаётся в списке с пометкой: Select
+     * проверяет, что значение есть среди вариантов, и без этого форму старой
+     * сделки нельзя было бы сохранить из-за любой мелкой правки.
+     *
+     * @param  list<string>  $keep
      * @return array<string, string>
      */
-    public function optionsFor(DoorOptionCategory $category): array
+    public function optionsFor(DoorOptionCategory $category, array $keep = []): array
     {
+        $keep = array_values(array_filter(array_map('strval', $keep)));
+
         return DoorOption::query()
             ->ofCategory($category)
-            ->active()
+            ->where(fn ($query) => $query
+                ->where('is_active', true)
+                ->when($keep !== [], fn ($q) => $q->orWhereIn('code', $keep)))
             ->orderBy('sort')
             ->orderBy('label')
-            ->pluck('label', 'code')
+            ->get()
+            ->mapWithKeys(fn (DoorOption $option): array => [
+                $option->code => $option->is_active ? $option->label : $option->label.' — снята с продажи',
+            ])
             ->all();
     }
 
@@ -189,9 +202,11 @@ class DoorPriceCalculator
             return collect();
         }
 
+        // Без фильтра по активности: позиция, снятая с продажи, продолжает
+        // считаться там, где уже выбрана. Новым дверям её не предложит список
+        // вариантов (optionsFor), а цена старых заказов не падает молча.
         return DoorOption::query()
             ->with('materialStock')
-            ->active()
             ->where(function ($query) use ($selected): void {
                 foreach ($selected as $category => $codes) {
                     $query->orWhere(fn ($q) => $q->where('category', $category)->whereIn('code', $codes));

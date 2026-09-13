@@ -16,19 +16,23 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
 /**
- * Позиция прайса конфигуратора.
+ * Позиция прайса конфигуратора — окно создания и правки.
  *
- * Раньше это были три отдельные секции на восемь полей — окно прокручивалось
- * ради двух цифр. Теперь основное в одной сетке, а списание со склада —
- * свёрнутый блок: его заполняют не для каждой позиции.
+ * Группа и код при правке заблокированы: по паре «группа + код» позиция
+ * записана в дверях заказов, и их смена молча выбросила бы позицию из расчёта.
+ * Порядок задаётся стрелками в карточке группы, отдельного поля нет.
  */
 class DoorOptionForm
 {
     public static function configure(Schema $schema): Schema
     {
-        // Схема в одну колонку: по умолчанию секции встают рядом и в модалке
-        // сжимают поля до нечитаемых обрубков вроде «12 000» → «1».
-        return $schema->columns(1)->components([
+        return $schema->columns(1)->components(self::components());
+    }
+
+    /** @return list<mixed> */
+    public static function components(bool $editing = false): array
+    {
+        return [
             Section::make()
                 ->columns(4)
                 ->schema([
@@ -37,15 +41,20 @@ class DoorOptionForm
                         ->options(DoorOptionCategory::class)
                         ->required()
                         ->native(false)
+                        ->live()
+                        ->disabled($editing)
+                        ->dehydrated(! $editing)
+                        ->helperText($editing ? 'Группу не меняют: позицию уже могли выбрать в дверях' : null)
                         ->columnSpan(2),
 
                     TextInput::make('label')
                         ->label('Название для менеджера')
                         ->required()
+                        ->minLength(2)
                         ->maxLength(255)
                         ->live(onBlur: true)
-                        ->afterStateUpdated(function (?string $state, callable $set, callable $get): void {
-                            if (blank($get('code')) && filled($state)) {
+                        ->afterStateUpdated(function (?string $state, callable $set, callable $get) use ($editing): void {
+                            if (! $editing && blank($get('code')) && filled($state)) {
                                 $set('code', Str::slug($state, '_'));
                             }
                         })
@@ -68,22 +77,28 @@ class DoorOptionForm
                         ->helperText('«За м²» умножает цену на площадь полотна')
                         ->columnSpan(2),
 
-                    TextInput::make('sort')
-                        ->label('Порядок')
-                        ->numeric()
-                        ->minValue(0)
-                        ->default(0),
+                    Toggle::make('is_active')
+                        ->label('В продаже')
+                        ->default(true)
+                        ->inline(false),
 
                     TextInput::make('code')
                         ->label('Код')
-                        ->required()
                         ->alphaDash()
                         ->maxLength(64)
-                        ->helperText('Технический идентификатор, уникален внутри группы')
+                        ->disabled($editing)
+                        ->dehydrated(! $editing)
+                        ->helperText($editing
+                            ? 'Не меняется: по коду позиция записана в заказах'
+                            : 'Можно оставить пустым — создастся из названия')
                         ->columnSpan(2),
 
-                    Toggle::make('is_default')->label('По умолчанию')->inline(false),
-                    Toggle::make('is_active')->label('Активна')->default(true)->inline(false),
+                    Toggle::make('is_default')
+                        ->label('По умолчанию в новой двери')
+                        ->helperText('В группе такой вариант один')
+                        ->inline(false)
+                        ->visible(fn (Get $get): bool => self::categoryOf($get('category')) !== DoorOptionCategory::Additional)
+                        ->columnSpan(2),
                 ]),
 
             Section::make('Списание со склада')
@@ -104,6 +119,11 @@ class DoorOptionForm
                         ->minValue(0)
                         ->default(0),
                 ]),
-        ]);
+        ];
+    }
+
+    private static function categoryOf(mixed $state): ?DoorOptionCategory
+    {
+        return $state instanceof DoorOptionCategory ? $state : DoorOptionCategory::tryFrom((string) $state);
     }
 }

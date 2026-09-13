@@ -106,7 +106,14 @@ class DoorPriceCalculatorTest extends TestCase
         $this->assertEqualsWithDelta(25_200 + 24_500, $breakdown->estimatedCost, 0.01);
     }
 
-    public function test_inactive_option_is_not_charged(): void
+    /**
+     * Снятая с продажи позиция продолжает считаться там, где уже выбрана.
+     *
+     * Раньше выключенная позиция молча выпадала из расчёта, и при пересохранении
+     * старой сделки её цена падала. Новым дверям такую позицию не предлагает
+     * список вариантов — это проверяет DiscontinuedOptionTest.
+     */
+    public function test_discontinued_option_is_still_charged_where_already_chosen(): void
     {
         DoorOption::query()->where('code', 'metal_1_5')->update(['is_active' => false]);
 
@@ -116,8 +123,8 @@ class DoorPriceCalculatorTest extends TestCase
             'metal_thickness' => 'metal_1_5',
         ]);
 
-        $this->assertSame([], $breakdown->lines);
-        $this->assertEqualsWithDelta(0, $breakdown->optionsTotal, 0.01);
+        $this->assertCount(1, $breakdown->lines);
+        $this->assertEqualsWithDelta(12_500 * 2, $breakdown->optionsTotal, 0.01);
     }
 
     public function test_rounding_step_is_respected(): void

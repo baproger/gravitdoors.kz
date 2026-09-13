@@ -106,8 +106,8 @@ class DoorConfigurationSchema
 
                     CheckboxList::make('additional_options')
                         ->label(DoorOptionCategory::Additional->getLabel())
-                        ->options(fn (): array => self::options(DoorOptionCategory::Additional))
-                        ->descriptions(fn (): array => self::priceHints(DoorOptionCategory::Additional))
+                        ->options(fn (mixed $state): array => self::options(DoorOptionCategory::Additional, $state))
+                        ->descriptions(fn (mixed $state): array => self::priceHints(DoorOptionCategory::Additional, $state))
                         ->columns(3)
                         ->live()
                         ->columnSpanFull(),
@@ -132,7 +132,7 @@ class DoorConfigurationSchema
         return [
             Select::make($category->value)
                 ->label($category->getLabel())
-                ->options(fn (): array => self::options($category))
+                ->options(fn (mixed $state): array => self::options($category, $state))
                 ->default(fn (): ?string => self::defaultCode($category))
                 ->required($required)
                 ->searchable()
@@ -141,18 +141,27 @@ class DoorConfigurationSchema
         ];
     }
 
-    /** @return array<string, string> */
-    private static function options(DoorOptionCategory $category): array
+    /**
+     * Уже выбранные значения передаются в $keep: снятая с продажи позиция старой
+     * двери должна остаться в списке, иначе форму нельзя будет сохранить.
+     *
+     * @return array<string, string>
+     */
+    private static function options(DoorOptionCategory $category, mixed $keep = null): array
     {
-        return app(DoorPriceCalculator::class)->optionsFor($category);
+        return app(DoorPriceCalculator::class)->optionsFor($category, array_filter((array) $keep));
     }
 
     /** @return array<string, string> */
-    private static function priceHints(DoorOptionCategory $category): array
+    private static function priceHints(DoorOptionCategory $category, mixed $keep = null): array
     {
+        $keep = array_values(array_filter(array_map('strval', (array) $keep)));
+
         return DoorOption::query()
             ->ofCategory($category)
-            ->active()
+            ->where(fn ($query) => $query
+                ->where('is_active', true)
+                ->when($keep !== [], fn ($q) => $q->orWhereIn('code', $keep)))
             ->orderBy('sort')
             ->get()
             ->mapWithKeys(fn (DoorOption $option): array => [
