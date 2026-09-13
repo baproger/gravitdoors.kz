@@ -1371,3 +1371,483 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 .fi-page:has(.fi-sc-actions.fi-sticky) .fi-page-content {
     padding-bottom: 5rem;
 }
+
+/* ==========================================================================
+   Компактная плотность
+   --------------------------------------------------------------------------
+   Замеры по умолчанию: между полями 24 px, заголовок страницы 30 px, строка
+   таблицы 53 px, верхняя панель 64 px, кнопки и вкладки 36 px. Для ERP, где
+   менеджер держит в голове всю карточку сразу, это полэкрана воздуха.
+   Плотность задана токенами — поменять шаг можно в одном месте.
+   ========================================================================== */
+
+:root {
+    --gd-gap: 0.875rem;          /* между полями и блоками внутри формы */
+    --gd-page-gap: 1rem;         /* между карточками страницы */
+    --gd-pad: 0.875rem;          /* внутренний отступ блока */
+    --gd-pad-x: 1rem;
+    --gd-control: 2.125rem;      /* высота поля и кнопки, 34 px */
+    --gd-font: 0.8125rem;        /* 13 px */
+    --gd-font-sm: 0.75rem;       /* 12 px */
+}
+
+/* ---------- Каркас страницы ---------- */
+
+.fi-topbar {
+    height: 3.5rem;
+}
+
+.fi-main {
+    padding-inline: 1.5rem;
+}
+
+.fi-page-content {
+    row-gap: var(--gd-page-gap);
+}
+
+.fi-header {
+    gap: 0.75rem;
+}
+
+.fi-breadcrumbs {
+    margin-bottom: 0.25rem;
+    font-size: var(--gd-font-sm);
+}
+
+.fi-header-heading {
+    font-size: 1.5rem;
+    line-height: 2rem;
+    letter-spacing: -0.015em;
+}
+
+.fi-header-subheading {
+    margin-top: 0.125rem;
+    font-size: var(--gd-font);
+}
+
+/* ---------- Боковое меню ---------- */
+
+.fi-sidebar-item-btn {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.fi-sidebar-group-btn {
+    padding-block: 0.375rem;
+}
+
+.fi-sidebar-nav {
+    row-gap: 1rem;
+}
+
+/* ---------- Сетки форм ---------- */
+
+.fi-sc-has-gap {
+    gap: var(--gd-gap);
+}
+
+.fi-fo-field {
+    row-gap: 0.375rem;
+}
+
+.fi-fo-field-label,
+.fi-fo-field-label-content {
+    font-size: var(--gd-font);
+    line-height: 1.125rem;
+    font-weight: 500;
+}
+
+.fi-fo-field-wrp-helper-text,
+.fi-fo-field-wrp-hint,
+.fi-sc-text {
+    font-size: var(--gd-font-sm);
+    line-height: 1.05rem;
+}
+
+.fi-fo-field-wrp-error-message {
+    font-size: var(--gd-font-sm);
+}
+
+/* ---------- Поля ---------- */
+
+.fi-input {
+    padding-block: 0.3125rem;
+    font-size: var(--gd-font);
+    line-height: 1.375rem;
+}
+
+.fi-input-wrp {
+    border-radius: 0.5rem;
+}
+
+.fi-input-wrp-prefix,
+.fi-input-wrp-suffix {
+    font-size: var(--gd-font);
+}
+
+/* ---------- Кнопки ---------- */
+
+.fi-btn.fi-size-md {
+    min-height: var(--gd-control);
+    padding: 0.4375rem 0.75rem;
+    font-size: var(--gd-font);
+}
+
+.fi-btn.fi-size-sm {
+    padding: 0.3125rem 0.625rem;
+    font-size: var(--gd-font-sm);
+}
+
+/* ---------- Блоки ---------- */
+
+.fi-section-header {
+    padding: 0.625rem var(--gd-pad-x);
+}
+
+.fi-section-content {
+    padding: var(--gd-pad);
+}
+
+.fi-section-header-heading {
+    font-size: 0.875rem;
+}
+
+.fi-section-header-description {
+    font-size: var(--gd-font-sm);
+}
+
+/* ---------- Вкладки ---------- */
+
+.fi-sc-tabs.fi-contained > .fi-tabs {
+    padding: 0.375rem 0.625rem;
+}
+
+.fi-tabs-item {
+    padding: 0.375rem 0.625rem;
+    font-size: var(--gd-font);
+}
+
+.fi-sc-tabs.fi-contained > .fi-sc-tabs-tab {
+    padding: var(--gd-pad);
+}
+
+/* ---------- Позиции в списках (двери, платежи) ---------- */
+
+.fi-fo-repeater-item-header {
+    padding: 0.5rem 0.75rem;
+}
+
+.fi-fo-repeater-item-content {
+    padding: 0.75rem;
+}
+
+.fi-fo-repeater-add {
+    margin-top: 0.25rem;
+}
+
+/* ---------- Таблицы ---------- */
+
+.fi-ta-header-toolbar {
+    padding: 0.5rem 1rem;
+    gap: 0.75rem;
+}
+
+.fi-ta-header-cell {
+    padding: 0.5rem 0.75rem;
+    font-size: var(--gd-font-sm);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+/* Вертикальный отступ строки задаёт не ячейка, а обёртка содержимого
+   (py-4 на тексте, иконке, переключателе). Отступ на самой ячейке только
+   добавлялся к ним — строка прайса выходила 93 px. */
+.fi-ta-cell {
+    padding-block: 0;
+}
+
+.fi-ta-text,
+.fi-ta-icon,
+.fi-ta-image,
+.fi-ta-toggle,
+.fi-ta-select,
+.fi-ta-text-input,
+.fi-ta-color,
+.fi-ta-checkbox {
+    padding-block: 0.5rem;
+}
+
+/* Чекбокс выбора и кнопки действий: без своего отступа ячейка схлопнулась бы
+   до высоты иконки, если в строке нет текста. */
+.fi-ta-selection-cell,
+.fi-ta-actions-cell {
+    padding-block: 0.375rem;
+}
+
+.fi-ta-text-description {
+    font-size: var(--gd-font-sm);
+    line-height: 1rem;
+}
+
+.fi-ta-text-item,
+.fi-ta-text {
+    font-size: var(--gd-font);
+    line-height: 1.25rem;
+}
+
+.fi-ta-group-header {
+    padding-block: 0.25rem;
+    font-size: var(--gd-font-sm);
+}
+
+.fi-pagination {
+    padding: 0.5rem 1rem;
+    font-size: var(--gd-font-sm);
+}
+
+/* ---------- Полоса этапов ---------- */
+
+.gravit-stepper {
+    padding: 0.25rem;
+    gap: 0.25rem;
+}
+
+.gravit-step {
+    padding: 0.4375rem 0.625rem;
+    font-size: 0.71875rem;
+}
+
+.gravit-stepper__hint {
+    margin-top: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.71875rem;
+}
+
+/* ---------- Плитки, сводки, карточка сотрудника ---------- */
+
+.gravit-tile {
+    padding: 0.875rem 1rem;
+}
+
+.gravit-tile__label {
+    font-size: 0.6875rem;
+}
+
+.gravit-tile__value {
+    font-size: 1.5rem;
+}
+
+.gravit-tile__hint {
+    font-size: var(--gd-font-sm);
+}
+
+.gravit-lines {
+    gap: 0.25rem;
+}
+
+.gravit-line {
+    font-size: var(--gd-font-sm);
+}
+
+.gravit-profile,
+.gravit-profile__main,
+.gravit-profile__pair,
+.gravit-bento {
+    gap: var(--gd-page-gap);
+}
+
+.gravit-rings {
+    margin-top: 0.5rem;
+}
+
+.gravit-ring__chart {
+    width: 5.5rem;
+    height: 5.5rem;
+}
+
+.gravit-ring__num {
+    font-size: 1.25rem;
+}
+
+.gravit-bar__track {
+    height: 4.5rem;
+}
+
+.gravit-list__row {
+    padding-block: 0.375rem;
+}
+
+.gravit-person__avatar {
+    width: 4.5rem;
+    height: 4.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.gravit-person__avatar--initials {
+    font-size: 1.5rem;
+}
+
+/* ---------- Канбан ---------- */
+
+.gravit-toolbar {
+    margin-bottom: 0.75rem;
+}
+
+.gravit-columns {
+    gap: 0.75rem;
+}
+
+.gravit-column {
+    flex-basis: 17rem;
+}
+
+.gravit-column__head {
+    padding: 0.625rem 0.75rem;
+}
+
+.gravit-column__body {
+    padding: 0.5rem;
+    gap: 0.5rem;
+}
+
+.gravit-card {
+    padding: 0.625rem 0.75rem;
+}
+
+.gravit-card__title {
+    font-size: var(--gd-font);
+}
+
+.gravit-card__client,
+.gravit-card__spec {
+    font-size: var(--gd-font-sm);
+}
+
+.gravit-card__actions {
+    margin-top: 0.375rem;
+    padding-top: 0.375rem;
+}
+
+/* ---------- Закреплённая панель действий ---------- */
+
+.fi-sc-actions.fi-sticky > .fi-ac {
+    padding: 0.5rem 0.75rem;
+}
+
+@media (max-width: 767px) {
+    :root {
+        --gd-gap: 0.75rem;
+        --gd-pad: 0.75rem;
+    }
+
+    .fi-main {
+        padding-inline: 0.875rem;
+    }
+
+    .fi-header-heading {
+        font-size: 1.25rem;
+        line-height: 1.75rem;
+    }
+}
+
+/* ---------- Модальные окна ---------- */
+
+/* По умолчанию 24 px со всех сторон и 24 px между полями: в окне редактирования
+   позиции прайса полформы уходило в отступы, а кнопки уезжали под сгиб экрана. */
+.fi-modal-window {
+    border-radius: var(--gs-r-1);
+}
+
+.fi-modal-header {
+    padding: 0.875rem 1.125rem 0.75rem;
+    gap: 0.75rem;
+}
+
+.fi-modal-heading {
+    font-size: 0.9375rem;
+    line-height: 1.375rem;
+    font-weight: 600;
+}
+
+.fi-modal-description {
+    font-size: var(--gd-font-sm);
+}
+
+.fi-modal-close-btn {
+    top: 0.625rem;
+    right: 0.625rem;
+}
+
+.fi-modal-content {
+    padding: 0.875rem 1.125rem;
+    row-gap: 0.75rem;
+}
+
+.fi-modal-footer {
+    padding: 0.75rem 1.125rem;
+}
+
+.fi-modal-footer-actions {
+    gap: 0.5rem;
+}
+
+/* Внутри модалки блоки ещё плотнее: окно само по себе карточка. */
+.fi-modal-window .fi-section-header {
+    padding: 0.5rem 0.75rem;
+}
+
+.fi-modal-window .fi-section-content {
+    padding: 0.75rem;
+}
+
+.fi-modal-window .fi-sc-has-gap {
+    gap: 0.75rem;
+}
+
+/* Маленькие окна подтверждения — без лишнего воздуха вокруг одной фразы. */
+.fi-modal-window.fi-width-md .fi-modal-content,
+.fi-modal-window.fi-width-sm .fi-modal-content {
+    padding-block: 0.5rem;
+}
+
+/* ---------- Выпадающие списки ---------- */
+
+.fi-select-input-btn {
+    padding-block: 0.3125rem;
+    font-size: var(--gd-font);
+    line-height: 1.375rem;
+}
+
+.fi-select-input-options-ctn,
+.fi-dropdown-list-item {
+    font-size: var(--gd-font);
+}
+
+.fi-dropdown-list-item {
+    padding: 0.375rem 0.625rem;
+}
+
+/* ---------- Загрузка файлов ---------- */
+
+.fi-fo-file-upload .filepond--root {
+    margin-bottom: 0;
+    font-size: var(--gd-font-sm);
+}
+
+.fi-fo-file-upload .filepond--drop-label {
+    min-height: 3.25rem;
+}
+
+/* ---------- Уведомления ---------- */
+
+.fi-no-notification {
+    padding: 0.625rem 0.75rem;
+}
+
+.fi-no-notification-title {
+    font-size: var(--gd-font);
+}
+
+.fi-no-notification-body {
+    font-size: var(--gd-font-sm);
+}
