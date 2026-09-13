@@ -3044,3 +3044,53 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
         font-size: 1.125rem;
     }
 }
+
+/* ---------- Список сделок: плотность строки ---------- */
+
+/* Отступ 8 px сверху и снизу у текста таблиц нужен обычным ячейкам. Внутри
+   блоков строки он срабатывал на каждой строчке: название и строка клиента
+   расходились на 47 px, а карточка на телефоне вырастала до 440 px. */
+.fi-resource-deals .dl-col .fi-ta-text,
+.fi-resource-deals .dl-col .fi-ta-col {
+    padding-block: 0;
+}
+
+.fi-resource-deals .dl-col {
+    gap: 0.2rem;
+}
+
+.fi-resource-deals .fi-ta-record-content-ctn {
+    padding-block: 0.625rem;
+}
+
+@media (max-width: 767px) {
+    /* В столбик блоки выравнивались по центру ряда и вставали посередине
+       узкой колонки. Всё прижимается к левому краю, как в карточке. */
+    .fi-resource-deals .fi-ta-split {
+        align-items: stretch;
+        gap: 0.4rem;
+    }
+
+    .fi-resource-deals .fi-ta-record {
+        align-items: flex-start;
+    }
+
+    .fi-resource-deals .fi-ta-record-checkbox {
+        margin-top: 0.8rem;
+    }
+
+    .fi-resource-deals .dl-col,
+    .fi-resource-deals .dl-col .fi-ta-text {
+        align-items: flex-start;
+        text-align: start;
+    }
+}
+
+@media (max-width: 767px) {
+    /* Filament даёт первому блоку строки отступ 12 px слева — на десктопе его
+       место занимает чекбокс. В столбик он сдвигал только название и клиента,
+       и они стояли правее телефона, этапа и суммы под ними. */
+    .fi-resource-deals .fi-ta-split .fi-ta-record-content {
+        padding-inline-start: 0;
+    }
+}
