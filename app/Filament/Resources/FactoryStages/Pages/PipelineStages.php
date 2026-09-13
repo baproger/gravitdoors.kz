@@ -56,6 +56,12 @@ class PipelineStages extends Page
         return 'Перетаскивайте этапы за «⋮⋮», переименовывайте прямо в строке, цвет — по клику на кружок. Изменения сохраняются сразу.';
     }
 
+    /** У ресурса одна страница — крошки «Этапы воронок › Этапы воронок» только дублировали заголовок. */
+    public function getBreadcrumbs(): array
+    {
+        return [];
+    }
+
     public function pipelineType(): PipelineType
     {
         return PipelineType::tryFrom($this->pipeline) ?? PipelineType::Sales;

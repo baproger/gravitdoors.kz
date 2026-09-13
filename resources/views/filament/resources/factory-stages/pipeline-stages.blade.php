@@ -20,7 +20,7 @@
             [
                 'final' => false,
                 'title' => 'Этапы в работе',
-                'hint' => 'Сделка проходит их по порядку, сверху вниз.',
+                'hint' => ($isSales ? 'Сделка' : 'Наряд').' проходит их по порядку, сверху вниз.',
                 'items' => $stages->filter(fn ($s) => ! $s->is_final)->values(),
                 'model' => 'newStageName',
                 'placeholder' => $isSales ? 'Новый этап, например «Выезд на объект»' : 'Новая операция, например «Сборка коробки»',
@@ -29,7 +29,7 @@
             [
                 'final' => true,
                 'title' => 'Завершающие этапы',
-                'hint' => 'Финиш воронки: сюда сделка попадает в самом конце.',
+                'hint' => 'Финиш воронки: сюда '.($isSales ? 'сделка' : 'наряд').' попадает в самом конце.',
                 'items' => $stages->filter(fn ($s) => $s->is_final)->values(),
                 'model' => 'newFinalStageName',
                 'placeholder' => 'Новый завершающий этап',
@@ -78,7 +78,8 @@
                     class="gp-tab {{ $type === $pipelineType ? 'gp-tab--active' : '' }}"
                 >
                     <x-filament::icon :icon="$type->getIcon()" class="gp-tab__icon" />
-                    <span>{{ $type->getLabel() }}</span>
+                    {{-- Короткие подписи: «Завод / Производство» на телефоне переносилось в две строки. --}}
+                    <span>{{ $type === \App\Enums\PipelineType::Sales ? 'Отдел продаж' : 'Завод' }}</span>
                     <span class="gp-tab__count">{{ $counts[$type->value] ?? 0 }}</span>
                 </button>
             @endforeach

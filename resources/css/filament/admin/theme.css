@@ -2004,6 +2004,7 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 }
 
 .gp-group {
+    container-type: inline-size;
     padding: 0.75rem;
     background: var(--gs-1);
     border: 1px solid var(--gs-line);
@@ -2320,18 +2321,26 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 
 .gp-add__btn:hover { background: rgb(47 111 237 / 0.08); }
 
-/* ---------- Телефон ---------- */
+/* ---------- Узкая группа и телефон ---------- */
 
 @media (max-width: 639px) {
     .gp-tabs { align-self: stretch; }
     .gp-tab { flex: 1 1 0; justify-content: center; }
+    .gp-icon-btn { width: 2.25rem; height: 2.25rem; }
+}
 
-    /* Строка в две линии: название с цветом сверху, метки и кнопки снизу. */
+/* Строка в две линии, когда самой группе узко — не по ширине экрана.
+   Колонка «Завершающие этапы» на широком мониторе уже телефона: метки
+   забирали всё место, и название этапа схлопывалось в «Сделка за» или
+   пропадало совсем. */
+@container (max-width: 640px) {
+    /* Ручка и кружок — фиксированной ширины: с auto метки во второй строке
+       растягивали эти колонки под себя, и название уезжало вправо за край. */
     .gp-row {
-        grid-template-columns: auto auto minmax(0, 1fr);
+        grid-template-columns: 1rem 1.25rem minmax(0, 1fr) auto;
         grid-template-areas:
-            "handle color main"
-            "meta meta actions";
+            "handle color main main"
+            "meta meta meta actions";
         row-gap: 0.25rem;
     }
 
@@ -2340,6 +2349,4 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     .gp-row__main { grid-area: main; }
     .gp-row__meta { grid-area: meta; justify-content: flex-start; padding-inline-start: 0.25rem; }
     .gp-row__actions { grid-area: actions; }
-
-    .gp-icon-btn { width: 2.25rem; height: 2.25rem; }
 }
