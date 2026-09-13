@@ -2921,3 +2921,126 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     .pl-primary { width: 100%; justify-content: center; }
     .gp-icon-btn { width: 2.25rem; height: 2.25rem; }
 }
+
+/* ==========================================================================
+   Список сделок — строки из блоков
+   ========================================================================== */
+
+.fi-resource-deals .dl-summary {
+    margin-bottom: 0;
+}
+
+/* Плитка «Просрочено», когда есть что догонять. */
+.dl-tile--alert {
+    border-color: rgb(225 29 72 / 0.25);
+    background:
+        radial-gradient(140% 120% at 0% 0%, rgb(225 29 72 / 0.14) 0%, transparent 55%),
+        linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.6));
+}
+
+.dl-tile--alert .pl-tile__value { color: rgb(225 29 72); }
+
+.dark .dl-tile--alert {
+    background:
+        radial-gradient(140% 120% at 0% 0%, rgb(225 29 72 / 0.25) 0%, transparent 55%),
+        linear-gradient(180deg, rgb(30 41 59 / 0.75), rgb(15 23 42 / 0.5));
+}
+
+/* Вкладки воронок — слева, у таблицы, а не по центру над пустотой. */
+.fi-resource-deals .fi-sc-tabs > .fi-tabs {
+    margin-inline: 0;
+    justify-content: flex-start;
+}
+
+/* ---------- Строка ---------- */
+
+.fi-resource-deals .fi-ta-record {
+    padding-block: 0.25rem;
+    transition: background 0.15s ease;
+}
+
+.fi-resource-deals .fi-ta-split {
+    gap: 1rem;
+    align-items: center;
+}
+
+/* Просроченная открытая сделка — красная кромка слева, не заливка всей строки. */
+.fi-resource-deals .dl-row--overdue {
+    box-shadow: inset 3px 0 0 rgb(225 29 72);
+}
+
+/* Блоки фиксированной ширины: так строки выстраиваются в ровные столбцы и без заголовков. */
+.dl-col { min-width: 0; }
+.dl-col--phone { width: 10.5rem; }
+.dl-col--stage { width: 13rem; }
+.dl-col--money { width: 9rem; }
+.dl-col--due { width: 11rem; }
+
+/* Название и строка клиента — в одну строку с многоточием. */
+.dl-col--main .fi-ta-text-item,
+.dl-col--stage .fi-ta-text-item,
+.dl-col--due .fi-ta-text-item {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dl-col--main .fi-ta-text-item {
+    max-width: 100%;
+}
+
+.dl-col--stage .fi-badge {
+    max-width: 100%;
+}
+
+.dl-col--stage .fi-badge-label-ctn,
+.dl-col--stage .fi-badge span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dl-col--money .fi-ta-text-item {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ---------- Средний экран: телефон уходит, остальное остаётся в ряд ---------- */
+
+@media (min-width: 768px) and (max-width: 1279px) {
+    .dl-col--phone { display: none; }
+    .dl-col--stage { width: 11rem; }
+    .dl-col--due { width: 9.5rem; }
+}
+
+/* ---------- Телефон: блоки друг под другом ---------- */
+
+@media (max-width: 767px) {
+    .dl-col--phone,
+    .dl-col--stage,
+    .dl-col--money,
+    .dl-col--due {
+        width: auto;
+    }
+
+    .fi-resource-deals .fi-ta-split {
+        gap: 0.35rem;
+    }
+
+    /* Сумма у левого края, как и всё остальное в карточке. */
+    .dl-col--money,
+    .dl-col--money .fi-ta-text {
+        align-items: flex-start;
+        justify-content: flex-start;
+        text-align: start;
+    }
+
+    .fi-resource-deals .dl-summary .pl-tile {
+        padding: 0.6rem 0.75rem;
+    }
+
+    .fi-resource-deals .dl-summary .pl-tile__value {
+        font-size: 1.125rem;
+    }
+}

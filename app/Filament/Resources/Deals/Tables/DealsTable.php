@@ -19,9 +19,15 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
+use Filament\Tables\Columns\Layout\Split;
+use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class DealsTable
 {
@@ -29,101 +35,123 @@ class DealsTable
     {
         return $table
             ->defaultSort('id', 'desc')
+            // Этап, наряд и менеджер — одним запросом на страницу, а не по запросу на строку:
+            // пометка «ждёт завод» и имя ответственного есть в каждой строке.
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['currentStage', 'manager', 'productionOrder.currentStage']))
+            ->recordClasses(fn (Deal $record): ?string => self::isOverdue($record) ? 'dl-row--overdue' : null)
             ->columns([
-                // Номер живёт в описании, а не отдельной колонкой: на телефоне
-                // он съедал треть ширины, оставляя названию три строки переноса.
-                TextColumn::make('title')
-                    ->label('Сделка')
-                    ->description(fn (Deal $record): string => collect([
-                        $record->number,
-                        $record->clientTitle(),
-                        $record->city,
-                    ])->filter()->implode(' · '))
-                    ->searchable(['title', 'number', 'client_name', 'client_company', 'client_phone', 'client_bin'])
-                    ->weight('semibold')
-                    ->wrap(),
+                // Строка из блоков вместо десяти колонок: название больше не сжимается
+                // до 90 px с переносом на пять строк, а на телефоне блоки встают
+                // друг под другом без горизонтальной прокрутки.
+                Split::make([
+                    Stack::make([
+                        TextColumn::make('title')
+                            ->label('Сделка')
+                            ->weight(FontWeight::SemiBold)
+                            ->searchable(['title', 'number', 'client_name', 'client_company', 'client_phone', 'client_bin']),
 
-                TextColumn::make('client_phone')
-                    ->label('Телефон')
-                    ->icon('heroicon-m-phone')
-                    ->copyable()
-                    ->url(fn (Deal $record): ?string => $record->client_phone
-                        ? 'tel:'.preg_replace('/\D+/', '', $record->client_phone)
-                        : null)
-                    ->placeholder('—')
-                    ->toggleable()
-                    ->visibleFrom('md'),
+                        TextColumn::make('client_line')
+                            ->label('Клиент')
+                            ->state(fn (Deal $record): string => collect([
+                                $record->number,
+                                $record->clientTitle(),
+                                $record->city,
+                            ])->filter()->implode(' · '))
+                            ->color('gray')
+                            ->size(TextSize::ExtraSmall),
+                    ])
+                        ->space(1)
+                        ->grow()
+                        ->extraAttributes(['class' => 'dl-col dl-col--main']),
 
-                TextColumn::make('source')
-                    ->label('Источник')
-                    ->badge()
-                    ->color('gray')
-                    ->placeholder('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    Stack::make([
+                        TextColumn::make('client_phone')
+                            ->label('Телефон')
+                            ->icon('heroicon-m-phone')
+                            ->iconColor('gray')
+                            ->size(TextSize::Small)
+                            ->url(fn (Deal $record): ?string => $record->client_phone
+                                ? 'tel:'.preg_replace('/\D+/', '', $record->client_phone)
+                                : null)
+                            ->placeholder('без телефона'),
 
-                TextColumn::make('pipeline_type')
-                    ->label('Воронка')
-                    ->badge()
-                    // На телефоне в таблице остаётся только суть: номер, сделка,
-                    // этап и сумма. Остальное уезжает в горизонтальную прокрутку.
-                    ->visibleFrom('lg'),
+                        TextColumn::make('pipeline_type')
+                            ->label('Воронка')
+                            ->badge()
+                            // Во вкладках продаж и завода воронка и так понятна.
+                            ->visible(fn ($livewire): bool => ($livewire->activeTab ?? null) === 'all'),
+                    ])
+                        ->space(1)
+                        ->grow(false)
+                        ->extraAttributes(['class' => 'dl-col dl-col--phone']),
 
-                TextColumn::make('currentStage.name')
-                    ->label('Этап')
-                    ->badge()
-                    ->color(fn (Deal $record): string => $record->currentStage?->color ?? 'gray')
-                    ->description(fn (Deal $record): ?string => $record->currentStage
-                        ? "⏱ {$record->hours_on_stage} ч"
-                        : null),
+                    Stack::make([
+                        TextColumn::make('currentStage.name')
+                            ->label('Этап')
+                            ->badge()
+                            ->color(fn (Deal $record): string => $record->currentStage?->color ?? 'gray')
+                            ->placeholder('без этапа'),
 
-                TextColumn::make('status_id')
-                    ->label('Статус')
-                    ->badge()
-                    ->visibleFrom('lg'),
+                        TextColumn::make('stage_note')
+                            ->label('На этапе')
+                            ->state(fn (Deal $record): ?string => self::stageNote($record))
+                            ->color(fn (Deal $record): string => match (true) {
+                                $record->status_id === DealStatus::Cancelled => 'danger',
+                                $record->activeProductionOrder() !== null => 'info',
+                                default => 'gray',
+                            })
+                            ->size(TextSize::ExtraSmall),
+                    ])
+                        ->space(1)
+                        ->grow(false)
+                        ->extraAttributes(['class' => 'dl-col dl-col--stage']),
 
-                TextColumn::make('total_price')
-                    ->label('Сумма')
-                    ->formatStateUsing(fn ($state): string => Money::format($state))
-                    ->sortable()
-                    ->alignEnd()
-                    ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
+                    Stack::make([
+                        TextColumn::make('total_price')
+                            ->label('Сумма')
+                            ->formatStateUsing(fn ($state): string => Money::format((float) $state))
+                            ->weight(FontWeight::SemiBold)
+                            ->sortable(),
 
-                TextColumn::make('remaining')
-                    ->label('Остаток')
-                    ->state(fn (Deal $record): string => $record->isPaidInFull()
-                        ? 'оплачено'
-                        : Money::format($record->remainingPayment()))
-                    ->badge()
-                    ->color(fn (Deal $record): string => $record->isPaidInFull() ? 'success' : 'warning')
-                    ->alignEnd()
-                    ->toggleable()
-                    ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
+                        TextColumn::make('remaining')
+                            ->label('Остаток')
+                            ->state(fn (Deal $record): ?string => match (true) {
+                                (float) $record->total_price <= 0 => null,
+                                $record->isPaidInFull() => 'оплачено',
+                                default => 'остаток '.Money::format($record->remainingPayment()),
+                            })
+                            ->color(fn (Deal $record): string => $record->isPaidInFull() ? 'success' : 'warning')
+                            ->size(TextSize::ExtraSmall),
+                    ])
+                        ->space(1)
+                        ->alignment(Alignment::End)
+                        ->grow(false)
+                        ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false)
+                        ->extraAttributes(['class' => 'dl-col dl-col--money']),
 
-                TextColumn::make('margin')
-                    ->label('Маржа')
-                    ->state(fn (Deal $record): string => $record->total_price > 0 ? $record->margin.' %' : '—')
-                    ->color(fn (Deal $record): string => match (true) {
-                        $record->margin >= 25 => 'success',
-                        $record->margin >= 10 => 'warning',
-                        default => 'danger',
-                    })
-                    ->badge()
-                    ->toggleable()
-                    ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
+                    Stack::make([
+                        TextColumn::make('due_date')
+                            ->label('Срок')
+                            ->state(fn (Deal $record): ?string => self::dueLabel($record))
+                            ->icon('heroicon-m-calendar')
+                            ->iconColor(fn (Deal $record): string => self::isOverdue($record) ? 'danger' : 'gray')
+                            ->color(fn (Deal $record): ?string => self::isOverdue($record) ? 'danger' : null)
+                            ->size(TextSize::Small)
+                            ->sortable()
+                            ->placeholder('без срока'),
 
-                TextColumn::make('manager.name')
-                    ->label('Менеджер')
-                    ->toggleable()
-                    ->placeholder('—')
-                    ->visibleFrom('xl'),
-
-                TextColumn::make('due_date')
-                    ->label('Срок')
-                    ->date('d.m.Y')
-                    ->sortable()
-                    ->color(fn (Deal $record): string => $record->due_date?->isPast() ? 'danger' : 'gray')
-                    ->placeholder('—')
-                    ->visibleFrom('md'),
+                        TextColumn::make('manager.name')
+                            ->label('Ответственный')
+                            ->icon('heroicon-m-user')
+                            ->iconColor('gray')
+                            ->color('gray')
+                            ->size(TextSize::ExtraSmall)
+                            ->placeholder('без ответственного'),
+                    ])
+                        ->space(1)
+                        ->grow(false)
+                        ->extraAttributes(['class' => 'dl-col dl-col--due']),
+                ])->from('md'),
             ])
             ->filters([
                 SelectFilter::make('pipeline_type')
@@ -273,6 +301,60 @@ class DealsTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->emptyStateHeading('Сделок пока нет');
+            ->emptyStateHeading('Сделок пока нет')
+            ->emptyStateDescription('Нажмите «Новая сделка», чтобы завести первого клиента.');
+    }
+
+    /** Просрочена только открытая сделка: у закрытой срок уже не важен. */
+    private static function isOverdue(Deal $record): bool
+    {
+        return $record->due_date !== null
+            && ! $record->status_id->isClosed()
+            && $record->due_date->lt(today());
+    }
+
+    /** «просрочено на 3 дн.», «сдача сегодня», «через 5 дн.», «до 04.10.2026». */
+    private static function dueLabel(Deal $record): ?string
+    {
+        if ($record->due_date === null) {
+            return null;
+        }
+
+        if ($record->status_id->isClosed()) {
+            return 'до '.$record->due_date->format('d.m.Y');
+        }
+
+        $days = (int) today()->diffInDays($record->due_date, false);
+
+        return match (true) {
+            $days < 0 => 'просрочено на '.abs($days).' дн.',
+            $days === 0 => 'сдача сегодня',
+            $days <= 7 => 'через '.$days.' дн. · '.$record->due_date->format('d.m'),
+            default => 'до '.$record->due_date->format('d.m.Y'),
+        };
+    }
+
+    /** Что происходит со сделкой прямо сейчас — одна короткая строка под этапом. */
+    private static function stageNote(Deal $record): ?string
+    {
+        if ($record->status_id->isClosed()) {
+            return $record->status_id->getLabel();
+        }
+
+        if ($order = $record->activeProductionOrder()) {
+            return 'ждёт завод'.($order->currentStage ? ': '.$order->currentStage->name : '');
+        }
+
+        if ($record->stage_entered_at === null) {
+            return null;
+        }
+
+        $hours = $record->hours_on_stage;
+
+        return 'на этапе '.match (true) {
+            $hours < 1 => 'меньше часа',
+            $hours < 24 => (int) round($hours).' ч',
+            default => (int) floor($hours / 24).' дн.',
+        };
     }
 }
