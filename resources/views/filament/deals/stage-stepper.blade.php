@@ -83,10 +83,13 @@
     </div>
 
     @if ($waitingOrder)
+        {{-- Фраза собирается целиком: с @if посреди текста перед точкой оставался пробел. --}}
         <p class="gravit-stepper__hint gravit-stepper__hint--factory">
-            Сделка ждёт завод: наряд {{ $waitingOrder->number }}
-            @if ($waitingOrder->currentStage) сейчас на этапе «{{ $waitingOrder->currentStage->name }}» @endif.
-            Дальше её переведёт производство{{ $finishStageName ? ' после «'.$finishStageName.'»' : '' }}.
+            {{ 'Сделка ждёт завод: наряд '.$waitingOrder->number
+                .($waitingOrder->currentStage ? ' сейчас на этапе «'.$waitingOrder->currentStage->name.'»' : '')
+                .'. Дальше её переведёт производство'
+                .($finishStageName ? ' после «'.$finishStageName.'»' : '')
+                .'.' }}
         </p>
     @elseif ($nextStage && ($blocked = $nextStage->missingFor($record)) !== [])
         <p class="gravit-stepper__hint">
