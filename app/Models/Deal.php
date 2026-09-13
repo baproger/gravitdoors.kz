@@ -150,6 +150,12 @@ class Deal extends Model
         return $this->hasMany(DoorConfiguration::class)->orderBy('position')->orderBy('id');
     }
 
+    /** @return HasMany<DealPayment, $this> */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(DealPayment::class)->orderBy('paid_at')->orderBy('id');
+    }
+
     /** @return HasMany<DealEvent, $this> */
     public function events(): HasMany
     {

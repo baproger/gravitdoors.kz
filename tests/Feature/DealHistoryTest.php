@@ -136,7 +136,12 @@ class DealHistoryTest extends TestCase
     {
         $deal = $this->makeDeal();
 
-        $deal->update(['prepayment' => 100_000]);
+        $deal->payments()->create([
+            'amount' => 100_000,
+            'method' => 'kaspi',
+            'paid_at' => now(),
+            'receipt_path' => 'receipts/check.pdf',
+        ]);
         $deal->update(['documents' => ['deals/act.pdf', 'deals/invoice.pdf']]);
 
         $this->assertSame(1, $deal->events()->where('type', DealEventType::Payment->value)->count());

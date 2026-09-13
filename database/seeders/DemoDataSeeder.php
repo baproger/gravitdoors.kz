@@ -40,6 +40,17 @@ class DemoDataSeeder extends Seeder
         return $path;
     }
 
+    private function demoReceipt(string $number): string
+    {
+        $path = "receipts/{$number}.txt";
+
+        if (! Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->put($path, "Чек об оплате по сделке {$number} (демонстрационный файл)");
+        }
+
+        return $path;
+    }
+
     public function run(DoorProductionService $production): void
     {
         $manager = User::firstOrCreate(
@@ -121,8 +132,6 @@ class DemoDataSeeder extends Seeder
                     'contract_date' => isset($row['contract']) ? now()->subDays(random_int(3, 20)) : null,
                     'documents' => isset($row['contract']) ? [$this->demoContract($row['contract'])] : null,
                     'measured_at' => $row['stage'] === 'new' ? null : now()->subDays(random_int(2, 15)),
-                    'prepayment' => $row['prepayment'],
-                    'payment_method' => $row['prepayment'] > 0 ? PaymentMethod::Kaspi : null,
                     'delivery_cost' => $row['delivery'] ?? 0,
                     'installation_cost' => $row['installation'] ?? 0,
                     'status_id' => $row['status'],
@@ -173,6 +182,17 @@ class DemoDataSeeder extends Seeder
                         'quantity' => 1,
                     ],
                 );
+            }
+
+            // Предоплата — это платёж с чеком, а не число в карточке.
+            if ($row['prepayment'] > 0 && $deal->payments()->doesntExist()) {
+                $deal->payments()->create([
+                    'amount' => $row['prepayment'],
+                    'method' => PaymentMethod::Kaspi,
+                    'paid_at' => now()->subDays(random_int(1, 5)),
+                    'receipt_path' => $this->demoReceipt($deal->number),
+                    'comment' => 'Предоплата по договору',
+                ]);
             }
 
             $production->syncPricing($deal->refresh());

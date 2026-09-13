@@ -85,12 +85,34 @@ class DealValidationTest extends TestCase
             ->assertHasFormErrors();
     }
 
-    public function test_prepayment_cannot_exceed_the_deal_total(): void
+    public function test_payments_cannot_exceed_the_deal_total(): void
     {
         Livewire::test(CreateDeal::class)
-            ->fillForm([...$this->validPayload(), 'total_price' => 100_000, 'prepayment' => 250_000])
+            ->fillForm([
+                ...$this->validPayload(),
+                'total_price' => 100_000,
+                'payments' => [
+                    ['amount' => 250_000, 'method' => 'kaspi', 'paid_at' => now()->toDateString(), 'receipt_path' => ['receipts/a.pdf']],
+                ],
+            ])
             ->call('create')
-            ->assertHasFormErrors(['prepayment']);
+            ->assertHasFormErrors(['payments']);
+    }
+
+    public function test_a_payment_without_a_receipt_is_rejected(): void
+    {
+        Livewire::test(CreateDeal::class)
+            ->fillForm([
+                ...$this->validPayload(),
+                'total_price' => 300_000,
+                'payments' => [
+                    ['amount' => 50_000, 'method' => 'cash', 'paid_at' => now()->toDateString(), 'receipt_path' => null],
+                ],
+            ])
+            ->call('create')
+            ->assertHasFormErrors();
+
+        $this->assertDatabaseCount('deal_payments', 0);
     }
 
     public function test_a_correct_deal_is_created(): void

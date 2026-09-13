@@ -17,6 +17,7 @@ use App\Models\FactoryStage;
 use App\Models\User;
 use App\Support\Money;
 use App\Support\Validation;
+use Carbon\Carbon;
 use Closure;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -202,29 +203,73 @@ class DealForm
     private static function paymentFields(): array
     {
         return [
+            Section::make('Платежи клиента')
+                ->description('Каждый платёж — с чеком. Сумма платежей становится предоплатой сделки.')
+                ->schema([
+                    Repeater::make('payments')
+                        ->hiddenLabel()
+                        ->relationship()
+                        ->columns(['default' => 1, 'md' => 4])
+                        ->defaultItems(0)
+                        ->addActionLabel('Добавить платёж')
+                        ->reorderable(false)
+                        ->collapsible()
+                        ->itemLabel(fn (array $state): string => self::paymentLabel($state))
+                        ->schema([
+                            TextInput::make('amount')
+                                ->label('Сумма')
+                                ->numeric()
+                                ->minValue(1)
+                                ->required()
+                                ->suffix(config('gravit.currency.symbol'))
+                                ->live(onBlur: true),
+
+                            Select::make('method')
+                                ->label('Способ')
+                                ->options(PaymentMethod::class)
+                                ->default(PaymentMethod::Kaspi->value)
+                                ->required()
+                                ->native(false),
+
+                            DatePicker::make('paid_at')
+                                ->label('Дата оплаты')
+                                ->displayFormat('d.m.Y')
+                                ->default(now())
+                                ->maxDate(now())
+                                ->required(),
+
+                            TextInput::make('comment')
+                                ->label('Комментарий')
+                                ->placeholder('№ операции, кто платил')
+                                ->maxLength(255),
+
+                            // Без чека платёж не принимаем: бухгалтерии нужно подтверждение,
+                            // а «клиент сказал, что перевёл» сверить потом нечем.
+                            FileUpload::make('receipt_path')
+                                ->label('Чек')
+                                ->helperText('Фото или PDF чека, до 10 МБ')
+                                ->required()
+                                ->directory('receipts')
+                                ->disk('public')
+                                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+                                ->maxSize(10240)
+                                ->openable()
+                                ->downloadable()
+                                ->columnSpanFull(),
+                        ])
+                        ->rule(static function (Get $get): Closure {
+                            return function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                                $total = (float) ($get('total_price') ?? 0);
+                                $paid = self::paidSum($value);
+
+                                if ($total > 0 && $paid > $total) {
+                                    $fail('Сумма платежей ('.Money::format($paid).') больше суммы сделки ('.Money::format($total).').');
+                                }
+                            };
+                        }),
+                ]),
+
             Grid::make(2)->schema([
-                TextInput::make('prepayment')
-                    ->label('Предоплата получена')
-                    ->numeric()
-                    ->minValue(0)
-                    ->default(0)
-                    ->suffix(config('gravit.currency.symbol'))
-                    ->live(onBlur: true)
-                    ->rule(static function (Get $get): Closure {
-                        return function (string $attribute, mixed $value, Closure $fail) use ($get): void {
-                            $total = (float) ($get('total_price') ?? 0);
-
-                            if ($total > 0 && (float) $value > $total) {
-                                $fail('Предоплата не может быть больше суммы сделки.');
-                            }
-                        };
-                    }),
-
-                Select::make('payment_method')
-                    ->label('Способ оплаты')
-                    ->options(PaymentMethod::class)
-                    ->native(false),
-
                 TextInput::make('delivery_cost')
                     ->label('Доставка')
                     ->helperText('Прибавляется к сумме сделки')
@@ -376,6 +421,28 @@ class DealForm
             ]);
     }
 
+    /** Сумма платежей из состояния репитера — для сводки и проверки лимита. */
+    private static function paidSum(mixed $payments): float
+    {
+        return round((float) collect(is_array($payments) ? $payments : [])
+            ->sum(fn (mixed $payment): float => (float) (is_array($payment) ? ($payment['amount'] ?? 0) : 0)), 2);
+    }
+
+    /** @param array<string, mixed> $state */
+    private static function paymentLabel(array $state): string
+    {
+        $amount = filled($state['amount'] ?? null) ? Money::format((float) $state['amount']) : 'Новый платёж';
+        $method = self::enumLabel(PaymentMethod::class, $state['method'] ?? null);
+
+        $date = $state['paid_at'] ?? null;
+        $date = $date instanceof \DateTimeInterface ? $date->format('d.m.Y')
+            : (filled($date) ? Carbon::parse((string) $date)->format('d.m.Y') : null);
+
+        $receipt = filled($state['receipt_path'] ?? null) ? 'чек есть' : 'без чека';
+
+        return collect([$amount, $method, $date, $receipt])->filter()->implode(' · ');
+    }
+
     /** @param array<string, mixed> $state */
     private static function positionLabel(array $state): string
     {
@@ -415,14 +482,14 @@ class DealForm
         $delivery = (float) ($get('delivery_cost') ?? 0);
         $installation = (float) ($get('installation_cost') ?? 0);
         $total = (float) ($get('total_price') ?? 0);
-        $prepayment = (float) ($get('prepayment') ?? 0);
+        $prepayment = self::paidSum($get('payments'));
 
         $rows = [
             ['Двери по спецификации', Money::format($doors), false],
             ['Доставка', Money::format($delivery), false],
             ['Монтаж', Money::format($installation), false],
             ['Сумма сделки', Money::format($total), true],
-            ['Предоплата', Money::format($prepayment), false],
+            ['Оплачено', Money::format($prepayment), false],
             ['Остаток к оплате', Money::format(max(0, $total - $prepayment)), true],
         ];
 

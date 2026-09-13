@@ -56,6 +56,8 @@ final class DealFieldLabels
         'production_started_at', 'production_finished_at',
         'qr_code_hash', 'number', 'pipeline_type', 'parent_deal_id',
         'current_stage_id', 'total_price', 'cost_price',
+        // Предоплата — сумма платежей, у каждого платежа своя запись в истории.
+        'prepayment', 'payment_method',
     ];
 
     public static function label(string $field): string

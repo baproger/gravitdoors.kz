@@ -11,7 +11,6 @@ use App\Models\Deal;
 use App\Models\DealEvent;
 use App\Models\User;
 use App\Support\DealFieldLabels;
-use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
@@ -56,13 +55,6 @@ class DealObserver
             );
         }
 
-        if ($deal->wasChanged('prepayment') && (float) $deal->prepayment > (float) $deal->getOriginal('prepayment')) {
-            DealEvent::record(
-                $deal,
-                DealEventType::Payment,
-                'Оплата: '.Money::format((float) $deal->prepayment - (float) $deal->getOriginal('prepayment')),
-            );
-        }
     }
 
     /**
