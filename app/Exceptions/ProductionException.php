@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Exceptions;
 
+use App\Enums\PipelineType;
 use App\Enums\StageRequirement;
 use App\Models\Deal;
 use App\Models\FactoryStage;
@@ -64,6 +65,23 @@ class ProductionException extends DomainException
             ->implode("\n");
 
         return new self("Для этапа «{$stage->name}» не хватает данных:\n{$list}");
+    }
+
+    public static function waitingForFactory(Deal $deal, Deal $order): self
+    {
+        $stage = $order->currentStage?->name;
+        $finish = FactoryStage::query()
+            ->ofPipeline(PipelineType::Factory)
+            ->where('completes_production', true)
+            ->value('name');
+
+        return new self(
+            "Сделка {$deal->number} ждёт завод: наряд {$order->number}"
+            .($stage ? " сейчас на этапе «{$stage}»" : '')
+            .'. Дальше её переведёт производство'
+            .($finish ? " после «{$finish}»" : ' после завершения наряда')
+            .'. Если заказ отменили — сначала отмените наряд в списке сделок.'
+        );
     }
 
     public static function insufficientStock(MaterialStock $material, float $required): self

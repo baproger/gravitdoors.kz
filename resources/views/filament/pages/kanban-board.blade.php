@@ -100,9 +100,11 @@
                     <div class="gravit-column__body">
                         @forelse ($stage->deals as $deal)
                             @php($configs = $deal->configurations())
+                            {{-- Сделку, чей наряд ещё в цеху, ведёт завод: без стрелок и перетаскивания. --}}
+                            @php($waiting = $deal->isFactoryOrder() ? null : $deal->activeProductionOrder())
 
                             <article
-                                draggable="true"
+                                draggable="{{ $waiting ? 'false' : 'true' }}"
                                 @dragstart="start($event, {{ $deal->id }})"
                                 @dragend="draggingId = null; overStage = null"
                                 :class="draggingId === {{ $deal->id }} && 'gravit-card--dragging'"
@@ -153,12 +155,18 @@
                                     @endif
                                 </div>
 
+                                @if ($waiting)
+                                    <p class="gravit-card__waiting" title="Дальше сделку переведёт производство">
+                                        Ждёт завод{{ $waiting->currentStage ? ': '.$waiting->currentStage->name : '' }}
+                                    </p>
+                                @endif
+
                                 <div class="gravit-card__actions">
                                     <div class="gravit-card__move">
                                         <button
                                             type="button"
                                             class="gravit-move"
-                                            @if ($previousStage)
+                                            @if ($previousStage && ! $waiting)
                                                 wire:click="moveDeal({{ $deal->id }}, {{ $previousStage->id }})"
                                                 title="Вернуть на «{{ $previousStage->name }}»"
                                                 aria-label="Вернуть на «{{ $previousStage->name }}»"
@@ -170,7 +178,7 @@
                                         <button
                                             type="button"
                                             class="gravit-move"
-                                            @if ($nextStage)
+                                            @if ($nextStage && ! $waiting)
                                                 wire:click="moveDeal({{ $deal->id }}, {{ $nextStage->id }})"
                                                 title="Перевести на «{{ $nextStage->name }}»"
                                                 aria-label="Перевести на «{{ $nextStage->name }}»"

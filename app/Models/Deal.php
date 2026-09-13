@@ -199,6 +199,26 @@ class Deal extends Model
         $query->whereNotIn('status_id', [DealStatus::Completed->value, DealStatus::Cancelled->value]);
     }
 
+    /**
+     * Незавершённый наряд завода по этой сделке продаж.
+     *
+     * Пока он есть, сделку по воронке ведёт производство, а не менеджер.
+     * Если связь уже подгружена (канбан берёт её одним запросом), новый
+     * запрос не делается.
+     */
+    public function activeProductionOrder(): ?self
+    {
+        if ($this->isFactoryOrder()) {
+            return null;
+        }
+
+        $order = $this->relationLoaded('productionOrder')
+            ? $this->productionOrder
+            : $this->productionOrder()->with('currentStage')->first();
+
+        return $order && ! $order->status_id->isClosed() ? $order : null;
+    }
+
     public function isFactoryOrder(): bool
     {
         return $this->pipeline_type === PipelineType::Factory;

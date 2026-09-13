@@ -331,7 +331,7 @@ class DoorProductionService
             $deals = Deal::query()
                 ->where('current_stage_id', $stage->id)
                 ->tap($filter)
-                ->with(['manager', 'parentDeal.doorConfigurations', 'doorConfigurations'])
+                ->with(['manager', 'parentDeal.doorConfigurations', 'doorConfigurations', 'productionOrder.currentStage'])
                 ->orderByDesc('updated_at')
                 ->limit($limit)
                 ->get();
@@ -566,6 +566,14 @@ class DoorProductionService
      */
     private function guardTransition(Deal $deal, ?FactoryStage $from, FactoryStage $to): void
     {
+        // Пока завод работает, сделку продаж ведёт он. Ручной переход вперёд
+        // обгонял бы производство (сделка «Готово к отгрузке», а дверь ещё на
+        // покраске), назад — отрывал бы сделку от живого наряда. Дальше её
+        // переведёт finishProduction(), который идёт мимо этой проверки.
+        if ($order = $deal->activeProductionOrder()) {
+            throw ProductionException::waitingForFactory($deal, $order);
+        }
+
         $movingForward = $from === null || $to->order > $from->order;
 
         if (! $movingForward) {

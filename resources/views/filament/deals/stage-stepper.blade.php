@@ -16,7 +16,15 @@
     $current = $record?->currentStage;
     $currentOrder = $current?->order ?? -1;
     $nextStage = $current?->next();
-    $canMove = $record && auth()->user()?->can('move', $record);
+
+    // Пока наряд в цеху, сделку ведёт завод: этапы заблокированы, а под полосой
+    // объясняется, почему и кто переведёт сделку дальше.
+    $waitingOrder = $record && ! $record->isFactoryOrder() ? $record->activeProductionOrder() : null;
+    $finishStageName = $waitingOrder
+        ? \App\Models\FactoryStage::query()->ofPipeline(\App\Enums\PipelineType::Factory)->where('completes_production', true)->value('name')
+        : null;
+
+    $canMove = $record && ! $waitingOrder && auth()->user()?->can('move', $record);
 @endphp
 
 @if ($stages->isNotEmpty())
@@ -32,6 +40,7 @@
 
                 $tooltip = match (true) {
                     $isCurrent => 'Сделка на этом этапе',
+                    $waitingOrder !== null => 'Сделка ждёт завод — дальше её переведёт производство',
                     $isDone => 'Вернуть сделку на этот этап',
                     $isNext && $missing !== [] => 'Не хватает: '.collect($missing)
                         ->map(fn ($r) => $r->getLabel())->implode(', '),
@@ -73,7 +82,13 @@
         @endforeach
     </div>
 
-    @if ($nextStage && ($blocked = $nextStage->missingFor($record)) !== [])
+    @if ($waitingOrder)
+        <p class="gravit-stepper__hint gravit-stepper__hint--factory">
+            Сделка ждёт завод: наряд {{ $waitingOrder->number }}
+            @if ($waitingOrder->currentStage) сейчас на этапе «{{ $waitingOrder->currentStage->name }}» @endif.
+            Дальше её переведёт производство{{ $finishStageName ? ' после «'.$finishStageName.'»' : '' }}.
+        </p>
+    @elseif ($nextStage && ($blocked = $nextStage->missingFor($record)) !== [])
         <p class="gravit-stepper__hint">
             Для перехода на «{{ $nextStage->name }}» не хватает:
             {{ collect($blocked)->map(fn ($r) => $r->getLabel().' ('.$r->hint().')')->implode('; ') }}

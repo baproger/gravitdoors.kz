@@ -2350,3 +2350,46 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     .gp-row__meta { grid-area: meta; justify-content: flex-start; padding-inline-start: 0.25rem; }
     .gp-row__actions { grid-area: actions; }
 }
+
+/* ---------- Сделка ждёт завод ---------- */
+
+.gravit-card__waiting {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.375rem;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid rgb(47 111 237 / 0.25);
+    border-radius: 999px;
+    background: rgb(47 111 237 / 0.08);
+    color: rgb(29 78 216);
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+
+.gravit-card__waiting::before {
+    content: '';
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: currentColor;
+    animation: gravit-pulse 1.6s ease-in-out infinite;
+}
+
+.dark .gravit-card__waiting { color: rgb(147 197 253); }
+
+.gravit-stepper__hint--factory {
+    background: rgb(47 111 237 / 0.08);
+    color: rgb(29 78 216);
+}
+
+.dark .gravit-stepper__hint--factory { color: rgb(147 197 253); }
+
+@keyframes gravit-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gravit-card__waiting::before { animation: none; }
+}
