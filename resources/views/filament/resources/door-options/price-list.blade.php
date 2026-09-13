@@ -114,15 +114,18 @@
                                             <span class="pl-tag">снята с продажи</span>
                                         @endunless
                                     </span>
-                                    <span class="pl-row__sub">
+                                    @php
+                                        $usageText = $usage > 0 ? 'в '.$usage.' '.\App\Support\Plural::choose($usage, 'двери', 'дверях', 'дверях') : null;
+                                    @endphp
+                                    {{-- Одна строка: в узкой карточке код, «в N дверях» и материал переносились
+                                         на 3–4 строки. Материал обрезается многоточием, полный текст — в подсказке. --}}
+                                    <span class="pl-row__sub" title="{{ collect([$option->code, $usageText, $stock ? 'со склада: '.$stock : null])->filter()->implode(' · ') }}">
                                         <span class="pl-row__code">{{ $option->code }}</span>
-                                        @if ($stock)
-                                            <span class="pl-row__dot" aria-hidden="true">·</span>
-                                            <span title="Списывается со склада при передаче в цех">{{ $stock }}</span>
+                                        @if ($usageText)
+                                            <span class="pl-row__usage">· {{ $usageText }}</span>
                                         @endif
-                                        @if ($usage > 0)
-                                            <span class="pl-row__dot" aria-hidden="true">·</span>
-                                            <span class="pl-row__usage">в {{ $usage }} {{ \App\Support\Plural::choose($usage, 'двери', 'дверях', 'дверях') }}</span>
+                                        @if ($stock)
+                                            <span class="pl-row__stock">· {{ $stock }}</span>
                                         @endif
                                     </span>
                                 </div>

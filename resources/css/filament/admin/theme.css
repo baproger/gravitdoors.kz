@@ -2743,11 +2743,25 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 
 .pl-row__sub {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0 0.3rem;
+    flex-wrap: nowrap;
+    gap: 0.3rem;
+    min-width: 0;
+    overflow: hidden;
     color: var(--gravit-muted);
     font-size: 0.6875rem;
     line-height: 1.3;
+    white-space: nowrap;
+}
+
+.pl-row__code,
+.pl-row__usage {
+    flex: 0 0 auto;
+}
+
+.pl-row__stock {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .pl-row__code {

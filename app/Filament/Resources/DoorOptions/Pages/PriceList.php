@@ -142,7 +142,7 @@ class PriceList extends Page
             [
                 'label' => 'В заказах',
                 'value' => (string) $used,
-                'hint' => Plural::choose($used, 'позиция выбрана', 'позиции выбраны', 'позиций выбрано').' в дверях',
+                'hint' => 'выбраны в дверях',
                 'span' => 3,
                 'hero' => false,
             ],
@@ -355,12 +355,20 @@ class PriceList extends Page
             return 'Нет позиций в продаже';
         }
 
-        $prices = $active->map(fn (DoorOption $o): float => (float) $o->price);
-        $types = $active->map(fn (DoorOption $o): string => $o->price_type->value)->unique();
+        // Бесплатные варианты («Без панели») в диапазон не берём: «0 ₸ – 24 000 ₸»
+        // ничего не говорит о том, сколько стоит панель.
+        $paid = $active->filter(fn (DoorOption $o): bool => (float) $o->price > 0);
+
+        if ($paid->isEmpty()) {
+            return 'Без доплаты';
+        }
+
+        $prices = $paid->map(fn (DoorOption $o): float => (float) $o->price);
+        $types = $paid->map(fn (DoorOption $o): string => $o->price_type->value)->unique();
 
         $range = $prices->min() === $prices->max()
             ? Money::format($prices->min())
-            : Money::format($prices->min()).' – '.Money::format($prices->max());
+            : 'от '.Money::format($prices->min()).' до '.Money::format($prices->max());
 
         return $types->count() === 1
             ? $range.' '.$this->unit(PriceType::from($types->first()))
