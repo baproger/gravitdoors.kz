@@ -11,12 +11,47 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Позиция прайс-листа конфигуратора.
  *
+ * @property int $id
  * @property DoorOptionCategory $category
+ * @property string $code
+ * @property string $label
+ * @property numeric $price
  * @property PriceType $price_type
+ * @property int|null $material_stock_id
+ * @property numeric $consumption
+ * @property int $sort
+ * @property bool $is_default
+ * @property bool $is_active
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read MaterialStock|null $materialStock
+ *
+ * @method static Builder<static>|DoorOption active()
+ * @method static \Database\Factories\DoorOptionFactory factory($count = null, $state = [])
+ * @method static Builder<static>|DoorOption newModelQuery()
+ * @method static Builder<static>|DoorOption newQuery()
+ * @method static Builder<static>|DoorOption ofCategory(\App\Enums\DoorOptionCategory|string $category)
+ * @method static Builder<static>|DoorOption query()
+ * @method static Builder<static>|DoorOption whereCategory($value)
+ * @method static Builder<static>|DoorOption whereCode($value)
+ * @method static Builder<static>|DoorOption whereConsumption($value)
+ * @method static Builder<static>|DoorOption whereCreatedAt($value)
+ * @method static Builder<static>|DoorOption whereId($value)
+ * @method static Builder<static>|DoorOption whereIsActive($value)
+ * @method static Builder<static>|DoorOption whereIsDefault($value)
+ * @method static Builder<static>|DoorOption whereLabel($value)
+ * @method static Builder<static>|DoorOption whereMaterialStockId($value)
+ * @method static Builder<static>|DoorOption wherePrice($value)
+ * @method static Builder<static>|DoorOption wherePriceType($value)
+ * @method static Builder<static>|DoorOption whereSort($value)
+ * @method static Builder<static>|DoorOption whereUpdatedAt($value)
+ *
+ * @mixin \Eloquent
  */
 class DoorOption extends Model
 {

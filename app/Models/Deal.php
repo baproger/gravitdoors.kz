@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
@@ -27,8 +28,111 @@ use Illuminate\Support\Str;
  * значением pipeline_type. Наряд знает свою сделку через parent_deal_id,
  * сделка свой наряд — через productionOrder().
  *
+ * @property int $id
+ * @property string $number
+ * @property string $title
+ * @property string $client_name
+ * @property string|null $client_phone
+ * @property string|null $client_address
+ * @property numeric $total_price
+ * @property numeric $cost_price
  * @property DealStatus $status_id
  * @property PipelineType $pipeline_type
+ * @property int|null $current_stage_id
+ * @property string $qr_code_hash
+ * @property int|null $parent_deal_id
+ * @property int|null $manager_id
+ * @property Carbon|null $due_date
+ * @property Carbon|null $stage_entered_at
+ * @property Carbon|null $production_started_at
+ * @property Carbon|null $production_finished_at
+ * @property string|null $notes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at
+ * @property ClientType $client_type
+ * @property string|null $client_company
+ * @property string|null $client_bin
+ * @property string|null $client_email
+ * @property string|null $client_phone_extra
+ * @property string|null $city
+ * @property DealSource|null $source
+ * @property string|null $contract_number
+ * @property Carbon|null $contract_date
+ * @property Carbon|null $measured_at
+ * @property numeric $prepayment
+ * @property PaymentMethod|null $payment_method
+ * @property numeric $delivery_cost
+ * @property numeric $installation_cost
+ * @property array<array-key, mixed>|null $documents
+ * @property-read FactoryStage|null $currentStage
+ * @property-read Collection<int, DoorConfiguration> $doorConfigurations
+ * @property-read int|null $door_configurations_count
+ * @property-read Collection<int, DealEvent> $events
+ * @property-read int|null $events_count
+ * @property-read float $hours_on_stage
+ * @property-read float $margin
+ * @property-read float $profit
+ * @property-read string $track_url
+ * @property-read User|null $manager
+ * @property-read Deal|null $parentDeal
+ * @property-read Collection<int, DealPayment> $payments
+ * @property-read int|null $payments_count
+ * @property-read Collection<int, ProductionLog> $productionLogs
+ * @property-read int|null $production_logs_count
+ * @property-read Deal|null $productionOrder
+ * @property-read Collection<int, StockMovement> $stockMovements
+ * @property-read int|null $stock_movements_count
+ *
+ * @method static \Database\Factories\DealFactory factory($count = null, $state = [])
+ * @method static Builder<static>|Deal factoryOrders()
+ * @method static Builder<static>|Deal newModelQuery()
+ * @method static Builder<static>|Deal newQuery()
+ * @method static Builder<static>|Deal onlyTrashed()
+ * @method static Builder<static>|Deal open()
+ * @method static Builder<static>|Deal query()
+ * @method static Builder<static>|Deal sales()
+ * @method static Builder<static>|Deal whereCity($value)
+ * @method static Builder<static>|Deal whereClientAddress($value)
+ * @method static Builder<static>|Deal whereClientBin($value)
+ * @method static Builder<static>|Deal whereClientCompany($value)
+ * @method static Builder<static>|Deal whereClientEmail($value)
+ * @method static Builder<static>|Deal whereClientName($value)
+ * @method static Builder<static>|Deal whereClientPhone($value)
+ * @method static Builder<static>|Deal whereClientPhoneExtra($value)
+ * @method static Builder<static>|Deal whereClientType($value)
+ * @method static Builder<static>|Deal whereContractDate($value)
+ * @method static Builder<static>|Deal whereContractNumber($value)
+ * @method static Builder<static>|Deal whereCostPrice($value)
+ * @method static Builder<static>|Deal whereCreatedAt($value)
+ * @method static Builder<static>|Deal whereCurrentStageId($value)
+ * @method static Builder<static>|Deal whereDeletedAt($value)
+ * @method static Builder<static>|Deal whereDeliveryCost($value)
+ * @method static Builder<static>|Deal whereDocuments($value)
+ * @method static Builder<static>|Deal whereDueDate($value)
+ * @method static Builder<static>|Deal whereId($value)
+ * @method static Builder<static>|Deal whereInstallationCost($value)
+ * @method static Builder<static>|Deal whereManagerId($value)
+ * @method static Builder<static>|Deal whereMeasuredAt($value)
+ * @method static Builder<static>|Deal whereNotes($value)
+ * @method static Builder<static>|Deal whereNumber($value)
+ * @method static Builder<static>|Deal whereParentDealId($value)
+ * @method static Builder<static>|Deal wherePaymentMethod($value)
+ * @method static Builder<static>|Deal wherePipelineType($value)
+ * @method static Builder<static>|Deal wherePrepayment($value)
+ * @method static Builder<static>|Deal whereProductionFinishedAt($value)
+ * @method static Builder<static>|Deal whereProductionStartedAt($value)
+ * @method static Builder<static>|Deal whereQrCodeHash($value)
+ * @method static Builder<static>|Deal whereSource($value)
+ * @method static Builder<static>|Deal whereStageEnteredAt($value)
+ * @method static Builder<static>|Deal whereStatusId($value)
+ * @method static Builder<static>|Deal whereTitle($value)
+ * @method static Builder<static>|Deal whereTotalPrice($value)
+ * @method static Builder<static>|Deal whereUpdatedAt($value)
+ * @method static Builder<static>|Deal withTrashed(bool $withTrashed = true)
+ * @method static Builder<static>|Deal withoutTrashed()
+ *
+ * @mixin \Eloquent
  */
 #[ObservedBy(DealObserver::class)]
 class Deal extends Model
@@ -131,11 +235,26 @@ class Deal extends Model
         return $this->belongsTo(Deal::class, 'parent_deal_id');
     }
 
-    /** Наряд завода, созданный из этой сделки. @return HasOne<Deal, $this> */
+    /**
+     * Все наряды по сделке, включая отменённые. Для подсчётов «есть ли живой
+     * наряд»: whereHas поверх связи с latestOfMany() в SQLite считает неверно.
+     *
+     * @return HasMany<Deal, $this>
+     */
+    public function productionOrders(): HasMany
+    {
+        return $this->hasMany(Deal::class, 'parent_deal_id')
+            ->where('pipeline_type', PipelineType::Factory->value);
+    }
+
+    /** Последний наряд завода по этой сделке. @return HasOne<Deal, $this> */
     public function productionOrder(): HasOne
     {
+        // Последний наряд: после отмены и повторной передачи в цех у сделки их
+        // два, и без latestOfMany() связь возвращала отменённый.
         return $this->hasOne(Deal::class, 'parent_deal_id')
-            ->where('pipeline_type', PipelineType::Factory->value);
+            ->where('pipeline_type', PipelineType::Factory->value)
+            ->latestOfMany();
     }
 
     /**

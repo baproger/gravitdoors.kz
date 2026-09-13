@@ -7,22 +7,42 @@ namespace App\Models;
 use App\Enums\DealEventType;
 use App\Enums\Department;
 use App\Enums\UserRole;
-use Database\Factories\DealEventFactory;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Запись истории сделки.
  *
- * @property DealEventType $type
+ * @property int $id
+ * @property int $deal_id
+ * @property int|null $user_id
  * @property Department $department
+ * @property DealEventType $type
+ * @property string $description
+ * @property array<array-key, mixed>|null $changes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Deal|null $deal
+ * @property-read User|null $user
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereChanges($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereDealId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereDepartment($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DealEvent whereUserId($value)
+ *
+ * @mixin \Eloquent
  */
 class DealEvent extends Model
 {
-    /** @use HasFactory<DealEventFactory> */
-    use HasFactory;
-
     protected $fillable = ['deal_id', 'user_id', 'department', 'type', 'description', 'changes'];
 
     protected function casts(): array

@@ -8,7 +8,40 @@ use Database\Factories\StockMovementFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $material_stock_id
+ * @property int|null $deal_id
+ * @property int|null $user_id
+ * @property string $type
+ * @property numeric $quantity
+ * @property numeric $price_per_unit
+ * @property string|null $comment
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Deal|null $deal
+ * @property-read MaterialStock $materialStock
+ * @property-read User|null $user
+ *
+ * @method static \Database\Factories\StockMovementFactory factory($count = null, $state = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereComment($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereDealId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereMaterialStockId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement wherePricePerUnit($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereQuantity($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StockMovement whereUserId($value)
+ *
+ * @mixin \Eloquent
+ */
 class StockMovement extends Model
 {
     /** @use HasFactory<StockMovementFactory> */

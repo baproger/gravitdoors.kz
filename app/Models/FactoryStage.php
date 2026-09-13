@@ -8,14 +8,65 @@ use App\Enums\PipelineType;
 use App\Enums\StageRequirement;
 use Database\Factories\FactoryStageFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Этап воронки. Обслуживает и продажи, и цех — см. миграцию factory_stages.
  *
+ * @property int $id
  * @property PipelineType $pipeline_type
+ * @property string $code
+ * @property string $name
+ * @property int $order
+ * @property numeric $estimated_hours
+ * @property numeric $operation_cost
+ * @property string $color
+ * @property string|null $icon
+ * @property string|null $description
+ * @property bool $is_initial
+ * @property bool $is_final
+ * @property bool $triggers_production
+ * @property bool $completes_production
+ * @property bool $is_active
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property array<array-key, mixed>|null $required_fields
+ * @property-read Collection<int, Deal> $deals
+ * @property-read int|null $deals_count
+ * @property-read Collection<int, ProductionLog> $productionLogs
+ * @property-read int|null $production_logs_count
+ *
+ * @method static Builder<static>|FactoryStage active()
+ * @method static \Database\Factories\FactoryStageFactory factory($count = null, $state = [])
+ * @method static Builder<static>|FactoryStage newModelQuery()
+ * @method static Builder<static>|FactoryStage newQuery()
+ * @method static Builder<static>|FactoryStage ofPipeline(\App\Enums\PipelineType|string $type)
+ * @method static Builder<static>|FactoryStage ordered()
+ * @method static Builder<static>|FactoryStage query()
+ * @method static Builder<static>|FactoryStage whereCode($value)
+ * @method static Builder<static>|FactoryStage whereColor($value)
+ * @method static Builder<static>|FactoryStage whereCompletesProduction($value)
+ * @method static Builder<static>|FactoryStage whereCreatedAt($value)
+ * @method static Builder<static>|FactoryStage whereDescription($value)
+ * @method static Builder<static>|FactoryStage whereEstimatedHours($value)
+ * @method static Builder<static>|FactoryStage whereIcon($value)
+ * @method static Builder<static>|FactoryStage whereId($value)
+ * @method static Builder<static>|FactoryStage whereIsActive($value)
+ * @method static Builder<static>|FactoryStage whereIsFinal($value)
+ * @method static Builder<static>|FactoryStage whereIsInitial($value)
+ * @method static Builder<static>|FactoryStage whereName($value)
+ * @method static Builder<static>|FactoryStage whereOperationCost($value)
+ * @method static Builder<static>|FactoryStage whereOrder($value)
+ * @method static Builder<static>|FactoryStage wherePipelineType($value)
+ * @method static Builder<static>|FactoryStage whereRequiredFields($value)
+ * @method static Builder<static>|FactoryStage whereTriggersProduction($value)
+ * @method static Builder<static>|FactoryStage whereUpdatedAt($value)
+ *
+ * @mixin \Eloquent
  */
 class FactoryStage extends Model
 {

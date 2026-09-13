@@ -86,6 +86,13 @@ class DoorProductionService
 
             $this->enterStage($deal, $stage, $from, $actor);
 
+            // Завершающий этап продаж закрывает сделку: иначе она оставалась бы
+            // «Готово к отгрузке» и считалась открытой — в сводке «В работе»
+            // и на канбане навсегда.
+            if (! $deal->isFactoryOrder() && $stage->is_final && ($from === null || $stage->order > $from->order)) {
+                $deal->forceFill(['status_id' => DealStatus::Completed])->save();
+            }
+
             // Автоматизация №2: этап ОТК покинут вперёд — значит, он пройден.
             if ($from?->completes_production && $stage->order > $from->order) {
                 $this->finishProduction($deal, $actor);
@@ -142,7 +149,9 @@ class DoorProductionService
         }
 
         return DB::transaction(function () use ($salesDeal, $actor): Deal {
-            if ($existing = $salesDeal->productionOrder()->first()) {
+            // Только живой наряд считается «уже передано»: отменённый не в счёт,
+            // иначе после отмены повторная передача молча ничего не создавала.
+            if ($existing = $salesDeal->activeProductionOrder()) {
                 return $existing;
             }
 
@@ -171,7 +180,10 @@ class DoorProductionService
                 'notes' => $salesDeal->notes,
             ]);
 
-            $this->openLog($order, $firstStage, $actor);
+            // Без исполнителя: наряд открыл менеджер, а работать будет цех.
+            // Иначе рабочий, нажавший «Готово» без «Взять в работу», отдавал
+            // бы сдельную оплату за раскрой менеджеру.
+            $this->openLog($order, $firstStage, null);
 
             $salesDeal->forceFill([
                 'status_id' => DealStatus::HandedToProduction,
@@ -480,6 +492,15 @@ class DoorProductionService
                     'production_started_at' => null,
                 ])->save();
 
+                // Сделка уходит с «Передано в производство» на шаг назад: наряда
+                // больше нет, а повторная передача сработает только при новом
+                // входе на этот этап.
+                $current = $salesDeal->currentStage;
+
+                if ($current?->triggers_production && ($previous = $current->previous())) {
+                    $this->enterStage($salesDeal, $previous, $current, $actor);
+                }
+
                 DealEvent::record(
                     $salesDeal,
                     DealEventType::ProductionCancelled,
@@ -605,7 +626,9 @@ class DoorProductionService
         ])->save();
 
         if ($deal->isFactoryOrder()) {
-            $this->openLog($deal, $stage, $actor);
+            // Исполнитель следующего этапа неизвестен: тот, кто закрыл сварку,
+            // не обязательно красит. Его назначит «Взять в работу» или «Готово».
+            $this->openLog($deal, $stage, null);
         }
 
         $deal->setRelation('currentStage', $stage);

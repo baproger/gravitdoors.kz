@@ -67,7 +67,7 @@ class ListDeals extends ListRecords
         $inWorkSum = (float) (clone $open)->sum('total_price');
 
         $atFactory = (clone $open)
-            ->whereHas('productionOrder', fn ($query) => $query->whereNotIn('status_id', [
+            ->whereHas('productionOrders', fn ($query) => $query->whereNotIn('status_id', [
                 DealStatus::Completed->value,
                 DealStatus::Cancelled->value,
             ]))

@@ -270,7 +270,7 @@ class PriceListService
     /** @param list<int> $ids */
     private function renumber(array $ids): void
     {
-        foreach (array_values($ids) as $index => $id) {
+        foreach ($ids as $index => $id) {
             DoorOption::query()->whereKey($id)->update(['sort' => ($index + 1) * 10]);
         }
     }

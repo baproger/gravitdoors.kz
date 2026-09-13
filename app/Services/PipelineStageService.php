@@ -384,7 +384,7 @@ class PipelineStageService
             fn (int $id): bool => ! $stages[$id]->is_final && $stages[$id]->is_active,
         );
 
-        foreach (array_values($ids) as $index => $id) {
+        foreach ($ids as $index => $id) {
             FactoryStage::query()->whereKey($id)->update([
                 'order' => ($index + 1) * 10,
                 'is_initial' => $id === $initialId,

@@ -27,6 +27,9 @@ use Livewire\Component;
  * DoorProductionService.
  */
 #[Layout('components.layouts.app')]
+/**
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $workers  вычисляется в getWorkersProperty()
+ */
 class WorkshopScreen extends Component
 {
     public string $code = '';

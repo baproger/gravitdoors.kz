@@ -17,7 +17,8 @@ class DoorConfigurationObserver
 {
     public function creating(DoorConfiguration $configuration): void
     {
-        if ($configuration->position === null || $configuration->position < 1) {
+        // Непроставленный атрибут возвращает null несмотря на cast integer.
+        if (($configuration->position ?? 0) < 1) {
             $configuration->position = self::nextPosition($configuration->deal_id);
         }
     }
