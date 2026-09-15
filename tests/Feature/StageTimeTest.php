@@ -100,7 +100,7 @@ class StageTimeTest extends TestCase
         $this->production->moveToStage($deal->refresh(), $this->stage('contract'), $this->manager);
         Carbon::setTestNow('2026-09-11 10:00');
 
-        $this->get("/admin/deals/{$deal->id}/edit")->assertOk()->assertSee('26 ч · 2-й заход');
+        $this->get("/admin/deals/{$deal->id}/edit")->assertOk()->assertSee('26 ч ↺2');
         $this->get('/admin/kanban/sales')->assertOk()->assertSee('26 ч ↺');
     }
 

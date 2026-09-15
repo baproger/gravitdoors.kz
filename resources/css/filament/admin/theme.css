@@ -3176,3 +3176,6 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 }
 .gravit-step--done .gravit-step__timer--past { background: rgb(22 163 74 / 0.12); color: rgb(21 128 61); }
 .dark .gravit-step--done .gravit-step__timer--past { color: rgb(134 239 172); }
+
+/* Таймер на этапе не переносится: «39.6 ч ↺2» — одна строка. */
+.gravit-step__timer { white-space: nowrap; }

@@ -74,7 +74,7 @@
 
                 @if ($isCurrent && $record->hours_on_stage >= 1)
                     <span @class(['gravit-step__timer', 'gravit-step__timer--late' => $record->isStageOverdue()])
-                          title="{{ trim(($visits > 1 ? $visits.'-й заход, в этот заход '.$record->hoursOnCurrentVisit().' ч, всего на этапе '.$record->hours_on_stage.' ч. ' : 'На этапе '.$record->hours_on_stage.' ч. ').($record->isStageOverdue() ? 'Дольше норматива на '.$record->stageOverdueHours().' ч' : '')) }}">{{ $record->hours_on_stage }} ч{{ $visits > 1 ? ' · '.$visits.'-й заход' : '' }}</span>
+                          title="{{ trim(($visits > 1 ? $visits.'-й заход, в этот заход '.$record->hoursOnCurrentVisit().' ч, всего на этапе '.$record->hours_on_stage.' ч. ' : 'На этапе '.$record->hours_on_stage.' ч. ').($record->isStageOverdue() ? 'Дольше норматива на '.$record->stageOverdueHours().' ч' : '')) }}">{{ $record->hours_on_stage }} ч{{ $visits > 1 ? ' ↺'.$visits : '' }}</span>
                 @elseif (! $isCurrent && ($hoursByStage[$stage->id] ?? 0) >= 1)
                     <span class="gravit-step__timer gravit-step__timer--past" title="Сделка провела на этом этапе {{ $hoursByStage[$stage->id] }} ч">{{ $hoursByStage[$stage->id] }} ч</span>
                 @endif
