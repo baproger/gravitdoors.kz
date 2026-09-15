@@ -3167,3 +3167,12 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     font-weight: 700;
 }
 .dark .gravit-card__alert { color: rgb(253 164 175); }
+
+/* Часы пройденного этапа на полосе — тише текущего. */
+.gravit-step__timer--past {
+    background: rgb(15 23 42 / 0.06);
+    color: var(--gravit-muted);
+    font-weight: 500;
+}
+.gravit-step--done .gravit-step__timer--past { background: rgb(22 163 74 / 0.12); color: rgb(21 128 61); }
+.dark .gravit-step--done .gravit-step__timer--past { color: rgb(134 239 172); }

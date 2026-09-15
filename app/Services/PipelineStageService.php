@@ -317,11 +317,12 @@ class PipelineStageService
 
         DB::transaction(function () use ($stage, $moveTo, $deals, $actor): void {
             foreach ($deals as $deal) {
-                // Тихо: правка поля «Этап» от автоматики только задвоила бы запись ниже.
+                // Обычный save(): этап и время входа в ленту не идут (DealFieldLabels),
+                // а наблюдатель должен закрыть старый заход и открыть новый.
                 $deal->forceFill([
                     'current_stage_id' => $moveTo->id,
                     'stage_entered_at' => now(),
-                ])->saveQuietly();
+                ])->save();
 
                 DealEvent::record(
                     $deal,

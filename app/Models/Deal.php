@@ -275,6 +275,12 @@ class Deal extends Model
         return $this->hasMany(DealPayment::class)->orderBy('paid_at')->orderBy('id');
     }
 
+    /** @return HasMany<DealStageVisit, $this> */
+    public function stageVisits(): HasMany
+    {
+        return $this->hasMany(DealStageVisit::class)->orderBy('entered_at');
+    }
+
     /** @return HasMany<DealEvent, $this> */
     public function events(): HasMany
     {
@@ -476,9 +482,58 @@ class Deal extends Model
         $query->open()->whereNotNull('due_date')->whereDate('due_date', '<', today())->orderBy('due_date');
     }
 
+    /**
+     * Сколько сделка провела на текущем этапе — за все заходы, не только с
+     * последнего входа. Вернули на этап — прежние часы никуда не деваются.
+     */
     public function getHoursOnStageAttribute(): float
     {
+        if ($this->current_stage_id === null) {
+            return 0.0;
+        }
+
+        $closed = $this->relationLoaded('stageVisits')
+            ? $this->stageVisits->where('stage_id', $this->current_stage_id)->whereNotNull('left_at')
+            : $this->stageVisits()->where('stage_id', $this->current_stage_id)->whereNotNull('left_at')->get();
+
+        $minutes = $closed->sum(fn (DealStageVisit $visit): int => (int) $visit->entered_at->diffInMinutes($visit->left_at));
+
+        if ($this->stage_entered_at) {
+            $minutes += (int) $this->stage_entered_at->diffInMinutes(now());
+        }
+
+        return round($minutes / 60, 1);
+    }
+
+    /** Время только текущего захода — для подписи «в этот заход N ч». */
+    public function hoursOnCurrentVisit(): float
+    {
         return $this->stage_entered_at ? round($this->stage_entered_at->diffInMinutes(now()) / 60, 1) : 0.0;
+    }
+
+    /** Который это заход на текущий этап: 1 — первый, 2 — сделку вернули. */
+    public function visitsOnCurrentStage(): int
+    {
+        if ($this->current_stage_id === null) {
+            return 0;
+        }
+
+        return max(1, $this->relationLoaded('stageVisits')
+            ? $this->stageVisits->where('stage_id', $this->current_stage_id)->count()
+            : $this->stageVisits()->where('stage_id', $this->current_stage_id)->count());
+    }
+
+    /**
+     * Сколько часов сделка провела на каждом этапе за всё время — для полосы этапов.
+     *
+     * @return array<int, float> stage_id => часы
+     */
+    public function hoursByStage(): array
+    {
+        return $this->stageVisits()->get()
+            ->groupBy('stage_id')
+            ->map(fn ($visits): float => round($visits->sum(fn (DealStageVisit $v): int => (int) $v->entered_at->diffInMinutes($v->left_at ?? now())) / 60, 1))
+            ->all();
     }
 
     public function getTrackUrlAttribute(): string

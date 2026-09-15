@@ -115,7 +115,7 @@
                                     <span class="gravit-card__number">{{ $deal->number }}</span>
                                     @if ($deal->hours_on_stage >= 1)
                                         <span @class(['gravit-card__timer', 'gravit-card__timer--late' => $deal->isStageOverdue()])
-                                              title="{{ $deal->isStageOverdue() ? 'На этапе дольше норматива на '.$deal->stageOverdueHours().' ч' : 'На этапе' }}">⏱ {{ $deal->hours_on_stage }} ч</span>
+                                              title="{{ ($deal->visitsOnCurrentStage() > 1 ? $deal->visitsOnCurrentStage().'-й заход, всего на этапе '.$deal->hours_on_stage.' ч. ' : 'На этапе '.$deal->hours_on_stage.' ч. ').($deal->isStageOverdue() ? 'Дольше норматива на '.$deal->stageOverdueHours().' ч' : '') }}">⏱ {{ $deal->hours_on_stage }} ч{{ $deal->visitsOnCurrentStage() > 1 ? ' ↺' : '' }}</span>
                                     @endif
                                 </div>
 

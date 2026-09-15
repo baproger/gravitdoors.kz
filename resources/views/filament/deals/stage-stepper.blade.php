@@ -25,6 +25,9 @@
         : null;
 
     $canMove = $record && ! $waitingOrder && auth()->user()?->can('move', $record);
+    // Часы по каждому этапу за все заходы — у пройденных видно, сколько они заняли.
+    $hoursByStage = $record ? $record->hoursByStage() : [];
+    $visits = $record?->visitsOnCurrentStage() ?? 1;
 @endphp
 
 @if ($stages->isNotEmpty())
@@ -71,7 +74,9 @@
 
                 @if ($isCurrent && $record->hours_on_stage >= 1)
                     <span @class(['gravit-step__timer', 'gravit-step__timer--late' => $record->isStageOverdue()])
-                          title="{{ $record->isStageOverdue() ? 'Дольше норматива на '.$record->stageOverdueHours().' ч' : '' }}">{{ $record->hours_on_stage }} ч</span>
+                          title="{{ trim(($visits > 1 ? $visits.'-й заход, в этот заход '.$record->hoursOnCurrentVisit().' ч, всего на этапе '.$record->hours_on_stage.' ч. ' : 'На этапе '.$record->hours_on_stage.' ч. ').($record->isStageOverdue() ? 'Дольше норматива на '.$record->stageOverdueHours().' ч' : '')) }}">{{ $record->hours_on_stage }} ч{{ $visits > 1 ? ' · '.$visits.'-й заход' : '' }}</span>
+                @elseif (! $isCurrent && ($hoursByStage[$stage->id] ?? 0) >= 1)
+                    <span class="gravit-step__timer gravit-step__timer--past" title="Сделка провела на этом этапе {{ $hoursByStage[$stage->id] }} ч">{{ $hoursByStage[$stage->id] }} ч</span>
                 @endif
 
                 @if ($isNext && $missing !== [])

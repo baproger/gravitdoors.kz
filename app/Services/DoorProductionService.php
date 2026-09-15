@@ -343,7 +343,7 @@ class DoorProductionService
             $deals = Deal::query()
                 ->where('current_stage_id', $stage->id)
                 ->tap($filter)
-                ->with(['manager', 'parentDeal.doorConfigurations', 'doorConfigurations', 'productionOrder.currentStage'])
+                ->with(['manager', 'parentDeal.doorConfigurations', 'doorConfigurations', 'productionOrder.currentStage', 'stageVisits'])
                 ->orderByDesc('updated_at')
                 ->limit($limit)
                 ->get();

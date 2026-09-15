@@ -9,6 +9,7 @@ use App\Enums\UserRole;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
 use App\Models\DealEvent;
+use App\Models\DealStageVisit;
 use App\Models\User;
 use App\Support\DealFieldLabels;
 use Filament\Actions\Action;
@@ -18,6 +19,8 @@ class DealObserver
 {
     public function created(Deal $deal): void
     {
+        $this->openVisit($deal);
+
         DealEvent::record(
             $deal,
             DealEventType::Created,
@@ -33,6 +36,10 @@ class DealObserver
 
     public function updated(Deal $deal): void
     {
+        if ($deal->wasChanged('current_stage_id')) {
+            $this->openVisit($deal);
+        }
+
         $this->recordChanges($deal);
 
         // Дата замера назначена или перенесена — замерщик должен узнать об этом
@@ -85,6 +92,29 @@ class DealObserver
         $more = count($changes) > 4 ? ' и ещё '.(count($changes) - 4) : '';
 
         DealEvent::record($deal, DealEventType::Updated, "Изменено: {$names}{$more}", changes: $changes);
+    }
+
+    /**
+     * Закрыть текущий заход и открыть новый. Журнал ведётся здесь, а не в
+     * сервисе: этап меняют и канбан, и карточка, и удаление этапа воронки —
+     * наблюдатель ловит все пути разом.
+     */
+    private function openVisit(Deal $deal): void
+    {
+        $now = $deal->stage_entered_at ?? now();
+
+        $deal->stageVisits()->whereNull('left_at')->update(['left_at' => $now]);
+
+        if ($deal->current_stage_id === null) {
+            return;
+        }
+
+        DealStageVisit::create([
+            'deal_id' => $deal->id,
+            'stage_id' => $deal->current_stage_id,
+            'user_id' => auth()->id(),
+            'entered_at' => $now,
+        ]);
     }
 
     private function notifySurveyors(Deal $deal): void
