@@ -101,7 +101,7 @@ class StageTimeTest extends TestCase
         Carbon::setTestNow('2026-09-11 10:00');
 
         $this->get("/admin/deals/{$deal->id}/edit")->assertOk()->assertSee('26 ч ↺2');
-        $this->get('/admin/kanban/sales')->assertOk()->assertSee('26 ч ↺');
+        $this->get('/admin/kanban/sales')->assertOk()->assertSee('26 ч')->assertSee('↺2');
     }
 
     public function test_existing_deals_get_an_open_visit_from_their_entry_time(): void
