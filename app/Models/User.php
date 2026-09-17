@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Storage;
  * @property bool $is_active
  * @property string|null $avatar_path
  * @property numeric $salary
+ * @property numeric|null $bonus_percent
  * @property Carbon|null $hired_at
  * @property Carbon|null $birth_date
  * @property-read Collection<int, Deal> $deals
@@ -71,7 +72,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
 
     protected $fillable = [
         'name', 'email', 'password', 'role', 'phone', 'is_active',
-        'avatar_path', 'salary', 'hired_at', 'birth_date',
+        'avatar_path', 'salary', 'bonus_percent', 'hired_at', 'birth_date',
     ];
 
     protected $hidden = [
@@ -86,6 +87,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'role' => UserRole::class,
             'is_active' => 'boolean',
             'salary' => 'decimal:2',
+            'bonus_percent' => 'decimal:2',
             'hired_at' => 'date',
             'birth_date' => 'date',
         ];

@@ -9,6 +9,7 @@ use App\Observers\DealPaymentObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
@@ -20,7 +21,9 @@ use Illuminate\Support\Facades\Storage;
  * @property int|null $user_id
  * @property numeric $amount
  * @property PaymentMethod $method
+ * @property int|null $account_id
  * @property Carbon $paid_at
+ * @property-read CashAccount|null $account
  * @property string $receipt_path
  * @property string|null $comment
  * @property Carbon|null $created_at
@@ -47,7 +50,7 @@ use Illuminate\Support\Facades\Storage;
 #[ObservedBy(DealPaymentObserver::class)]
 class DealPayment extends Model
 {
-    protected $fillable = ['deal_id', 'user_id', 'amount', 'method', 'paid_at', 'receipt_path', 'comment'];
+    protected $fillable = ['deal_id', 'user_id', 'amount', 'method', 'account_id', 'paid_at', 'receipt_path', 'comment'];
 
     protected function casts(): array
     {
@@ -68,6 +71,18 @@ class DealPayment extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<CashAccount, $this> */
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(CashAccount::class, 'account_id');
+    }
+
+    /** @return MorphOne<CashMovement, $this> */
+    public function cashMovement(): MorphOne
+    {
+        return $this->morphOne(CashMovement::class, 'source');
     }
 
     public function receiptUrl(): ?string

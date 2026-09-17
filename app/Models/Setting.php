@@ -36,6 +36,22 @@ class Setting extends Model
 
     public const WORKSHOP_CODE = 'workshop_access_code';
 
+    public const MANAGER_BONUS_PERCENT = 'manager_bonus_percent';
+
+    public const MANAGER_BONUS_AUTO_APPROVE = 'manager_bonus_auto_approve';
+
+    /** Процент менеджеру от суммы закрытой сделки. По умолчанию 2 %. */
+    public static function managerBonusPercent(): float
+    {
+        return max(0.0, (float) static::get(self::MANAGER_BONUS_PERCENT, '2'));
+    }
+
+    /** Утверждать автобонус сразу или отдавать администратору. */
+    public static function managerBonusAutoApprove(): bool
+    {
+        return static::get(self::MANAGER_BONUS_AUTO_APPROVE, '0') === '1';
+    }
+
     public static function get(string $key, ?string $default = null): ?string
     {
         return Cache::rememberForever(

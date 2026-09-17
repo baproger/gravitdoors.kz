@@ -59,6 +59,7 @@ class AdminPanelProvider extends PanelProvider
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->navigationGroups([
                 NavigationGroup::make('Работа')->icon('heroicon-o-squares-2x2'),
+                NavigationGroup::make('Финансы')->icon('heroicon-o-banknotes'),
                 NavigationGroup::make('Настройки')->icon('heroicon-o-cog-8-tooth')->collapsed(),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

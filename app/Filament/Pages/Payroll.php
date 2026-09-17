@@ -25,11 +25,11 @@ class Payroll extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBanknotes;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Работа';
+    protected static string|UnitEnum|null $navigationGroup = 'Финансы';
 
     protected static ?string $navigationLabel = 'Зарплата цеха';
 
-    protected static ?int $navigationSort = 60;
+    protected static ?int $navigationSort = 70;
 
     protected static ?string $slug = 'payroll';
 

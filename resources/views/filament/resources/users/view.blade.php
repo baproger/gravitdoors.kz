@@ -98,6 +98,9 @@
                     <div class="gravit-legend gravit-legend--wide">
                         <span><i class="gravit-dot gravit-dot--primary"></i> Оклад {{ \App\Support\Money::format($payroll['salary']) }}</span>
                         <span><i class="gravit-dot gravit-dot--success"></i> Сдельно {{ \App\Support\Money::format($payroll['piecework']) }}</span>
+                        @if (($payroll['bonuses'] ?? 0) > 0)
+                            <span><i class="gravit-dot gravit-dot--warning"></i> Бонусы {{ \App\Support\Money::format($payroll['bonuses']) }}</span>
+                        @endif
                     </div>
                     <p class="gravit-tile__hint">Закрыто этапов цеха: <strong>{{ $payroll['stages'] }}</strong></p>
                 </section>

@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Enums\UserRole;
 use App\Models\User;
+use App\Services\CashLedger;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -29,8 +30,12 @@ class DatabaseSeeder extends Seeder
         $this->call([
             FactoryStageSeeder::class,
             MaterialStockSeeder::class,
+            CashAccountSeeder::class,
             DoorOptionSeeder::class,
             DemoDataSeeder::class,
         ]);
+
+        // Демо-платежи созданы — разнести их по кассе и банку.
+        app(CashLedger::class)->backfill();
     }
 }
