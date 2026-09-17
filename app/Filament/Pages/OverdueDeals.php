@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\UserRole;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
 use App\Support\Money;
@@ -43,6 +44,12 @@ class OverdueDeals extends Page implements HasTable
 
     #[Url(except: 'due')]
     public string $mode = 'due';
+
+    /** Замерщику просрочки не положены — у него нет ни сделок, ни нарядов. */
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->role !== UserRole::Surveyor;
+    }
 
     public function getTitle(): string
     {
@@ -96,7 +103,10 @@ class OverdueDeals extends Page implements HasTable
                 'measurement' => $query->orderBy('measured_at'),
                 default => $query->orderBy('due_date'),
             })
-            ->recordUrl(fn (Deal $record): string => DealResource::getUrl('edit', ['record' => $record]))
+            // Рабочему карточка не открывается — строка без ссылки, а не 403.
+            ->recordUrl(fn (Deal $record): ?string => auth()->user()?->can('update', $record)
+                ? DealResource::getUrl('edit', ['record' => $record])
+                : null)
             ->recordClasses('od-row')
             ->paginated([25, 50])
             ->columns([
@@ -169,16 +179,20 @@ class OverdueDeals extends Page implements HasTable
             });
     }
 
-    /** Цех видит только наряды — как и в остальной панели. */
-    private static function scopedQuery(): Builder
+    /**
+     * Цех видит только наряды — как и в остальной панели. Продажам по сроку сдачи
+     * показываются сделки, а не наряды: наряд копирует срок сделки, и без этого
+     * один заказ считался бы просроченным дважды. Застрявшие на этапе — и те, и другие.
+     */
+    private static function scopedQuery(bool $includeOrders = false): Builder
     {
         $query = Deal::query();
 
         if (! (auth()->user()?->role->seesMoney() ?? false)) {
-            $query->factoryOrders();
+            return $query->factoryOrders();
         }
 
-        return $query;
+        return $includeOrders ? $query : $query->sales();
     }
 
     /**
@@ -189,11 +203,11 @@ class OverdueDeals extends Page implements HasTable
      */
     private function stuckIds(): array
     {
-        return static::scopedQuery()
+        return static::scopedQuery(includeOrders: true)
             ->open()
             ->whereNotNull('stage_entered_at')
             ->whereHas('currentStage', fn (Builder $q) => $q->where('estimated_hours', '>', 0))
-            ->with('currentStage')
+            ->with(['currentStage', 'stageVisits'])
             ->get()
             ->filter(fn (Deal $deal): bool => $deal->isStageOverdue())
             ->sortByDesc(fn (Deal $deal): float => $deal->stageOverdueHours())

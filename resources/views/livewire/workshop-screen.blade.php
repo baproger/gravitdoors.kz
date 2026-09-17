@@ -1,5 +1,7 @@
 {{-- Планшет цеха. Крупные цели нажатия, никаких сумм, автообновление раз в 15 секунд. --}}
-<div class="min-h-screen" @if ($authorized) wire:poll.15s @endif>
+<div class="min-h-screen" @if ($authorized) wire:poll.15s @endif
+     x-data="{ confirmId: null, confirmStage: '', confirmTitle: '', confirmLast: false }"
+     x-on:keydown.escape.window="confirmId = null">
 
     @if (! $authorized)
         {{-- Вход по коду --}}
@@ -79,7 +81,7 @@
                         <div class="flex flex-col gap-3 p-3">
                             @forelse ($stage->deals as $order)
                                 @php($configs = $order->configurations())
-                                @php($late = $order->hours_on_stage > (float) $stage->estimated_hours && (float) $stage->estimated_hours > 0)
+                                @php($late = $order->isStageOverdue())
 
                                 <article @class([
                                     'rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900',
@@ -118,9 +120,10 @@
                                         >
                                             Взял
                                         </button>
+                                        {{-- Подтверждение — своя модалка ниже, а не системное окно браузера: оно мелкое и не в стиле экрана. --}}
                                         <button
-                                            wire:click="complete({{ $order->id }})"
-                                            wire:confirm="Этап «{{ $stage->name }}» выполнен?"
+                                            type="button"
+                                            x-on:click="confirmId = {{ $order->id }}; confirmStage = @js($stage->name); confirmTitle = @js($order->parentDeal?->title ?? $order->title); confirmLast = @js((bool) ($stage->completes_production || $stage->is_final))"
                                             class="min-h-12 flex-[2] rounded-xl bg-emerald-600 px-3 text-base font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98]"
                                         >
                                             Готово ✓
@@ -137,5 +140,56 @@
                 @endforeach
             </div>
         </main>
+
+        {{-- Подтверждение «Готово ✓»: крупные кнопки под палец, закрывается по фону и Esc. --}}
+        <div
+            x-show="confirmId !== null"
+            x-cloak
+            x-transition.opacity.duration.150ms
+            class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 backdrop-blur-sm sm:items-center"
+            x-on:click.self="confirmId = null"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="workshop-confirm-title"
+        >
+            <div
+                x-show="confirmId !== null"
+                x-transition:enter="transition duration-200 ease-out"
+                x-transition:enter-start="translate-y-4 opacity-0 sm:translate-y-0 sm:scale-95"
+                x-transition:enter-end="translate-y-0 opacity-100 sm:scale-100"
+                class="w-full max-w-md rounded-3xl border border-white/60 bg-white p-6 shadow-2xl dark:border-white/10 dark:bg-slate-900"
+            >
+                <div class="flex items-start gap-4">
+                    <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-2xl text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">✓</span>
+                    <div class="min-w-0">
+                        <h2 id="workshop-confirm-title" class="text-xl leading-tight font-bold">
+                            Этап «<span x-text="confirmStage"></span>» выполнен?
+                        </h2>
+                        <p class="mt-1 truncate text-sm text-slate-500 dark:text-slate-400" x-text="confirmTitle"></p>
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                            <template x-if="confirmLast"><span>Наряд закроется и уйдёт отделу продаж. Оплата за этап запишется на выбранного исполнителя.</span></template>
+                            <template x-if="! confirmLast"><span>Наряд перейдёт на следующий этап. Оплата за этот этап запишется на выбранного исполнителя.</span></template>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex gap-3">
+                    <button
+                        type="button"
+                        x-on:click="confirmId = null"
+                        class="min-h-14 flex-1 rounded-2xl border border-slate-300 px-4 text-base font-semibold text-slate-700 transition active:scale-[0.98] dark:border-slate-600 dark:text-slate-200"
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="button"
+                        x-on:click="$wire.complete(confirmId); confirmId = null"
+                        class="min-h-14 flex-[2] rounded-2xl bg-emerald-600 px-4 text-lg font-bold text-white transition hover:bg-emerald-700 active:scale-[0.98]"
+                    >
+                        Да, готово ✓
+                    </button>
+                </div>
+            </div>
+        </div>
     @endif
 </div>

@@ -167,7 +167,7 @@ class PipelineStages extends Page
 
         $this->attempt(function () use ($stage, $enable): void {
             $this->service()->setAutomation($stage, $enable);
-            $this->notify($enable ? "Автоматика завода теперь на этапе «{$stage->name}»" : 'Автоматика завода выключена');
+            $this->notify("Автоматика теперь на этапе «{$stage->name}»");
         });
     }
 

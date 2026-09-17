@@ -39,8 +39,15 @@ class DealResource extends Resource
 
     protected static ?int $navigationSort = 30;
 
-    /** @var list<string> */
-    protected static array $globalSearchResultAttributes = ['number', 'title', 'client_name', 'client_phone'];
+    /**
+     * Глобальный поиск по номеру, клиенту и телефону — не только по названию.
+     *
+     * @return list<string>
+     */
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['number', 'title', 'client_name', 'client_phone'];
+    }
 
     public static function form(Schema $schema): Schema
     {

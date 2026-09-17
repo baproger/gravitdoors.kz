@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Users\Schemas;
 
 use App\Enums\UserRole;
+use App\Models\Setting;
 use App\Support\Validation;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -110,6 +111,15 @@ class UserForm
                         ->minValue(0)
                         ->default(0)
                         ->suffix(config('gravit.currency.symbol')),
+
+                    TextInput::make('bonus_percent')
+                        ->label('Бонус со сделки, %')
+                        ->helperText(fn (): string => 'Пусто — общая ставка '.rtrim(rtrim(number_format(Setting::managerBonusPercent(), 2, '.', ''), '0'), '.').' % из настроек финансов')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(100)
+                        ->step(0.1)
+                        ->suffix('%'),
 
                     DatePicker::make('hired_at')
                         ->label('В компании с')

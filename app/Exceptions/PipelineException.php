@@ -66,6 +66,16 @@ class PipelineException extends DomainException
         return new self("На этапе «{$stage->name}» {$count} ".Plural::choose($count, 'сделка', 'сделки', 'сделок').'. Выберите, на какой этап их перенести.');
     }
 
+    public static function automationRequired(FactoryStage $stage): self
+    {
+        return new self("Автоматику нельзя выключить: она нужна воронке. Чтобы убрать её с этапа «{$stage->name}», включите её на другом этапе.");
+    }
+
+    public static function moveToFinal(FactoryStage $stage): self
+    {
+        return new self("Этап «{$stage->name}» завершающий — переносить на него открытые сделки нельзя.");
+    }
+
     public static function moveToHidden(FactoryStage $stage): self
     {
         return new self("Этап «{$stage->name}» скрыт — переносить на него сделки нельзя.");

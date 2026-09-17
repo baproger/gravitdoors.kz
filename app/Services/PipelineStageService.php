@@ -180,23 +180,27 @@ class PipelineStageService
     {
         $column = self::automationColumn($stage->pipeline_type);
 
-        if ($enabled && $column === 'triggers_production' && $stage->is_final) {
+        // Автоматика в воронке ровно одна: выключить её нельзя, только передать
+        // другому этапу. Без неё сделки не доходили бы до завода, а наряды — до продаж.
+        if (! $enabled) {
+            throw PipelineException::automationRequired($stage);
+        }
+
+        if ($column === 'triggers_production' && $stage->is_final) {
             throw PipelineException::triggerCannotBeFinal($stage);
         }
 
-        if ($enabled && ! $stage->is_active) {
+        if (! $stage->is_active) {
             throw PipelineException::hiddenAutomation($stage);
         }
 
-        DB::transaction(function () use ($stage, $column, $enabled): void {
-            if ($enabled) {
-                FactoryStage::query()
-                    ->ofPipeline($stage->pipeline_type)
-                    ->whereKeyNot($stage->id)
-                    ->update([$column => false]);
-            }
+        DB::transaction(function () use ($stage, $column): void {
+            FactoryStage::query()
+                ->ofPipeline($stage->pipeline_type)
+                ->whereKeyNot($stage->id)
+                ->update([$column => false]);
 
-            $stage->update([$column => $enabled]);
+            $stage->update([$column => true]);
         });
     }
 
@@ -312,6 +316,12 @@ class PipelineStageService
 
             if (! $moveTo->is_active) {
                 throw PipelineException::moveToHidden($moveTo);
+            }
+
+            // На завершающий этап сделки не переносятся: они оказались бы «закрытыми»
+            // по этапу, но открытыми по статусу.
+            if ($moveTo->is_final) {
+                throw PipelineException::moveToFinal($moveTo);
             }
         }
 

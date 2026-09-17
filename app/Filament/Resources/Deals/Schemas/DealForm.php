@@ -12,6 +12,7 @@ use App\Enums\DoorModel;
 use App\Enums\PaymentMethod;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
+use App\Models\CashAccount;
 use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\User;
@@ -238,6 +239,13 @@ class DealForm
                                 ->required()
                                 ->native(false),
 
+                            Select::make('account_id')
+                                ->label('Счёт')
+                                ->helperText('Пусто — по способу: наличные в кассу, остальное в банк')
+                                ->options(fn (): array => CashAccount::query()->where('is_active', true)->orderBy('id')->pluck('name', 'id')->all())
+                                ->visible(fn (): bool => CashAccount::query()->where('is_active', true)->count() > 2)
+                                ->native(false),
+
                             DatePicker::make('paid_at')
                                 ->label('Дата оплаты')
                                 ->displayFormat('d.m.Y')
@@ -298,10 +306,13 @@ class DealForm
 
                 TextInput::make('total_price')
                     ->label('Сумма сделки')
-                    ->helperText('Пересчитывается из спецификации и услуг при сохранении')
+                    ->helperText('Считается из спецификации и услуг при сохранении; руками не меняется')
                     ->numeric()
-                    ->minValue(0)
                     ->default(0)
+                    // Только для чтения: сумма — результат расчёта, а не поле ввода.
+                    // Введённое руками число всё равно перетиралось бы при сохранении.
+                    ->disabled()
+                    ->dehydrated(false)
                     ->suffix(config('gravit.currency.symbol'))
                     ->columnSpanFull(),
             ]),
@@ -395,6 +406,12 @@ class DealForm
                     ->options(DealStatus::class)
                     ->default(DealStatus::New->value)
                     ->required()
+                    // Только для чтения: статус выводится из этапа и завода. Руками
+                    // его меняли в обход воронки — сделка значилась «Готово к отгрузке»
+                    // на этапе замера. Отмена — отдельной кнопкой в шапке карточки.
+                    ->disabled()
+                    ->dehydrated(fn (?string $operation): bool => $operation === 'create')
+                    ->helperText('Статус следует за этапом. Отменить сделку — кнопкой «Отменить сделку» сверху.')
                     ->native(false),
 
                 DatePicker::make('due_date')
@@ -415,8 +432,10 @@ class DealForm
                     ->required()
                     ->live()
                     ->native(false)
-                    // Наряды создаёт автоматика из сделки продаж, а не менеджер руками.
-                    ->disabled(fn (?string $operation): bool => $operation === 'edit'),
+                    // Наряды создаёт автоматика из сделки продаж, а не менеджер руками:
+                    // созданный вручную «наряд» вставал бы на этап продаж и не двигался.
+                    ->disabled()
+                    ->dehydrated(fn (?string $operation): bool => $operation === 'create'),
 
                 Select::make('current_stage_id')
                     ->label('Этап')

@@ -11,6 +11,7 @@ use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\User;
 use App\Services\DoorProductionService;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -130,6 +131,82 @@ abstract class KanbanBoardPage extends Page
         } catch (ProductionException $e) {
             Notification::make()->danger()->title('Перемещение отклонено')->body($e->getMessage())->send();
         }
+    }
+
+    /**
+     * Подтверждение «Готово ✓» — модалка Filament, а не системное окно браузера:
+     * оно не в стиле панели и не объясняет, что именно произойдёт.
+     */
+    public function completeStageAction(): Action
+    {
+        return Action::make('completeStage')
+            ->requiresConfirmation()
+            ->color('success')
+            ->modalIcon('heroicon-o-check-badge')
+            ->modalIconColor('success')
+            ->modalHeading(fn (array $arguments): string => 'Этап «'.($this->orderFrom($arguments)?->currentStage->name ?? '—').'» выполнен?')
+            ->modalDescription(function (array $arguments): string {
+                $order = $this->orderFrom($arguments);
+                $parent = $order?->parentDeal;
+
+                return 'Наряд '.($order->number ?? '').' закроется, сдельная оплата за этап запишется на вас'
+                    .($parent ? ', а сделка '.$parent->number.' перейдёт в «Готово к отгрузке».' : '.');
+            })
+            ->modalSubmitActionLabel('Да, закрыть этап')
+            ->modalCancelActionLabel('Отмена')
+            ->action(fn (array $arguments) => $this->completeStage((int) ($arguments['dealId'] ?? 0)));
+    }
+
+    /**
+     * «Готово ✓» на последнем этапе цеха.
+     *
+     * Стрелка «→» ведёт на соседний этап, а у «ОТК и Упаковка» соседа нет —
+     * без этой кнопки наряд с канбана было не закрыть, только с планшета цеха.
+     * Идёт через тот же completeCurrentStage, что и планшет: закрывает этап,
+     * начисляет сдельную оплату и переводит сделку продаж в «Готово к отгрузке».
+     */
+    public function completeStage(int $dealId): void
+    {
+        $order = Deal::query()->factoryOrders()->find($dealId);
+
+        if (! $order) {
+            Notification::make()->danger()->title('Наряд не найден')->send();
+
+            return;
+        }
+
+        if (auth()->user()?->cannot('move', $order)) {
+            Notification::make()->danger()->title('Недостаточно прав для закрытия этапа')->send();
+
+            return;
+        }
+
+        try {
+            $stageName = $order->currentStage->name ?? '—';
+            app(DoorProductionService::class)->completeCurrentStage($order, auth()->user());
+
+            $order->refresh();
+
+            if ($order->status_id->isClosed()) {
+                $body = "Этап «{$stageName}» закрыт, наряд завершён.";
+
+                if ($parent = $order->parentDeal) {
+                    $body .= " Сделка {$parent->number} переведена в «Готово к отгрузке».";
+                }
+            } else {
+                $body = "«{$stageName}» → «".($order->currentStage->name ?? '—').'»';
+            }
+
+            Notification::make()->success()->title($order->number)->body($body)->send();
+        } catch (ProductionException $e) {
+            Notification::make()->danger()->title('Этап не закрыт')->body($e->getMessage())->send();
+        }
+    }
+
+    /** @param  array<string, mixed>  $arguments */
+    private function orderFrom(array $arguments): ?Deal
+    {
+        return Deal::query()->factoryOrders()->find((int) ($arguments['dealId'] ?? 0));
     }
 
     public function getCurrencySymbol(): string

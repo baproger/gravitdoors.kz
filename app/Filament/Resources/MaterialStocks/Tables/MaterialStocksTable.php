@@ -17,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class MaterialStocksTable
@@ -127,8 +128,35 @@ class MaterialStocksTable
                     }),
 
                 EditAction::make()->iconButton(),
-                DeleteAction::make()->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->authorize(fn (MaterialStock $record): bool => (auth()->user()?->can('delete', $record) ?? false) && $record->canBeDeleted())
+                    ->tooltip('Удалить'),
             ])
-            ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            /** @var Collection<int, MaterialStock> $records */
+                            [$deletable, $kept] = $records->partition(fn (MaterialStock $material): bool => $material->canBeDeleted());
+
+                            $deletable->each(fn (MaterialStock $material): ?bool => $material->delete());
+
+                            if ($kept->isNotEmpty()) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('Не удалено: '.$kept->count())
+                                    ->body('По материалу есть движения склада или позиции прайса: '
+                                        .$kept->pluck('name')->take(5)->implode(', '))
+                                    ->persistent()
+                                    ->send();
+                            }
+
+                            if ($deletable->isNotEmpty()) {
+                                Notification::make()->success()->title('Удалено: '.$deletable->count())->send();
+                            }
+                        }),
+                ]),
+            ]);
     }
 }

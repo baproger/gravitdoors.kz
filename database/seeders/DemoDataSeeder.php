@@ -71,6 +71,15 @@ class DemoDataSeeder extends Seeder
             ],
         );
 
+        User::firstOrCreate(
+            ['email' => 'worker@gravit.kz'],
+            [
+                'name' => 'Даурен Сварщик', 'password' => Hash::make('password'),
+                'role' => UserRole::Worker->value, 'phone' => '+7 (701) 000-00-05',
+                'salary' => 160_000, 'hired_at' => now()->subMonths(11), 'birth_date' => '1996-02-18',
+            ],
+        );
+
         $master = User::firstOrCreate(
             ['email' => 'master@gravit.kz'],
             [

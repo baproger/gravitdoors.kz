@@ -102,9 +102,12 @@
                             @php($configs = $deal->configurations())
                             {{-- Сделку, чей наряд ещё в цеху, ведёт завод: без стрелок и перетаскивания. --}}
                             @php($waiting = $deal->isFactoryOrder() ? null : $deal->activeProductionOrder())
+                            {{-- Права решает политика: рабочему доска видна, но двигать и открывать карточки он не может. --}}
+                            @php($canMove = auth()->user()?->can('move', $deal) ?? false)
+                            @php($canOpen = auth()->user()?->can('update', $deal) ?? false)
 
                             <article
-                                draggable="{{ $waiting ? 'false' : 'true' }}"
+                                draggable="{{ $waiting || ! $canMove ? 'false' : 'true' }}"
                                 @dragstart="start($event, {{ $deal->id }})"
                                 @dragend="draggingId = null; overStage = null"
                                 :class="draggingId === {{ $deal->id }} && 'gravit-card--dragging'"
@@ -141,7 +144,7 @@
                                         @if ($configs->count() === 1)
                                             {{ $configs->first()->productName() }} · {{ $configs->first()->humanSize() }} · {{ $configs->first()->quantity }} шт
                                         @else
-                                            {{ $configs->count() }} позиции · {{ $deal->doorsCount() }} шт
+                                            {{ $configs->count() }} {{ \App\Support\Plural::choose($configs->count(), 'позиция', 'позиции', 'позиций') }} · {{ $deal->doorsCount() }} шт
                                         @endif
                                     </p>
                                 @endif
@@ -176,6 +179,7 @@
                                 @endif
 
                                 <div class="gravit-card__actions">
+                                    @if ($canMove)
                                     <div class="gravit-card__move">
                                         <button
                                             type="button"
@@ -189,21 +193,36 @@
                                             @endif
                                         >←</button>
 
-                                        <button
-                                            type="button"
-                                            class="gravit-move"
-                                            @if ($nextStage && ! $waiting)
-                                                wire:click="moveDeal({{ $deal->id }}, {{ $nextStage->id }})"
-                                                title="Перевести на «{{ $nextStage->name }}»"
-                                                aria-label="Перевести на «{{ $nextStage->name }}»"
-                                            @else
-                                                disabled aria-label="Это последний этап"
-                                            @endif
-                                        >→</button>
+                                        {{-- Последний этап цеха: стрелке некуда вести, наряд закрывается кнопкой «Готово». --}}
+                                        @if ($deal->isFactoryOrder() && ($stage->completes_production || ! $nextStage))
+                                            <button
+                                                type="button"
+                                                class="gravit-move gravit-move--finish"
+                                                wire:click="mountAction('completeStage', { dealId: {{ $deal->id }} })"
+                                                wire:loading.attr="disabled"
+                                                title="Закрыть этап «{{ $stage->name }}» и завершить наряд"
+                                                aria-label="Закрыть этап «{{ $stage->name }}» и завершить наряд"
+                                            >Готово ✓</button>
+                                        @else
+                                            <button
+                                                type="button"
+                                                class="gravit-move"
+                                                @if ($nextStage && ! $waiting)
+                                                    wire:click="moveDeal({{ $deal->id }}, {{ $nextStage->id }})"
+                                                    title="Перевести на «{{ $nextStage->name }}»"
+                                                    aria-label="Перевести на «{{ $nextStage->name }}»"
+                                                @else
+                                                    disabled aria-label="Это последний этап"
+                                                @endif
+                                            >→</button>
+                                        @endif
                                     </div>
+                                    @endif
 
-                                    <a href="{{ \App\Filament\Resources\Deals\DealResource::getUrl('edit', ['record' => $deal]) }}"
-                                       class="gravit-card__link">Открыть</a>
+                                    @if ($canOpen)
+                                        <a href="{{ \App\Filament\Resources\Deals\DealResource::getUrl('edit', ['record' => $deal]) }}"
+                                           class="gravit-card__link">Открыть</a>
+                                    @endif
                                     <a href="{{ route('track.show', $deal->qr_code_hash) }}" target="_blank"
                                        class="gravit-card__link gravit-card__link--muted">Клиенту</a>
                                 </div>

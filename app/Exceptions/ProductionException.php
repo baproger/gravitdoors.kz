@@ -35,6 +35,11 @@ class ProductionException extends DomainException
         return new self('В воронке завода нет ни одного активного этапа. Настройте этапы в разделе «Этапы воронок».');
     }
 
+    public static function notASalesDeal(Deal $deal): self
+    {
+        return new self("{$deal->number} — это наряд завода, а не сделка продаж. Наряд отменяется кнопкой «Отменить наряд».");
+    }
+
     public static function notAFactoryOrder(Deal $deal): self
     {
         return new self("Сделка {$deal->number} не является производственным нарядом.");

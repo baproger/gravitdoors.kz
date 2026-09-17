@@ -43,7 +43,7 @@
                 @if ($deal->client_address)
                     <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ $deal->client_address }}</p>
                 @endif
-                @if ($deal->due_date)
+                @if ($deal->due_date && ! $deal->status_id->isClosed())
                     <p class="mt-3 text-sm">
                         <span class="text-slate-500 dark:text-slate-400">Плановая готовность:</span>
                         <span class="font-semibold">{{ $deal->due_date->format('d.m.Y') }}</span>

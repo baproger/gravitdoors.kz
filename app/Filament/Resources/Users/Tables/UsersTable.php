@@ -30,8 +30,8 @@ class UsersTable
                     ->label('')
                     ->circular()
                     ->disk('public')
-                    ->defaultImageUrl(fn (User $record): string => 'https://ui-avatars.com/api/?name='
-                        .urlencode($record->name).'&color=FFFFFF&background=2F6FED')
+                    // Инициалы рисуются локально: внешний сервис аватаров в панели ни к чему.
+                    ->defaultImageUrl(fn (User $record): string => self::initialsAvatar($record->name))
                     ->visibleFrom('sm'),
 
                 TextColumn::make('name')
@@ -57,12 +57,32 @@ class UsersTable
                     ->formatStateUsing(fn ($state): string => Money::format($state))
                     ->alignEnd(),
 
-                ToggleColumn::make('is_active')->label('Доступ'),
+                // Переключатель колонки минует политику, поэтому запрет — прямо на нём.
+                ToggleColumn::make('is_active')
+                    ->label('Доступ')
+                    ->disabled(fn (User $record): bool => ! (auth()->user()?->can('update', $record) ?? false)),
             ])
             ->filters([
                 SelectFilter::make('role')->label('Роль')->options(UserRole::class),
             ])
             ->recordActions([EditAction::make()->iconButton(), DeleteAction::make()->iconButton()])
             ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+    }
+
+    /** SVG с инициалами как data-URI — без запросов наружу. */
+    private static function initialsAvatar(string $name): string
+    {
+        $initials = collect(preg_split('/\s+/u', trim($name)) ?: [])
+            ->filter()
+            ->take(2)
+            ->map(fn (string $part): string => mb_strtoupper(mb_substr($part, 0, 1)))
+            ->implode('');
+
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">'
+            .'<rect width="64" height="64" rx="32" fill="#2F6FED"/>'
+            .'<text x="32" y="40" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#FFFFFF" text-anchor="middle">'
+            .htmlspecialchars($initials, ENT_QUOTES).'</text></svg>';
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
     }
 }

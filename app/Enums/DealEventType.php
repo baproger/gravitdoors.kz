@@ -21,6 +21,8 @@ enum DealEventType: string implements HasColor, HasIcon, HasLabel
     case Payment = 'payment';
     case Document = 'document';
     case Survey = 'survey';
+    case Cancelled = 'cancelled';
+    case PaymentReminder = 'payment_reminder';
 
     public function getLabel(): string
     {
@@ -36,6 +38,8 @@ enum DealEventType: string implements HasColor, HasIcon, HasLabel
             self::Payment => 'Оплата',
             self::Document => 'Документы',
             self::Survey => 'Замер',
+            self::Cancelled => 'Сделка отменена',
+            self::PaymentReminder => 'Напоминание об оплате',
         };
     }
 
@@ -52,6 +56,8 @@ enum DealEventType: string implements HasColor, HasIcon, HasLabel
             self::Payment => 'success',
             self::Document => 'info',
             self::Survey => 'success',
+            self::Cancelled => 'danger',
+            self::PaymentReminder => 'warning',
         };
     }
 
@@ -69,6 +75,8 @@ enum DealEventType: string implements HasColor, HasIcon, HasLabel
             self::Payment => 'heroicon-o-banknotes',
             self::Document => 'heroicon-o-paper-clip',
             self::Survey => 'heroicon-o-map-pin',
+            self::Cancelled => 'heroicon-o-no-symbol',
+            self::PaymentReminder => 'heroicon-o-bell-alert',
         };
     }
 }

@@ -138,7 +138,8 @@ class ListDeals extends ListRecords
                 ->badge(Deal::query()->factoryOrders()->open()->count())
                 ->modifyQueryUsing(fn ($query) => $query->factoryOrders()),
 
-            'all' => Tab::make('Все')
+            // Единственная вкладка с закрытыми сделками — иначе сумма вкладок не сходилась бы с «Все».
+            'all' => Tab::make('Все, включая закрытые')
                 ->badge(Deal::query()->count()),
         ];
     }

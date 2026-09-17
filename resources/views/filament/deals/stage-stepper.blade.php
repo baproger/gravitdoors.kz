@@ -24,7 +24,15 @@
         ? \App\Models\FactoryStage::query()->ofPipeline(\App\Enums\PipelineType::Factory)->where('completes_production', true)->value('name')
         : null;
 
-    $canMove = $record && ! $waitingOrder && auth()->user()?->can('move', $record);
+    $dealClosed = $record && ! $record->isFactoryOrder() && $record->status_id->isClosed();
+    $mayMove = $record && (auth()->user()?->can('move', $record) ?? false);
+    $canMove = $mayMove && ! $waitingOrder && ! $dealClosed;
+
+    // Наряд на последнем этапе цеха: стрелке вправо некуда вести, наряд
+    // закрывается отдельной кнопкой «Готово» — как на планшете цеха.
+    $orderClosed = $record?->isFactoryOrder() && $record->status_id->isClosed();
+    $canFinish = $canMove && $record->isFactoryOrder() && ! $orderClosed && $current
+        && ($current->completes_production || $nextStage === null);
     // Часы по каждому этапу за все заходы — у пройденных видно, сколько они заняли.
     $hoursByStage = $record ? $record->hoursByStage() : [];
     $visits = $record?->visitsOnCurrentStage() ?? 1;
@@ -43,6 +51,8 @@
 
                 $tooltip = match (true) {
                     $isCurrent => 'Сделка на этом этапе',
+                    $dealClosed => 'Сделка закрыта — этапы больше не меняются',
+                    ! $mayMove => $record->isFactoryOrder() ? 'Наряд ведёт цех — у вас нет прав его двигать' : 'У вас нет прав двигать сделку',
                     $waitingOrder !== null => 'Сделка ждёт завод — дальше её переведёт производство',
                     $isDone => 'Вернуть сделку на этот этап',
                     $isNext && $missing !== [] => 'Не хватает: '.collect($missing)
@@ -87,6 +97,33 @@
             </button>
         @endforeach
     </div>
+
+    @if ($canFinish)
+        <div class="gravit-stepper__finish">
+            <button
+                type="button"
+                class="gravit-finish"
+                wire:click="mountAction('completeStage')"
+                wire:loading.attr="disabled"
+            >Готово ✓ — закрыть наряд</button>
+            <span class="gravit-stepper__finish-note">
+                Этап «{{ $current->name }}» будет закрыт{{ $record->parentDeal ? ', сделка '.$record->parentDeal->number.' перейдёт в «Готово к отгрузке»' : '' }}.
+            </span>
+        </div>
+    @elseif ($orderClosed)
+        <p class="gravit-stepper__hint gravit-stepper__hint--factory">
+            {{ 'Наряд закрыт'.($record->production_finished_at ? ' '.$record->production_finished_at->format('d.m.Y H:i') : '')
+                .($record->parentDeal ? ' — сделка '.$record->parentDeal->number.' у отдела продаж.' : '.') }}
+        </p>
+    @elseif ($dealClosed)
+        <p class="gravit-stepper__hint gravit-stepper__hint--factory">
+            Сделка {{ $record->status_id === \App\Enums\DealStatus::Cancelled ? 'отменена' : 'завершена' }} — этапы больше не меняются.
+        </p>
+    @elseif ($record->isFactoryOrder() && ! $mayMove)
+        <p class="gravit-stepper__hint gravit-stepper__hint--factory">
+            Наряд ведёт цех: этапы закрывают мастер на канбане завода и рабочие на планшете.
+        </p>
+    @endif
 
     @if ($record->isOverdue())
         <p class="gravit-stepper__hint gravit-stepper__hint--overdue">

@@ -31,8 +31,17 @@ class StockMovementsTable
                 TextColumn::make('type')
                     ->label('Операция')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => $state === StockMovement::TYPE_IN ? 'Приход' : 'Расход')
-                    ->color(fn (string $state): string => $state === StockMovement::TYPE_IN ? 'success' : 'warning'),
+                    // Приход по наряду — это возврат после отмены, а не закуп.
+                    ->formatStateUsing(fn (string $state, StockMovement $record): string => match (true) {
+                        $state !== StockMovement::TYPE_IN => 'Расход',
+                        $record->deal_id !== null => 'Возврат',
+                        default => 'Приход',
+                    })
+                    ->color(fn (string $state, StockMovement $record): string => match (true) {
+                        $state !== StockMovement::TYPE_IN => 'warning',
+                        $record->deal_id !== null => 'info',
+                        default => 'success',
+                    }),
 
                 TextColumn::make('quantity')
                     ->label('Количество')

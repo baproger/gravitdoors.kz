@@ -84,6 +84,15 @@ class MaterialStock extends Model
     }
 
     /** @param Builder<MaterialStock> $query */
+    /**
+     * Материал с движениями или позициями прайса не удаляется: с ним ушла бы
+     * история списаний, и отмена наряда не смогла бы ничего вернуть.
+     */
+    public function canBeDeleted(): bool
+    {
+        return $this->movements()->doesntExist() && $this->doorOptions()->doesntExist();
+    }
+
     public function scopeBelowLimit(Builder $query): void
     {
         $query->whereColumn('quantity', '<=', 'min_limit');

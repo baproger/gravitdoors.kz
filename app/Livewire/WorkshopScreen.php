@@ -136,8 +136,12 @@ class WorkshopScreen extends Component
             return;
         }
 
-        app(DoorProductionService::class)->startStage($order, $worker);
-        $this->error = null;
+        try {
+            app(DoorProductionService::class)->startStage($order, $worker);
+            $this->error = null;
+        } catch (ProductionException $e) {
+            $this->error = $e->getMessage();
+        }
     }
 
     public function complete(int $dealId): void
@@ -145,13 +149,18 @@ class WorkshopScreen extends Component
         $this->guard();
 
         $order = Deal::query()->factoryOrders()->find($dealId);
+        $worker = $this->worker();
 
-        if (! $order) {
+        // Без исполнителя «Готово» записывало бы этап никому — и сдельная оплата
+        // за него пропадала бы из зарплаты.
+        if (! $order || ! $worker) {
+            $this->error = 'Сначала выберите, кто работает.';
+
             return;
         }
 
         try {
-            app(DoorProductionService::class)->completeCurrentStage($order, $this->worker());
+            app(DoorProductionService::class)->completeCurrentStage($order, $worker);
             $this->error = null;
         } catch (ProductionException $e) {
             $this->error = $e->getMessage();

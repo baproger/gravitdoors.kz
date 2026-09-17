@@ -8,6 +8,7 @@ use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\PipelineType;
 use App\Exceptions\ProductionException;
+use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Services\DoorProductionService;
@@ -28,6 +29,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class DealsTable
 {
@@ -37,8 +39,8 @@ class DealsTable
             ->defaultSort('id', 'desc')
             // Этап, наряд и менеджер — одним запросом на страницу, а не по запросу на строку:
             // пометка «ждёт завод» и имя ответственного есть в каждой строке.
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['currentStage', 'manager', 'productionOrder.currentStage']))
-            ->recordClasses(fn (Deal $record): ?string => self::isOverdue($record) || $record->isMeasurementOverdue() ? 'dl-row--overdue' : null)
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['currentStage', 'manager', 'productionOrder.currentStage', 'stageVisits']))
+            ->recordClasses(fn (Deal $record): ?string => $record->isOverdue() || $record->isMeasurementOverdue() ? 'dl-row--overdue' : null)
             ->columns([
                 // Строка из блоков вместо десяти колонок: название больше не сжимается
                 // до 90 px с переносом на пять строк, а на телефоне блоки встают
@@ -134,8 +136,8 @@ class DealsTable
                             ->label('Срок')
                             ->state(fn (Deal $record): ?string => self::dueLabel($record))
                             ->icon('heroicon-m-calendar')
-                            ->iconColor(fn (Deal $record): string => self::isOverdue($record) ? 'danger' : 'gray')
-                            ->color(fn (Deal $record): ?string => self::isOverdue($record) ? 'danger' : null)
+                            ->iconColor(fn (Deal $record): string => $record->isOverdue() ? 'danger' : 'gray')
+                            ->color(fn (Deal $record): ?string => $record->isOverdue() ? 'danger' : null)
                             ->size(TextSize::Small)
                             ->sortable()
                             ->placeholder('без срока'),
@@ -187,9 +189,11 @@ class DealsTable
                         ->requiresConfirmation()
                         ->modalHeading('Передать сделку на завод?')
                         ->modalDescription('Будет создан производственный наряд, а материалы спецификации спишутся со склада.')
+                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('move', $record) ?? false)
                         ->visible(fn (Deal $record): bool => ! $record->isFactoryOrder()
                             && ! $record->status_id->isClosed()
-                            && ! $record->productionOrder()->exists())
+                            && $record->activeProductionOrder() === null
+                            && $record->completedProductionOrder() === null)
                         ->action(function (Deal $record, DoorProductionService $production): void {
                             // Через moveToStage, а не напрямую: иначе кнопка обходила бы
                             // регламент этапов, который проверяется при переходе.
@@ -232,6 +236,11 @@ class DealsTable
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->requiresConfirmation()
+                        ->modalHeading(fn (Deal $record): string => 'Этап «'.($record->currentStage->name ?? '—').'» выполнен?')
+                        ->modalDescription('Этап закроется, оплата запишется на исполнителя. Последний этап завершит наряд и вернёт сделку отделу продаж.')
+                        // Видимость — не защита: право проверяется и на сервере, иначе рабочий
+                        // закрывал бы этапы из списка, хотя политика ему это запрещает.
+                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('move', $record) ?? false)
                         ->visible(fn (Deal $record): bool => $record->isFactoryOrder() && ! $record->status_id->isClosed())
                         ->action(function (Deal $record, DoorProductionService $production): void {
                             try {
@@ -263,6 +272,7 @@ class DealsTable
                                 ->required()
                                 ->rows(2),
                         ])
+                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('update', $record) ?? false)
                         ->visible(fn (Deal $record): bool => $record->isFactoryOrder() && ! $record->status_id->isClosed())
                         ->action(function (Deal $record, array $data, DoorProductionService $production): void {
                             try {
@@ -281,6 +291,7 @@ class DealsTable
                     Action::make('recalculate')
                         ->label('Пересчитать цену')
                         ->icon('heroicon-o-calculator')
+                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('update', $record) ?? false)
                         ->visible(fn (Deal $record): bool => $record->salesDeal()->doorConfigurations()->exists())
                         ->action(function (Deal $record, DoorProductionService $production): void {
                             $production->syncPricing($record);
@@ -298,19 +309,35 @@ class DealsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        // Сделки с нарядом в цеху и живые наряды из выборки выпадают:
+                        // сначала отмена наряда, потом удаление.
+                        ->action(function (Collection $records): void {
+                            /** @var Collection<int, Deal> $records */
+                            [$deletable, $kept] = $records->partition(fn (Deal $deal): bool => $deal->canBeDeleted());
+
+                            $deletable->each(fn (Deal $deal): ?bool => $deal->delete());
+
+                            if ($kept->isNotEmpty()) {
+                                Notification::make()
+                                    ->warning()
+                                    ->title('Не удалено: '.$kept->count())
+                                    ->body('У сделки наряд в цеху или наряд ещё открыт — сначала отмените наряд: '
+                                        .$kept->pluck('number')->take(5)->implode(', '))
+                                    ->persistent()
+                                    ->send();
+                            }
+
+                            if ($deletable->isNotEmpty()) {
+                                Notification::make()->success()->title('Удалено: '.$deletable->count())->send();
+                            }
+                        }),
                 ]),
             ])
             ->emptyStateHeading('Сделок пока нет')
-            ->emptyStateDescription('Нажмите «Новая сделка», чтобы завести первого клиента.');
-    }
-
-    /** Просрочена только открытая сделка: у закрытой срок уже не важен. */
-    private static function isOverdue(Deal $record): bool
-    {
-        return $record->due_date !== null
-            && ! $record->status_id->isClosed()
-            && $record->due_date->lt(today());
+            ->emptyStateDescription(fn (): string => DealResource::canCreate()
+                ? 'Нажмите «Новая сделка», чтобы завести первого клиента.'
+                : 'Наряды появятся, когда отдел продаж передаст заказ на завод.');
     }
 
     /** «просрочено на 3 дн.», «сдача сегодня», «через 5 дн.», «до 04.10.2026». */

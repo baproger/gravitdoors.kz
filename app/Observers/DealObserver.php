@@ -6,13 +6,11 @@ namespace App\Observers;
 
 use App\Enums\DealEventType;
 use App\Enums\UserRole;
-use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
 use App\Models\DealEvent;
 use App\Models\DealStageVisit;
 use App\Models\User;
 use App\Support\DealFieldLabels;
-use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
 class DealObserver
@@ -32,6 +30,12 @@ class DealObserver
         if ($deal->measured_at !== null) {
             $this->notifySurveyors($deal);
         }
+    }
+
+    /** Удаление в обход действий панели (массовое, из кода) упирается в то же правило. */
+    public function deleting(Deal $deal): bool
+    {
+        return $deal->canBeDeleted();
     }
 
     public function updated(Deal $deal): void
@@ -121,7 +125,10 @@ class DealObserver
     {
         $surveyors = User::query()
             ->where('is_active', true)
-            ->whereIn('role', [UserRole::Surveyor->value, UserRole::Master->value])
+            ->whereIn('role', array_map(
+                fn (UserRole $role): string => $role->value,
+                array_filter(UserRole::cases(), fn (UserRole $role): bool => $role->doesSurveys()),
+            ))
             ->get();
 
         if ($surveyors->isEmpty()) {
@@ -136,12 +143,8 @@ class DealObserver
                 .($deal->client_phone ? " · {$deal->client_phone}" : '')))
             ->icon('heroicon-o-map-pin')
             ->info()
-            ->actions([
-                Action::make('open')
-                    ->label('Открыть сделку')
-                    ->url(DealResource::getUrl('edit', ['record' => $deal]))
-                    ->markAsRead(),
-            ])
+            // Без ссылки на карточку: сделки продаж замерщику и мастеру не открываются,
+            // кнопка вела бы на 403. Всё нужное для выезда — в тексте уведомления.
             ->sendToDatabase($surveyors);
     }
 }

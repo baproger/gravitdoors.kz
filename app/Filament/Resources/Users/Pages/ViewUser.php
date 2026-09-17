@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Users\Pages;
 use App\Enums\DealStatus;
 use App\Enums\ProductionStatus;
 use App\Filament\Resources\Users\UserResource;
+use App\Models\Bonus;
 use App\Models\Deal;
 use App\Models\DealEvent;
 use App\Models\ProductionLog;
@@ -84,9 +85,16 @@ class ViewUser extends ViewRecord
             DealStatus::Completed->value,
         ])->count();
 
-        $orders = Deal::query()->factoryOrders()->where('manager_id', $this->employee()->id);
-        $ordersTotal = (clone $orders)->count();
-        $ordersDone = (clone $orders)->where('status_id', DealStatus::Completed->value)->count();
+        // Наряды цеха считаются по работам сотрудника, а не по manager_id: на наряд
+        // копируется менеджер продаж, и у мастера тут всегда был ноль.
+        $workedOrderIds = ProductionLog::query()
+            ->where('worker_id', $this->employee()->id)
+            ->where('status', ProductionStatus::Done->value)
+            ->distinct()
+            ->pluck('deal_id');
+        $ordersTotal = $workedOrderIds->count();
+        $ordersDone = Deal::query()->factoryOrders()->whereIn('id', $workedOrderIds)
+            ->where('status_id', DealStatus::Completed->value)->count();
 
         [$from, $to] = $this->period();
         $stagesDone = ProductionLog::query()
@@ -151,11 +159,13 @@ class ViewUser extends ViewRecord
             ->sum('payout');
 
         $salary = (float) $this->employee()->salary;
+        $bonuses = (float) Bonus::query()->approved()->forMonth($this->month)->where('user_id', $this->employee()->id)->sum('amount');
 
         return [
             'salary' => $salary,
             'piecework' => $piecework,
-            'total' => round($salary + $piecework, 2),
+            'bonuses' => $bonuses,
+            'total' => round($salary + $piecework + $bonuses, 2),
             'stages' => ProductionLog::query()
                 ->where('worker_id', $this->employee()->id)
                 ->where('status', ProductionStatus::Done->value)

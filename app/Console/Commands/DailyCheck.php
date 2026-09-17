@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Enums\ProductionStatus;
 use App\Enums\UserRole;
+use App\Filament\Pages\OverdueDeals;
 use App\Filament\Resources\MaterialStocks\MaterialStockResource;
+use App\Models\Deal;
 use App\Models\MaterialStock;
-use App\Models\ProductionLog;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -60,20 +60,24 @@ class DailyCheck extends Command
     }
 
     /**
-     * Незакрытые этапы, которые идут дольше своего норматива.
+     * Открытые наряды, стоящие на этапе дольше норматива.
      *
-     * @return Collection<int, ProductionLog>
+     * Считается так же, как на канбане и странице «Просроченные»: по сумме всех
+     * заходов на этап (Deal::isStageOverdue), а не по текущему логу цеха —
+     * иначе после возврата на этап уведомление и экран расходились.
+     *
+     * @return Collection<int, Deal>
      */
     private function overdueStages(): Collection
     {
-        return ProductionLog::query()
-            ->with(['stage', 'deal', 'worker'])
-            ->whereNull('finished_at')
-            ->whereIn('status', [ProductionStatus::Pending->value, ProductionStatus::InProgress->value])
-            ->whereHas('stage', fn ($query) => $query->where('estimated_hours', '>', 0))
+        return Deal::query()
+            ->factoryOrders()
+            ->open()
+            ->with('currentStage')
+            ->whereHas('currentStage', fn ($query) => $query->where('estimated_hours', '>', 0))
             ->get()
-            ->filter(fn (ProductionLog $log): bool => $log->started_at
-                && $log->started_at->diffInMinutes(now()) / 60 > (float) $log->stage->estimated_hours)
+            ->filter(fn (Deal $order): bool => $order->isStageOverdue())
+            ->sortByDesc(fn (Deal $order): float => $order->stageOverdueHours())
             ->values();
     }
 
@@ -98,20 +102,26 @@ class DailyCheck extends Command
         $this->warn("Отправлено уведомление о {$materials->count()} позициях склада.");
     }
 
-    /** @param Collection<int, ProductionLog> $logs */
-    private function notifyOverdue(Collection $logs): void
+    /** @param Collection<int, Deal> $orders */
+    private function notifyOverdue(Collection $orders): void
     {
-        $lines = $logs->take(5)
-            ->map(fn (ProductionLog $log): string => "{$log->deal?->number} — {$log->stage->name}")
+        $lines = $orders->take(5)
+            ->map(fn (Deal $order): string => "{$order->number} — {$order->currentStage?->name} (+{$order->stageOverdueHours()} ч)")
             ->implode('; ');
 
         Notification::make()
-            ->title('Этапы идут дольше норматива: '.$logs->count())
+            ->title('Этапы идут дольше норматива: '.$orders->count())
             ->body($lines)
             ->danger()
+            ->actions([
+                Action::make('open')
+                    ->label('Открыть просроченные')
+                    ->url(OverdueDeals::getUrl(['mode' => 'stage']))
+                    ->markAsRead(),
+            ])
             ->sendToDatabase($this->recipients([UserRole::Admin, UserRole::Manager, UserRole::Master]));
 
-        $this->warn("Отправлено уведомление о {$logs->count()} просроченных этапах.");
+        $this->warn("Отправлено уведомление о {$orders->count()} просроченных этапах.");
     }
 
     /**

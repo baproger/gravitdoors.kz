@@ -20,11 +20,14 @@ class TrackController extends Controller
     {
         $deal = Deal::query()
             ->where('qr_code_hash', $hash)
-            ->with(['doorConfigurations', 'currentStage', 'productionOrder.currentStage', 'productionOrder.productionLogs.stage'])
+            ->with(['doorConfigurations', 'currentStage', 'productionOrder.currentStage'])
             ->firstOrFail();
 
         // По QR наряда клиент должен попадать на свою сделку, а не на внутренний наряд.
         $salesDeal = $deal->salesDeal();
+
+        // Наряд, у которого сделки больше нет (удалена), клиенту показывать нечего.
+        abort_if($salesDeal->isFactoryOrder(), 404);
 
         if ($salesDeal->isNot($deal)) {
             $salesDeal->load(['doorConfigurations', 'currentStage', 'productionOrder.currentStage']);

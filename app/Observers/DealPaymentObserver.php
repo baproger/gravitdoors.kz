@@ -8,7 +8,9 @@ use App\Enums\DealEventType;
 use App\Models\Deal;
 use App\Models\DealEvent;
 use App\Models\DealPayment;
+use App\Services\CashLedger;
 use App\Support\Money;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Держит deals.prepayment равной сумме платежей и пишет оплаты в историю.
@@ -24,9 +26,34 @@ class DealPaymentObserver
         $payment->user_id ??= auth()->id();
     }
 
+    /**
+     * Сумма платежей не больше суммы сделки — правило сервера, а не только формы:
+     * форма сравнивает с суммой до пересчёта спецификации, и лишний платёж мог
+     * проскочить вместе с удалением двери в том же сохранении.
+     */
+    public function saving(DealPayment $payment): void
+    {
+        $deal = $payment->deal;
+        $total = (float) $deal->total_price;
+
+        if ($total <= 0.0) {
+            return;
+        }
+
+        $others = (float) $deal->payments()->whereKeyNot($payment->getKey())->sum('amount');
+
+        if (round($others + (float) $payment->amount, 2) > round($total, 2)) {
+            throw ValidationException::withMessages([
+                'payments' => 'Сумма платежей '.Money::format($others + (float) $payment->amount)
+                    .' больше суммы сделки '.Money::format($total).'.',
+            ]);
+        }
+    }
+
     public function created(DealPayment $payment): void
     {
         $this->sync($payment->deal);
+        app(CashLedger::class)->syncPayment($payment);
 
         DealEvent::record(
             $payment->deal,
@@ -43,6 +70,7 @@ class DealPaymentObserver
     public function updated(DealPayment $payment): void
     {
         $this->sync($payment->deal);
+        app(CashLedger::class)->syncPayment($payment);
 
         if ($payment->wasChanged(['amount', 'method', 'paid_at', 'receipt_path'])) {
             DealEvent::record(
@@ -55,6 +83,8 @@ class DealPaymentObserver
 
     public function deleted(DealPayment $payment): void
     {
+        app(CashLedger::class)->forget($payment);
+
         $deal = Deal::query()->find($payment->deal_id);
 
         if (! $deal) {

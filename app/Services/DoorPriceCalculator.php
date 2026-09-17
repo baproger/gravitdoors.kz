@@ -110,14 +110,6 @@ class DoorPriceCalculator
         return $breakdown;
     }
 
-    /** Посчитать всю сделку — все её позиции разом. */
-    public function calculateForDeal(Deal $deal): DealPriceSummary
-    {
-        return DealPriceSummary::of(
-            $deal->configurations()->map(fn (DoorConfiguration $c): PriceBreakdown => $this->calculateFor($c))->all(),
-        );
-    }
-
     /** Посчитать сделку и записать расшифровку в каждую позицию. */
     public function applyToDeal(Deal $deal): DealPriceSummary
     {

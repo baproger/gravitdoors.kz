@@ -344,6 +344,37 @@ class Deal extends Model
         return $order && ! $order->status_id->isClosed() ? $order : null;
     }
 
+    /**
+     * Можно ли удалить запись. Наряд удаляется только закрытый (живой —
+     * отменяется), сделка — только без наряда в цеху: иначе на заводе останется
+     * наряд-сирота с невозвращёнными материалами. Проверяется здесь, а не только
+     * в политике: администратор проходит любую политику через Gate::before.
+     */
+    public function canBeDeleted(): bool
+    {
+        if ($this->isFactoryOrder()) {
+            return $this->status_id->isClosed();
+        }
+
+        return $this->activeProductionOrder() === null;
+    }
+
+    /** Готовый (закрытый, не отменённый) наряд по сделке — двери уже сделаны. */
+    public function completedProductionOrder(): ?self
+    {
+        if ($this->isFactoryOrder()) {
+            return null;
+        }
+
+        /** @var self|null $order */
+        $order = $this->productionOrder()
+            ->where('status_id', DealStatus::Completed->value)
+            ->latest('id')
+            ->first();
+
+        return $order;
+    }
+
     public function isFactoryOrder(): bool
     {
         return $this->pipeline_type === PipelineType::Factory;
@@ -404,7 +435,6 @@ class Deal extends Model
         return $total > 0.0 ? round($this->profit / $total * 100, 2) : 0.0;
     }
 
-    /** Сколько часов сделка стоит на текущем этапе — для «⏱» на канбане. */
     /** Срок сдачи прошёл, а сделка ещё открыта. У закрытой срок уже не важен. */
     public function isOverdue(): bool
     {
@@ -429,10 +459,19 @@ class Deal extends Model
             return false;
         }
 
-        $gate = FactoryStage::measurementGate();
+        // Этап-«ворота» один на всю воронку; в списке и на канбане он нужен
+        // трижды на строку — запрашиваем один раз на запись.
+        if (! $this->measurementGateResolved) {
+            $this->measurementGate = FactoryStage::measurementGate();
+            $this->measurementGateResolved = true;
+        }
 
-        return $gate !== null && ($this->currentStage?->order ?? 0) < $gate->order;
+        return $this->measurementGate !== null && ($this->currentStage->order ?? 0) < $this->measurementGate->order;
     }
+
+    private ?FactoryStage $measurementGate = null;
+
+    private bool $measurementGateResolved = false;
 
     public function measurementOverdueDays(): int
     {

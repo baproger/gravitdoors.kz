@@ -17,6 +17,12 @@ class LowStockWidget extends TableWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    /** Склад видят те же роли, что и раздел «Склад». */
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('viewAny', MaterialStock::class) ?? false;
+    }
+
     public function table(Table $table): Table
     {
         return $table

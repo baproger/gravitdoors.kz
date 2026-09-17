@@ -71,6 +71,13 @@ class DoorProductionService
 
             $this->guardTransition($deal, $from, $stage);
 
+            // Автоматизация №2: этап ОТК покинут вперёд — значит, он пройден.
+            // Наряд не заходит на следующий этап (иначе там открылся бы и тут же
+            // оплатился пустой лог), а закрывается, как по кнопке «Готово ✓».
+            if ($deal->isFactoryOrder() && $from?->completes_production && $stage->order > $from->order) {
+                return $this->finishProduction($deal, $actor);
+            }
+
             // Движение вперёд по цеху закрывает предыдущий этап как выполненный;
             // возврат назад (брак, переделка) помечает его как отклонённый.
             if ($deal->isFactoryOrder() && $from) {
@@ -91,12 +98,12 @@ class DoorProductionService
             // и на канбане навсегда.
             if (! $deal->isFactoryOrder() && $stage->is_final && ($from === null || $stage->order > $from->order)) {
                 $deal->forceFill(['status_id' => DealStatus::Completed])->save();
+
+                // Сделка закрыта — менеджеру начисляется процент от её суммы (см. настройки финансов).
+                app(BonusAccrual::class)->forCompletedDeal($deal, $actor);
             }
 
-            // Автоматизация №2: этап ОТК покинут вперёд — значит, он пройден.
-            if ($from?->completes_production && $stage->order > $from->order) {
-                $this->finishProduction($deal, $actor);
-            }
+            $this->syncSalesStatus($deal, $stage);
 
             // Автоматизация №1: вход на этап передачи в цех.
             if ($stage->triggers_production) {
@@ -115,6 +122,10 @@ class DoorProductionService
     {
         if (! $order->isFactoryOrder()) {
             throw ProductionException::notAFactoryOrder($order);
+        }
+
+        if ($order->status_id->isClosed()) {
+            throw ProductionException::dealClosed($order);
         }
 
         return DB::transaction(function () use ($order, $worker, $comment): Deal {
@@ -153,6 +164,13 @@ class DoorProductionService
             // иначе после отмены повторная передача молча ничего не создавала.
             if ($existing = $salesDeal->activeProductionOrder()) {
                 return $existing;
+            }
+
+            // Готовый наряд — тоже «уже передано»: двери сделаны, материалы
+            // списаны. Сделку, возвращённую назад и снова доведённую до передачи,
+            // второй раз на завод не отправляем — иначе склад списывался бы дважды.
+            if ($produced = $salesDeal->completedProductionOrder()) {
+                return $produced;
             }
 
             if ($salesDeal->doorConfigurations()->doesntExist()) {
@@ -214,6 +232,10 @@ class DoorProductionService
             throw ProductionException::notAFactoryOrder($order);
         }
 
+        if ($order->status_id->isClosed()) {
+            throw ProductionException::dealClosed($order);
+        }
+
         return DB::transaction(function () use ($order, $actor): Deal {
             $this->closeOpenLog($order, ProductionStatus::Done, $actor);
 
@@ -252,6 +274,10 @@ class DoorProductionService
     {
         if (! $order->isFactoryOrder()) {
             throw ProductionException::notAFactoryOrder($order);
+        }
+
+        if ($order->status_id->isClosed()) {
+            throw ProductionException::dealClosed($order);
         }
 
         $stage = $order->currentStage ?? throw ProductionException::noFactoryStages();
@@ -472,6 +498,10 @@ class DoorProductionService
             throw ProductionException::notAFactoryOrder($order);
         }
 
+        if ($order->status_id->isClosed()) {
+            throw ProductionException::dealClosed($order);
+        }
+
         return DB::transaction(function () use ($order, $actor, $reason): Deal {
             $this->closeOpenLog($order, ProductionStatus::Rejected, $actor, $reason);
 
@@ -510,6 +540,35 @@ class DoorProductionService
             }
 
             return $order->refresh();
+        });
+    }
+
+    /**
+     * Отменить сделку продаж: клиент отказался. Живой наряд отменяется вместе
+     * с ней (материалы возвращаются), сделка закрывается статусом «Отменена».
+     * Единственный путь к этому статусу — поле «Статус» в карточке только для чтения.
+     */
+    public function cancelDeal(Deal $deal, ?User $actor = null, string $reason = 'Сделка отменена'): Deal
+    {
+        if ($deal->isFactoryOrder()) {
+            throw ProductionException::notASalesDeal($deal);
+        }
+
+        if ($deal->status_id->isClosed()) {
+            throw ProductionException::dealClosed($deal);
+        }
+
+        return DB::transaction(function () use ($deal, $actor, $reason): Deal {
+            if ($order = $deal->activeProductionOrder()) {
+                $this->cancelProduction($order, $actor, $reason);
+                $deal->refresh();
+            }
+
+            $deal->forceFill(['status_id' => DealStatus::Cancelled])->save();
+
+            DealEvent::record($deal, DealEventType::Cancelled, "Сделка отменена: {$reason}", $actor);
+
+            return $deal->refresh();
         });
     }
 
@@ -579,6 +638,38 @@ class DoorProductionService
         }
 
         return $required;
+    }
+
+    /**
+     * Статус сделки продаж следует за этапом, а не живёт своей жизнью: иначе
+     * сделка, возвращённая с «Готово к отгрузке» на «Замер», так и значилась бы
+     * готовой к отгрузке. Завершение и отмена ставятся отдельно, здесь — только
+     * рабочие статусы.
+     */
+    private function syncSalesStatus(Deal $deal, FactoryStage $stage): void
+    {
+        if ($deal->isFactoryOrder() || $deal->status_id->isClosed() || $stage->is_final) {
+            return;
+        }
+
+        $trigger = FactoryStage::query()
+            ->ofPipeline(PipelineType::Sales)
+            ->where('triggers_production', true)
+            ->first();
+
+        $produced = $deal->completedProductionOrder() !== null;
+
+        $status = match (true) {
+            $trigger !== null && $stage->order > $trigger->order => DealStatus::ReadyToShip,
+            // На этапе передачи статус ставит сама передача; готовому заказу — «Готово к отгрузке».
+            $stage->triggers_production => $produced ? DealStatus::ReadyToShip : $deal->status_id,
+            $stage->is_initial && $deal->status_id === DealStatus::New => DealStatus::New,
+            default => DealStatus::InWork,
+        };
+
+        if ($deal->status_id !== $status) {
+            $deal->forceFill(['status_id' => $status])->save();
+        }
     }
 
     /**
@@ -662,13 +753,20 @@ class DoorProductionService
             return;
         }
 
+        // Оплата — тому, кто взял этап в работу, а без «Взять в работу» — тому,
+        // кто закрыл, но только если это цех. Менеджер или администратор,
+        // двигающий наряд с канбана, дверь не варил: этап остаётся без
+        // исполнителя и без начисления, а не уходит в зарплату руководству.
+        $closer = $worker?->isFactoryStaff() ? $worker : null;
+        $workerId = $log->worker_id ?? $closer?->id;
+
         $log->forceFill([
             'finished_at' => now(),
             'status' => $status,
-            'worker_id' => $log->worker_id ?? $worker?->id,
+            'worker_id' => $workerId,
             // Расценку фиксируем в момент закрытия: поднятие тарифа не должно
             // задним числом пересчитывать уже закрытые смены.
-            'payout' => $status === ProductionStatus::Done ? $log->stage->operation_cost : 0,
+            'payout' => $status === ProductionStatus::Done && $workerId !== null ? $log->stage->operation_cost : 0,
             'comment' => $comment ?? $log->comment,
         ])->save();
 
@@ -677,7 +775,7 @@ class DoorProductionService
                 $deal->salesDeal(),
                 DealEventType::ProductionStage,
                 "Цех закрыл этап «{$log->stage->name}»"
-                    .($log->worker ? ", исполнитель {$log->worker->name}" : ''),
+                    .($log->worker ? ", исполнитель {$log->worker->name}" : ', без исполнителя — оплата не начислена'),
                 $log->worker ?? $worker,
                 department: Department::Factory,
             );

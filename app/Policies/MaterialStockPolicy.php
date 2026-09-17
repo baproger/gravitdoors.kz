@@ -10,10 +10,10 @@ use App\Models\User;
 
 class MaterialStockPolicy
 {
-    /** Остатки видит и цех: без них нельзя понять, чем закрывать наряд. */
+    /** Остатки видят руководство и мастер: без них нельзя понять, чем закрывать наряд. */
     public function viewAny(User $user): bool
     {
-        return $user->role !== UserRole::Worker;
+        return in_array($user->role, [UserRole::Admin, UserRole::Manager, UserRole::Master], true);
     }
 
     public function view(User $user, MaterialStock $material): bool
@@ -31,9 +31,13 @@ class MaterialStockPolicy
         return $this->create($user);
     }
 
+    /**
+     * Материал с движениями или привязанными позициями прайса не удаляется:
+     * с ним ушла бы история списаний, и отмена наряда не смогла бы ничего вернуть.
+     */
     public function delete(User $user, MaterialStock $material): bool
     {
-        return $user->role === UserRole::Admin;
+        return $user->role === UserRole::Admin && $material->canBeDeleted();
     }
 
     public function deleteAny(User $user): bool
