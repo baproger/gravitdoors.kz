@@ -18,6 +18,9 @@
         </include>
     </source>
     <php>
+        <!-- Все тесты идут в одном процессе и копят память; сжатие фото (GD) проверяет
+             свободную память перед работой и на 128M отказывалось бы под конец прогона. -->
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

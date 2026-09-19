@@ -6,11 +6,13 @@ use App\Enums\AccessLevel;
 use App\Enums\Permission;
 use App\Models\User;
 use App\Services\AccessControl;
+use App\Support\Uploads\UploadCompressor;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Pages\BasePage;
 use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Width;
@@ -80,6 +82,11 @@ class AppServiceProvider extends ServiceProvider
         DateTimePicker::configureUsing(fn (DateTimePicker $picker) => $picker
             ->native(false)
             ->displayFormat('d.m.Y H:i'));
+
+        // Всё, что загружают (чеки, договоры, аватары), сжимается при сохранении:
+        // фото с телефона — 4–8 МБ, диск на хостинге — 15 ГБ. Одна настройка на
+        // все поля, чтобы новое поле загрузки не забыли подключить.
+        FileUpload::configureUsing(fn (FileUpload $upload) => UploadCompressor::configure($upload));
 
         CreateAction::configureUsing(fn (CreateAction $action) => $action
             ->modalWidth(Width::FiveExtraLarge)
