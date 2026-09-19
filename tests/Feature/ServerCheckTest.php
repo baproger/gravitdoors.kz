@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\ServerHealth;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
@@ -80,6 +81,55 @@ class ServerCheckTest extends TestCase
         $this->artisan('gravit:server-check')->assertFailed();
 
         $this->assertStringContainsString('ночной бэкап не отработал', $admin->notifications()->first()->data['body'] ?? '');
+    }
+
+    /**
+     * Пароль из README на боевом сервере — повод разбудить директора.
+     *
+     * Репозиторий публичный, и в нём прямо написано, что у демо-записей пароль
+     * `password`. Если такая запись окажется на бою — при переносе базы с
+     * разработки или правке руками, — вход открыт всем, кто умеет читать.
+     */
+    public function test_weak_password_wakes_the_director(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'password' => Hash::make('С-в-о-й-2026!')]);
+        User::factory()->create(['email' => 'demo@gravit.kz', 'password' => Hash::make('password')]);
+        $this->fakeHealth(disk: 5000, memory: 600);
+        $this->freshBackup();
+
+        $this->artisan('gravit:server-check')->assertFailed();
+
+        $body = $admin->notifications()->first()->data['body'] ?? '';
+        $this->assertStringContainsString('demo@gravit.kz', $body);
+        $this->assertStringNotContainsString('password', $body, 'Сам пароль в уведомлении повторять незачем');
+    }
+
+    /** Заблокированный сотрудник со слабым паролем войти не может — и тревоги не поднимает. */
+    public function test_disabled_account_with_a_weak_password_is_not_reported(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'password' => Hash::make('С-в-о-й-2026!')]);
+        User::factory()->create(['email' => 'old@gravit.kz', 'password' => Hash::make('password'), 'is_active' => false]);
+        $this->fakeHealth(disk: 5000, memory: 600);
+        $this->freshBackup();
+
+        $this->artisan('gravit:server-check')->assertSuccessful();
+
+        $this->assertSame(0, $admin->notifications()->count());
+    }
+
+    /** На разработке `password` у всех по замыслу сидера — проверка молчит. */
+    public function test_weak_passwords_are_ignored_outside_production(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin->value]);
+        User::factory()->create(['email' => 'demo@gravit.kz', 'password' => Hash::make('password')]);
+        $this->fakeHealth(disk: 5000, memory: 600);
+        $this->freshBackup();
+
+        $this->artisan('gravit:server-check')->assertSuccessful();
+
+        $this->assertSame(0, $admin->notifications()->count());
     }
 
     public function test_healthy_server_is_silent(): void

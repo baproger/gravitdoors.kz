@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * Утренняя проверка сервера: диск, память, свежесть бэкапа.
@@ -59,12 +60,19 @@ class ServerCheck extends Command
             $problems[] = "Последняя копия базы сделана {$backupAge} ч назад: ночной бэкап не отработал.";
         }
 
+        $weak = $this->accountsWithWeakPasswords();
+
+        if ($weak !== []) {
+            $problems[] = 'Пароль угадывается с первой попытки у: '.implode(', ', $weak).'. Сменить немедленно.';
+        }
+
         $this->table(
             ['Проверка', 'Значение'],
             [
                 ['Свободно на диске, МБ', $freeDisk ?? 'неизвестно'],
                 ['Доступно памяти, МБ', $freeMemory ?? 'неизвестно'],
                 ['Последняя копия базы, ч назад', $backupAge ?? 'нет'],
+                ['Учётных записей со слабым паролем', count($weak)],
             ],
         );
 
@@ -92,6 +100,48 @@ class ServerCheck extends Command
             ->sendToDatabase($this->recipients());
 
         return self::FAILURE;
+    }
+
+    /**
+     * Почты сотрудников, чей пароль подбирается с первой попытки.
+     *
+     * Появилось, когда репозиторий стал публичным. В README открыто написано,
+     * что у демо-учётных записей пароль `password`, — это правильно для
+     * разработки, но если такую запись когда-нибудь заведут на бою (перенос
+     * базы с разработки, спешная правка руками), директор с паролем из
+     * инструкции окажется в открытом доступе вместе с кодом.
+     *
+     * Проверяется пароль, а не почта: `manager@gravit.kz` на боевом сервере —
+     * это, скорее всего, настоящий менеджер, и ругаться на него не за что.
+     *
+     * Своего пароля директора в списке нет и быть не может: подбор идёт по
+     * заведомо мусорным строкам, а репозиторий читают посторонние.
+     *
+     * Только на бою. На разработке `password` у всех — так задумано сидером,
+     * и ругаться на это значит приучить пропускать предупреждение мимо глаз.
+     *
+     * @return list<string>
+     */
+    private function accountsWithWeakPasswords(): array
+    {
+        if (! $this->laravel->environment('production')) {
+            return [];
+        }
+
+        $guesses = ['password', '12345678', 'qwerty123', 'admin123', 'gravit123'];
+        $found = [];
+
+        foreach (User::query()->where('is_active', true)->get() as $user) {
+            foreach ($guesses as $guess) {
+                if (Hash::check($guess, (string) $user->password)) {
+                    $found[] = $user->email;
+
+                    break;
+                }
+            }
+        }
+
+        return $found;
     }
 
     /** Возраст самой свежей копии базы в часах; null, если копий нет. */
