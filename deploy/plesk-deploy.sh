@@ -79,7 +79,12 @@ mkdir -p storage/backups storage/logs storage/app/public \
   storage/framework/cache storage/framework/sessions storage/framework/views storage/framework/composer bootstrap/cache
 export COMPOSER_HOME="${COMPOSER_HOME:-$PWD/storage/framework/composer}"
 
-if [ -n "${COMPOSER:-}" ]; then
+# Большинство развёртываний — правка кода без новых пакетов, а composer на
+# 1 ГБ памяти работает полминуты и греет диск. Запускаем его только когда
+# vendor отсутствует или composer.lock свежее собранного автозагрузчика.
+if [ -n "${COMPOSER:-}" ] && [ -f vendor/autoload.php ] && [ ! composer.lock -nt vendor/autoload.php ]; then
+  echo "→ Зависимости PHP не менялись, composer пропущен"
+elif [ -n "${COMPOSER:-}" ]; then
   echo "→ Зависимости PHP (без dev)"
   $COMPOSER install --no-dev --classmap-authoritative --no-interaction --prefer-dist --no-progress
 elif [ -d vendor ]; then
