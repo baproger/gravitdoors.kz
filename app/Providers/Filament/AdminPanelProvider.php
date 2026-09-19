@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\Auth\EditProfile;
+use App\Filament\Auth\Login;
 use App\Filament\Pages\Dashboard;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Enums\ThemeMode;
@@ -34,7 +35,9 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            // Своя страница входа: витрина слева, форма справа. Логика входа
+            // остаётся филаментовской — лимит попыток и второй фактор.
+            ->login(Login::class)
             // Второй фактор — приложение-аутентификатор (Google Authenticator, Яндекс.Ключ):
             // пароль директора или бухгалтера могут подсмотреть или выманить, а телефон —
             // нет. Включается каждым в своём профиле; коды восстановления — на случай

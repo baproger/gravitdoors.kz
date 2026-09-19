@@ -4143,3 +4143,202 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 }
 
 .db-nowrap { white-space: nowrap; }
+
+/* ==========================================================================
+   Страница входа: слева витрина, справа форма
+   ==========================================================================
+   Раскладка в две половины во всю высоту. Синий — тот же, что у панели
+   (primary = Blue): вход и система должны читаться как один продукт, а не
+   как две разные программы. Чтобы сменить цвет, достаточно --lg-hue.
+   -------------------------------------------------------------------------- */
+
+:root {
+    --lg-hue: 47 111 237;      /* primary панели */
+    --lg-deep: 12 31 74;       /* дальний угол градиента */
+    --lg-ink: 15 23 42;
+}
+
+.lg-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100dvh;
+}
+
+/* ---------- витрина ---------- */
+
+.lg-stage {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    background:
+        radial-gradient(120% 90% at 10% 0%, rgb(var(--lg-hue) / 0.55) 0%, transparent 55%),
+        linear-gradient(155deg, rgb(var(--lg-hue)) 0%, rgb(var(--lg-deep)) 100%);
+    color: rgb(255 255 255 / 0.92);
+}
+
+/* Сетка: чертёжная подложка — проект двери начинается с чертежа. */
+.lg-stage__grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(255 255 255 / 0.07) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(85% 75% at 35% 45%, #000 20%, transparent 95%);
+    opacity: 0.8;
+}
+
+.lg-stage__glow {
+    position: absolute;
+    width: 46rem;
+    height: 46rem;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.lg-stage__glow--top { top: -18rem; left: -14rem; background: rgb(125 211 252 / 0.55); }
+.lg-stage__glow--bottom { bottom: -22rem; right: -16rem; background: rgb(129 140 248 / 0.45); }
+
+.lg-stage__inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    width: 100%;
+    max-width: 34rem;
+    margin: auto;
+    padding: 3.5rem 3rem;
+}
+
+.lg-brand { display: flex; align-items: center; gap: 0.75rem; }
+
+.lg-brand__mark {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.85rem;
+    background: rgb(255 255 255 / 0.12);
+    border: 1px solid rgb(255 255 255 / 0.18);
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+}
+
+.lg-brand__text { display: flex; flex-direction: column; line-height: 1.25; }
+.lg-brand__text b { font-size: 0.95rem; font-weight: 600; }
+.lg-brand__text i { font-style: normal; font-size: 0.8rem; color: rgb(255 255 255 / 0.6); }
+
+.lg-pitch__title {
+    margin: 0 0 1rem;
+    font-size: clamp(1.9rem, 2.7vw, 2.6rem);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+}
+
+.lg-pitch__title em { font-style: normal; color: rgb(147 197 253); }
+
+.lg-pitch__sub {
+    margin: 0;
+    max-width: 30rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: rgb(255 255 255 / 0.7);
+}
+
+.lg-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lg-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem;
+    border-radius: 0.9rem;
+    background: rgb(255 255 255 / 0.08);
+    border: 1px solid rgb(255 255 255 / 0.14);
+    backdrop-filter: blur(6px);
+}
+
+.lg-fact__value { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+.lg-fact__label { font-size: 0.72rem; line-height: 1.35; color: rgb(255 255 255 / 0.62); }
+
+.lg-stage__foot { margin: 0; font-size: 0.75rem; color: rgb(255 255 255 / 0.45); }
+
+/* ---------- форма ---------- */
+
+.lg-form {
+    display: flex;
+    background: rgb(255 255 255);
+}
+
+.dark .lg-form { background: rgb(15 23 42); }
+
+.lg-form__inner {
+    width: 100%;
+    max-width: 26rem;
+    margin: auto;
+    padding: 3rem 1.5rem;
+}
+
+.lg-form__head { margin-bottom: 2rem; }
+
+.lg-form__head h2 {
+    margin: 0 0 0.35rem;
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: rgb(var(--lg-ink));
+}
+
+.dark .lg-form__head h2 { color: rgb(241 245 249); }
+
+.lg-form__head p { margin: 0; font-size: 0.9rem; color: rgb(100 116 139); }
+
+.lg-form__foot {
+    margin: 1.75rem 0 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgb(148 163 184);
+}
+
+/* Кнопка «Войти» во всю ширину: на странице входа она единственная. */
+.lg-form .fi-form-actions .fi-ac,
+.lg-form .fi-form-actions .fi-btn { width: 100%; }
+.lg-form .fi-form-actions .fi-btn { justify-content: center; padding-block: 0.7rem; }
+
+/* ---------- телефон и планшет ---------- */
+
+@media (max-width: 1023px) {
+    .lg-split { grid-template-columns: 1fr; }
+
+    /* Витрина сворачивается в шапку: на телефоне важна форма, а не лозунг. */
+    .lg-stage__inner { gap: 1.5rem; padding: 2.5rem 1.5rem; max-width: none; }
+    .lg-pitch__title { font-size: 1.75rem; }
+    .lg-pitch__sub { font-size: 0.875rem; }
+    .lg-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+    .lg-fact { padding: 0.7rem; }
+    .lg-fact__value { font-size: 1.15rem; }
+    .lg-fact__label { font-size: 0.65rem; }
+    .lg-form__inner { padding: 2.5rem 1.5rem; }
+}
+
+@media (max-width: 480px) {
+    .lg-facts { grid-template-columns: 1fr; }
+    .lg-fact { flex-direction: row; align-items: baseline; gap: 0.5rem; }
+    .lg-fact__label { font-size: 0.72rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lg-stage__glow { filter: none; opacity: 0.2; }
+}
