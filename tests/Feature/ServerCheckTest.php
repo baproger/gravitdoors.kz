@@ -114,6 +114,43 @@ class ServerCheckTest extends TestCase
         $this->fakeHealth(disk: 5000, memory: 600);
         $this->freshBackup();
 
+        // Проверка всё равно найдёт несобранный кэш — в тестах его и не собирают.
+        // Важно другое: про заблокированного сотрудника в письме ни слова.
+        $this->artisan('gravit:server-check')->assertFailed();
+
+        $body = (string) ($admin->notifications()->first()->data['body'] ?? '');
+        $this->assertStringNotContainsString('old@gravit.kz', $body);
+        $this->assertStringNotContainsString('Пароль угадывается', $body);
+    }
+
+    /**
+     * Несобранный кэш на бою — тихая потеря скорости, и её надо заметить.
+     *
+     * Если в Plesk не прописано действие при развёртывании, `artisan optimize`
+     * не запускается: сайт работает, но каждый запрос разбирает настройки
+     * заново. Снаружи это не увидеть — только изнутри.
+     */
+    public function test_missing_caches_are_reported_on_the_live_server(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        $admin = User::factory()->create(['role' => UserRole::Admin->value, 'password' => Hash::make('С-в-о-й-2026!')]);
+        $this->fakeHealth(disk: 5000, memory: 600);
+        $this->freshBackup();
+
+        $this->artisan('gravit:server-check')->assertFailed();
+
+        $body = (string) ($admin->notifications()->first()->data['body'] ?? '');
+        $this->assertStringContainsString('Не собран кэш', $body);
+        $this->assertStringContainsString('plesk-deploy.sh', $body, 'Директору нужно не описание беды, а что нажать');
+    }
+
+    /** На разработке кэш мешает: правка настроек не видна, пока не сбросишь. */
+    public function test_missing_caches_are_not_reported_in_development(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin->value]);
+        $this->fakeHealth(disk: 5000, memory: 600);
+        $this->freshBackup();
+
         $this->artisan('gravit:server-check')->assertSuccessful();
 
         $this->assertSame(0, $admin->notifications()->count());

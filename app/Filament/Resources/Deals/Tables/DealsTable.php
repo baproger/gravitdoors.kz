@@ -30,6 +30,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 class DealsTable
 {
@@ -285,6 +286,15 @@ class DealsTable
     {
         $query
             ->with(['currentStage', 'manager', 'productionOrder.currentStage', 'stageVisits', 'latestStageVisit.user'])
+            // Наряд берёт позиции у своей сделки, поэтому родитель нужен здесь же:
+            // одним запросом на страницу вместо одного на каждый наряд.
+            ->with(['parentDeal' => fn (Relation $parent) => $parent->getQuery()->withExists('doorConfigurations')])
+            // Два вопроса, которые задавала каждая строка: «есть ли позиции»
+            // (кнопка «Пересчитать цену») и «делались ли двери» (кнопка
+            // «Передать в производство»). Теперь на них отвечает сам список.
+            ->withExists('doorConfigurations')
+            ->withExists(['productionOrders as has_completed_order' => fn (Builder $orders) => $orders
+                ->where('status_id', DealStatus::Completed->value)])
             ->withoutFinishedOrders(auth()->user());
     }
 

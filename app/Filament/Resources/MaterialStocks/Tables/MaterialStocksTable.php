@@ -21,6 +21,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -30,6 +31,9 @@ class MaterialStocksTable
     {
         return $table
             ->defaultSort('name')
+            // «Можно ли удалить» — одним запросом на страницу, а не двумя
+            // на каждую строку (см. MaterialStock::canBeDeleted()).
+            ->modifyQueryUsing(fn (Builder $query) => $query->withExists(['movements', 'doorOptions']))
             ->columns([
                 TextColumn::make('name')
                     ->label('Материал')

@@ -90,6 +90,16 @@ class MaterialStock extends Model
      */
     public function canBeDeleted(): bool
     {
+        // Кнопка «Удалить» спрашивает это у каждой строки склада: 25 строк на
+        // странице — 50 запросов на ровном месте. Если список уже посчитал
+        // ответ через withExists, берём его; одиночная карточка спросит сама.
+        $movements = $this->getAttribute('movements_exists');
+        $options = $this->getAttribute('door_options_exists');
+
+        if ($movements !== null && $options !== null) {
+            return ! $movements && ! $options;
+        }
+
         return $this->movements()->doesntExist() && $this->doorOptions()->doesntExist();
     }
 

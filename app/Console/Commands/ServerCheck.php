@@ -60,6 +60,14 @@ class ServerCheck extends Command
             $problems[] = "Последняя копия базы сделана {$backupAge} ч назад: ночной бэкап не отработал.";
         }
 
+        $cold = $this->cachesNotBuilt();
+
+        if ($cold !== []) {
+            $problems[] = 'Не собран кэш: '.implode(', ', $cold)
+                .'. Каждый запрос разбирает настройки заново — панель работает медленнее без причины.'
+                .' Проверьте, что в Plesk → Git → «Действия при развёртывании» стоит bash deploy/plesk-deploy.sh.';
+        }
+
         $weak = $this->accountsWithWeakPasswords();
 
         if ($weak !== []) {
@@ -100,6 +108,36 @@ class ServerCheck extends Command
             ->sendToDatabase($this->recipients());
 
         return self::FAILURE;
+    }
+
+    /**
+     * Что из кэшей не собрано на бою.
+     *
+     * Без `artisan optimize` PHP на каждый запрос заново читает десятки файлов
+     * настроек и перебирает маршруты. На сервере с тремя процессами это
+     * десятки миллисекунд на каждом клике — и никакого признака поломки:
+     * сайт просто вязкий. Замечает это не разработчик, а менеджер.
+     *
+     * Кэши собирает `deploy/plesk-deploy.sh`. Если поле «Действия при
+     * развёртывании» в Plesk пустое, скрипт не запускается — и узнать об
+     * этом снаружи нельзя никак, кроме как проверить изнутри.
+     *
+     * Только на бою: на разработке кэш мешает — правка настроек не видна,
+     * пока не сбросишь.
+     *
+     * @return list<string>
+     */
+    private function cachesNotBuilt(): array
+    {
+        if (! $this->laravel->environment('production')) {
+            return [];
+        }
+
+        return array_values(array_filter([
+            $this->laravel->configurationIsCached() ? null : 'настройки',
+            $this->laravel->routesAreCached() ? null : 'маршруты',
+            $this->laravel->eventsAreCached() ? null : 'события',
+        ]));
     }
 
     /**

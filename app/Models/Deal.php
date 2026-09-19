@@ -477,6 +477,36 @@ class Deal extends Model
         return $order;
     }
 
+    /**
+     * Есть ли позиции — без запроса, если список их уже посчитал.
+     *
+     * В списке сделок кнопка «Пересчитать цену» спрашивала это у каждой
+     * строки: 25 строк на странице — 25 запросов, и чем больше сделок, тем
+     * медленнее главная рабочая страница. Теперь ответ приходит вместе со
+     * списком (`withExists`), а запрос остаётся только для одиночной карточки.
+     */
+    public function hasDoorConfigurations(): bool
+    {
+        $deal = $this->salesDeal();
+        $loaded = $deal->getAttribute('door_configurations_exists');
+
+        return $loaded !== null ? (bool) $loaded : $deal->doorConfigurations()->exists();
+    }
+
+    /**
+     * Делались ли двери по этой сделке хоть раз — тоже из списка, если он спросил.
+     *
+     * Смысл тот же, что у `completedProductionOrder()`: важно не «какой наряд»,
+     * а «был ли завершённый». Отменённые наряды не в счёт — после отмены
+     * сделку передают в цех заново.
+     */
+    public function hasCompletedProductionOrder(): bool
+    {
+        $loaded = $this->getAttribute('has_completed_order');
+
+        return $loaded !== null ? (bool) $loaded : $this->completedProductionOrder() !== null;
+    }
+
     /** Финансы придержали отгрузку: дальше «Готово к отгрузке» сделка не пойдёт. */
     public function isShipmentBlocked(): bool
     {

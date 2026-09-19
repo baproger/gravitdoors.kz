@@ -224,7 +224,7 @@ final class DealActions
             ->visible(fn (Deal $record): bool => ! $record->isFactoryOrder()
                 && ! $record->status_id->isClosed()
                 && $record->activeProductionOrder() === null
-                && $record->completedProductionOrder() === null)
+                && ! $record->hasCompletedProductionOrder())
             ->action(function (Deal $record, DoorProductionService $production, $livewire): void {
                 // Через moveToStage, а не напрямую: иначе кнопка обходила бы
                 // регламент этапов, который проверяется при переходе.
@@ -460,7 +460,7 @@ final class DealActions
             ->icon('heroicon-o-calculator')
             ->color('gray')
             ->authorize(fn (Deal $record): bool => auth()->user()?->can('update', $record) ?? false)
-            ->visible(fn (Deal $record): bool => $record->salesDeal()->doorConfigurations()->exists())
+            ->visible(fn (Deal $record): bool => $record->hasDoorConfigurations())
             ->action(function (Deal $record, DoorProductionService $production, $livewire): void {
                 $production->syncPricing($record);
                 self::refreshCard($livewire);

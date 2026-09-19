@@ -480,7 +480,11 @@ class DashboardStats
     public function stuckOrders(): int
     {
         return $this->once('stuckOrders', function () {
-            return $this->orders()->open()->with('currentStage')->get()
+            // stageVisits — обязательно: «дольше норматива» считается по часам
+            // на этапе, а те складываются из заходов. Без этой строки инфопанель
+            // делала отдельный запрос на каждый наряд, и чем больше заказов
+            // в цеху, тем дольше открывалась первая страница у всех сразу.
+            return $this->orders()->open()->with(['currentStage', 'stageVisits'])->get()
                 ->filter(fn (Deal $order): bool => $order->isStageOverdue())
                 ->count();
         });
