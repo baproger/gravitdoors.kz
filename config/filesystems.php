@@ -34,6 +34,14 @@ return [
             'driver' => 'local',
             'root' => storage_path('app/private'),
             'serve' => true,
+            // Файлы выдаются с /files, а не с /storage, который Laravel берёт
+            // по умолчанию. Причина: /storage закрыт в public/.htaccess — там
+            // однажды оказался каталог storage развёрнутого не туда приложения,
+            // с логами и чеками клиентов. Правило Apache срабатывает раньше
+            // маршрутов, поэтому подписанная ссылка на аватар получала 404
+            // и до PHP вообще не доходила. Два разных смысла у одного адреса
+            // развели по разным адресам; проверка — PrivateFileRouteTest.
+            'url' => rtrim((string) env('APP_URL', 'http://localhost'), '/').'/files',
             'throw' => false,
             'report' => false,
         ],
