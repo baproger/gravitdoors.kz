@@ -2,9 +2,9 @@
 #
 # Обновление сайта на виртуальном хостинге с Plesk (hoster.kz, тариф «Турбо»).
 #
-# Чем отличается от deploy.sh для VPS: нет root, sudo, systemctl и swap;
-# PHP-FPM, nginx и cron настраивает панель. Скрипт делает только то, что
-# доступно пользователю подписки: composer, миграции, кэши, ссылка на файлы.
+# Скрипт делает только то, что доступно пользователю подписки: composer,
+# миграции, кэши, ссылка на файлы. Root, sudo, systemctl и настройка
+# PHP-FPM с nginx сюда не входят — этим на хостинге занимается панель.
 #
 # Откуда запускается:
 #   - Plesk → Git → «Действия при развёртывании»: bash deploy/plesk-deploy.sh
@@ -106,6 +106,10 @@ echo "→ Миграции"
 echo "→ Кэши"
 "$PHP" artisan optimize:clear
 "$PHP" artisan optimize
+# Стили, скрипты и шрифт панели в public/. Composer раскладывает их сам, но
+# при установке из архива (build-release.sh) composer не запускается — без
+# этой строки сайт открылся бы без оформления и со шрифтом по умолчанию.
+"$PHP" artisan filament:assets
 "$PHP" artisan filament:optimize
 
 echo "→ Ссылка на файлы"

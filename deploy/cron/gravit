@@ -1,5 +1,0 @@
-# Gravit ERP — планировщик Laravel. Ставится в /etc/cron.d/gravit.
-# Сам планировщик (routes/console.php) решает, что и когда запускать:
-# 03:00 бэкап, 08:00 проверка сервера, 08:30 сводка по складу и цеху.
-# От имени www-data, чтобы файлы бэкапов и логов не оказались под root.
-* * * * * www-data cd /var/www/gravit && php artisan schedule:run >> /dev/null 2>&1

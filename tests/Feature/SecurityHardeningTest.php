@@ -79,6 +79,84 @@ class SecurityHardeningTest extends TestCase
         $this->get('/shop')->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
     }
 
+    /**
+     * Политика содержимого закрывает то, что панель переживёт без потерь.
+     *
+     * `script-src` здесь нет сознательно (см. SecurityHeaders::CSP), и тест
+     * стережёт именно это: строка с `unsafe-eval` выглядит как защита, но ею
+     * не является, а поломку панели даёт настоящую.
+     */
+    public function test_content_security_policy_closes_what_it_can(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin->value]);
+
+        $csp = (string) $this->actingAs($admin)->get('/admin')->headers->get('Content-Security-Policy');
+
+        foreach (["base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'", "object-src 'none'"] as $rule) {
+            $this->assertStringContainsString($rule, $csp);
+        }
+
+        $this->assertStringNotContainsString('unsafe-eval', $csp, 'script-src с unsafe-eval не защищает, но ломает Alpine');
+    }
+
+    /**
+     * Панель не тянет ничего с чужих сайтов.
+     *
+     * Строка `->font('Inter')` в настройках панели заставляла каждую страницу
+     * ждать ответа от fonts.bunny.net: лишние DNS и TLS до первой буквы, а
+     * заодно чужой сервер, падение которого видно нашим пользователям. Свой
+     * Inter Filament возит с собой; тест не даёт вернуть внешнюю ссылку —
+     * ни шрифтом, ни картой, ни счётчиком.
+     */
+    public function test_pages_load_no_resources_from_other_sites(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin->value]);
+
+        $pages = [
+            $this->get('/admin/login')->content(),
+            $this->actingAs($admin)->get('/admin')->content(),
+        ];
+
+        foreach ($pages as $html) {
+            preg_match_all('/(?:src|href)=["\'](https?:\/\/[^"\']+)["\']/i', $html, $matches);
+
+            foreach ($matches[1] as $url) {
+                $host = parse_url($url, PHP_URL_HOST);
+
+                $this->assertContains($host, ['localhost', '127.0.0.1'], "Страница тянет ресурс со стороны: {$url}");
+            }
+        }
+    }
+
+    /**
+     * Статика уходит сжатой и с длинным кэшем.
+     *
+     * Тема панели весит 676 КБ и 76 КБ в сжатом виде — это самый тяжёлый файл
+     * сайта, и разница видна на каждом первом заходе. Правила живут в
+     * `public/.htaccess`, который Laravel перезаписывает при обновлении,
+     * поэтому их стережёт тест.
+     */
+    public function test_public_htaccess_compresses_and_caches_static_files(): void
+    {
+        $htaccess = file_get_contents(public_path('.htaccess'));
+
+        $this->assertStringContainsString('mod_deflate', $htaccess, 'Сжатие должно быть включено');
+        $this->assertStringContainsString('text/css', $htaccess, 'Стили — самый тяжёлый файл, их сжимаем обязательно');
+        $this->assertStringContainsString('immutable', $htaccess, 'Файлы сборки с хэшем в имени кэшируются надолго');
+
+        // Дамп базы или забытая копия конфига не должны скачиваться.
+        preg_match_all('/^RedirectMatch 404.*$/m', $htaccess, $blocked);
+        $blocked = implode("\n", $blocked[0]);
+
+        foreach (['sql', 'sqlite', 'bak', 'log'] as $extension) {
+            $this->assertStringContainsString(
+                $extension,
+                $blocked,
+                "Файлы .{$extension} не должны отдаваться наружу"
+            );
+        }
+    }
+
     public function test_hsts_is_sent_only_over_https(): void
     {
         $this->get('/shop')->assertHeaderMissing('Strict-Transport-Security');
@@ -108,13 +186,6 @@ class SecurityHardeningTest extends TestCase
         $this->assertSame(['alpha-1', 'beta-2'], $admin->fresh()->getAppAuthenticationRecoveryCodes());
     }
 
-    /**
-     * Перебор пароля упирается в пятую попытку за минуту.
-     *
-     * Лимит даёт сам Filament (`Login::authenticate()` → `rateLimit(5)`), своего
-     * кода у нас нет — именно поэтому он под тестом: обновление панели может
-     * снять защиту молча, а логин директора известен всем, кто видел README.
-     */
     /**
      * Перебор пароля упирается в пятую попытку за минуту.
      *

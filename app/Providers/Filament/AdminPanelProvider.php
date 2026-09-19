@@ -7,6 +7,7 @@ namespace App\Providers\Filament;
 use App\Filament\Auth\EditProfile;
 use App\Filament\Auth\Login;
 use App\Filament\Pages\Dashboard;
+use App\Support\Avatars\InitialsAvatar;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
@@ -63,7 +64,15 @@ class AdminPanelProvider extends PanelProvider
                 // Кадры: отдельный цвет, чтобы роль HR и её события не путались с менеджерскими.
                 'violet' => Color::Violet,
             ])
-            ->font('Inter')
+            // Кружки с инициалами рисуются у себя. По умолчанию Filament просит
+            // их у ui-avatars.com, отправляя туда имя сотрудника, — чужой сервер
+            // и фамилии кадрового состава в чужих логах на каждой странице.
+            ->defaultAvatarProvider(InitialsAvatar::class)
+            // Шрифт намеренно не задаётся: без ->font() Filament берёт Inter,
+            // который возит с собой и публикует в public/fonts при установке.
+            // Строка ->font('Inter') заставляла каждую страницу ждать ответа
+            // от fonts.bunny.net — лишние DNS, TLS и два запроса до первой
+            // буквы, да ещё и чужой сервер в списке того, что может упасть.
             // ТЗ: Light SaaS. Переключатель темы у пользователя остаётся.
             ->defaultThemeMode(ThemeMode::Light)
             // Канбан на шесть колонок задыхается в фиксированной ширине контента.

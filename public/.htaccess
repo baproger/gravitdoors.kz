@@ -9,9 +9,44 @@
 RedirectMatch 404 (?i)^/(app|bootstrap|config|database|deploy|docs|resources|routes|storage|tests|vendor|git|node_modules)(/|$)
 RedirectMatch 404 (?i)^/(artisan|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|phpstan\.neon|vite\.config\.js|deploy\.sh|.*\.md)$
 RedirectMatch 404 (?i)/\.(env|git|gitignore|gitattributes|editorconfig)
+# По расширению и на любой глубине: дамп базы, копия конфига или забытый
+# лог не должны скачиваться, даже если окажутся в веб-корне под чужим именем.
+RedirectMatch 404 (?i)\.(env|sql|sqlite3?|db|sh|bash|bak|backup|old|orig|save|swp|ini|ya?ml|neon|lock|log|dist|tpl)$
 
 # Индексы каталогов не показываем даже там, где отдавать нечего.
 Options -Indexes
+
+# ── Скорость ─────────────────────────────────────────────────────────────
+# Сжатие. Тема панели весит 676 КБ, в сжатом виде — 76 КБ: девятикратная
+# разница на самом тяжёлом файле, и её видно на каждом первом заходе.
+# Если хостинг уже сжимает на своём nginx, эти строки просто ничего не меняют.
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml
+    AddOutputFilterByType DEFLATE text/javascript application/javascript application/x-javascript
+    AddOutputFilterByType DEFLATE application/json application/xml application/rss+xml
+    AddOutputFilterByType DEFLATE image/svg+xml
+    # woff2 сжат внутри себя: повторное сжатие только греет процессор.
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType font/woff2 .woff2
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Файлы сборки и ресурсы панели несут хэш содержимого в имени
+    # (theme-Bw7r6eyM.css): новая версия — новое имя, поэтому старую
+    # браузер может держать у себя год и не спрашивать сервер вообще.
+    Header set Cache-Control "public, max-age=31536000, immutable" "expr=%{REQUEST_URI} =~ m#^/(build|fonts|css|js)/#"
+
+    # Остальная статика без хэша — сутки: значок и robots.txt меняются редко,
+    # но не должны залипать в браузере на год.
+    <FilesMatch "(?i)\.(ico|png|jpe?g|gif|webp|avif|svg|txt)$">
+        Header setifempty Cache-Control "public, max-age=86400"
+    </FilesMatch>
+
+    # Страницы панели правила не трогают: Laravel сам отдаёт их с
+    # `no-store, private`, и это проверено — в них суммы сделок.
+</IfModule>
 
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
