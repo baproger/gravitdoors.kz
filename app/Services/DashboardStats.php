@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\AccessLevel;
+use App\Enums\BonusStatus;
 use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\ExpenseCategory;
@@ -86,6 +88,38 @@ class DashboardStats
     public function seesTotals(): bool
     {
         return AccessControl::allows($this->viewer(), Permission::KanbanTotals);
+    }
+
+    /**
+     * Полная инфопанель — у того, кто ведёт всю воронку продаж (директор) или
+     * финансы (бухгалтер). Остальные видят «Мою работу»: только свои цифры.
+     */
+    public function isFullView(): bool
+    {
+        return AccessControl::allows($this->viewer(), Permission::WorkSalesKanban, AccessLevel::Full)
+            || $this->seesFinance();
+    }
+
+    public function isPersonal(): bool
+    {
+        return $this->viewer() !== null && ! $this->isFullView();
+    }
+
+    /**
+     * Сводка по всему цеху (наряды, загрузка, выработка) — начальнику производства,
+     * директору и финансам. Рабочий с правом «чтение» на воронку завода видит
+     * только свои этапы и свою сдельную оплату.
+     */
+    public function seesFactoryOverview(): bool
+    {
+        return $this->isFullView()
+            || AccessControl::allows($this->viewer(), Permission::WorkFactoryKanban, AccessLevel::Full);
+    }
+
+    /** Замерщики и начальник производства: им нужен список выездов, а не воронка. */
+    public function doesSurveys(): bool
+    {
+        return (bool) $this->viewer()?->role->doesSurveys();
     }
 
     // ---------- продажи ---------------------------------------------------
@@ -482,6 +516,102 @@ class DashboardStats
             ->sortByDesc('payout')
             ->take($limit)
             ->values();
+    }
+
+    // ---------- моя работа (личные цифры сотрудника) ---------------------
+
+    /** @return Builder<ProductionLog> */
+    private function myLogs(): Builder
+    {
+        return ProductionLog::query()->where('worker_id', (int) $this->viewer()?->id);
+    }
+
+    /** Этапы, которые сотрудник закрыл за период. */
+    public function myStagesClosed(): int
+    {
+        return $this->once('myStagesClosed', function () {
+            return $this->period->apply($this->myLogs()->where('status', ProductionStatus::Done->value), 'finished_at')->count();
+        });
+    }
+
+    /** Его сдельная оплата за период — то, что попадёт в «Мою зарплату». */
+    public function myPiecework(): float
+    {
+        return $this->once('myPiecework', function () {
+            return round((float) $this->period->apply($this->myLogs()->where('status', ProductionStatus::Done->value), 'finished_at')->sum('payout'), 2);
+        });
+    }
+
+    /**
+     * Наряды, которые сотрудник взял и ещё не закрыл.
+     *
+     * @return Collection<int, string> номера нарядов
+     */
+    public function myOrdersInProgress(): Collection
+    {
+        return $this->once('myOrdersInProgress', function () {
+            return $this->myLogs()
+                ->where('status', ProductionStatus::InProgress->value)
+                ->with('deal')
+                ->get()
+                ->map(fn (ProductionLog $log): string => (string) ($log->deal->number ?? '—'))
+                ->unique()
+                ->values();
+        });
+    }
+
+    /**
+     * Замеры, которые касаются сотрудника: замерщику — все выезды (он на них
+     * едет), менеджеру — по его сделкам (visibleTo). Без денег.
+     *
+     * @return Builder<Deal>
+     */
+    private function myMeasurements(): Builder
+    {
+        return $this->doesSurveys()
+            ? Deal::query()->sales()
+            : Deal::query()->visibleTo($this->viewer())->sales();
+    }
+
+    /** @return Collection<int, Deal> */
+    public function myMeasurementsToday(): Collection
+    {
+        return $this->once('myMeasurementsToday', fn () => $this->myMeasurements()->measurementToday()->get());
+    }
+
+    /** Замеры на ближайшие семь дней, начиная с завтра. */
+    public function myMeasurementsAhead(): int
+    {
+        return $this->once('myMeasurementsAhead', function () {
+            return $this->myMeasurements()->open()
+                ->whereBetween('measured_at', [today()->addDay()->startOfDay(), today()->addDays(7)->endOfDay()])
+                ->count();
+        });
+    }
+
+    public function myMeasurementsOverdue(): int
+    {
+        return $this->once('myMeasurementsOverdue', fn () => $this->myMeasurements()->measurementOverdue()->count());
+    }
+
+    /** Утверждённые бонусы сотрудника за период. */
+    public function myBonus(): float
+    {
+        return $this->once('myBonus', function () {
+            return round((float) $this->period->apply(
+                Bonus::query()->where('user_id', (int) $this->viewer()?->id)->approved(), 'created_at'
+            )->sum('amount'), 2);
+        });
+    }
+
+    /** Бонусы сотрудника, которые ещё ждут утверждения (за период). */
+    public function myBonusPending(): float
+    {
+        return $this->once('myBonusPending', function () {
+            return round((float) $this->period->apply(
+                Bonus::query()->where('user_id', (int) $this->viewer()?->id)->where('status', BonusStatus::Pending->value), 'created_at'
+            )->sum('amount'), 2);
+        });
     }
 
     // ---------- склад и люди ---------------------------------------------

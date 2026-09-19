@@ -3610,6 +3610,16 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 
 .dark .db__tile--alert { background: rgb(76 29 29 / 0.25); }
 
+/* «Моя работа»: личный блок сотрудника над общими цифрами; синяя плитка — то, что у него в руках сейчас. */
+.db__mine { margin-bottom: 0.75rem; }
+
+.db__tile--accent {
+    border-color: rgb(47 111 237 / 0.3);
+    background: rgb(239 246 255);
+}
+
+.dark .db__tile--accent { background: rgb(30 58 138 / 0.2); }
+
 /* Столбики «приход / расход» по месяцам */
 .db__chart {
     display: flex;

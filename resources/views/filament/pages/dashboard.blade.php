@@ -37,6 +37,59 @@
             <span class="db__label">{{ $p->label() }}</span>
         </div>
 
+        {{-- Моя работа: личные цифры сотрудника. Директор и финансы видят всё ниже целиком. --}}
+        @if ($s->isPersonal())
+            <div class="gravit-bento gravit-bento--compact db__mine">
+                @if ($s->seesFactory() && ! $s->seesFactoryOverview())
+                    <div class="gravit-tile gravit-tile--third">
+                        <p class="gravit-tile__label">Закрыл этапов {{ $p->hint() }}</p>
+                        <p class="gravit-tile__value">{{ $num($s->myStagesClosed()) }}</p>
+                        <p class="gravit-tile__hint">сдельно {{ $m($s->myPiecework()) }} · <a href="{{ \App\Filament\Pages\MySalary::getUrl() }}">моя зарплата</a></p>
+                    </div>
+
+                    <div class="gravit-tile gravit-tile--third {{ $s->myOrdersInProgress()->isNotEmpty() ? 'db__tile--accent' : '' }}">
+                        <p class="gravit-tile__label">В работе у меня</p>
+                        <p class="gravit-tile__value">{{ $num($s->myOrdersInProgress()->count()) }}</p>
+                        <p class="gravit-tile__hint">{{ $s->myOrdersInProgress()->isNotEmpty() ? $s->myOrdersInProgress()->implode(', ') : 'нажмите «Взял» на планшете, чтобы начать этап' }}</p>
+                    </div>
+                @endif
+
+                @if ($s->doesSurveys() || $s->seesSales())
+                    <div class="gravit-tile gravit-tile--third {{ $s->myMeasurementsOverdue() > 0 ? 'db__tile--alert' : '' }}">
+                        <p class="gravit-tile__label">Замеры сегодня</p>
+                        <p class="gravit-tile__value">{{ $num($s->myMeasurementsToday()->count()) }}</p>
+                        <p class="gravit-tile__hint">
+                            @if ($s->myMeasurementsOverdue() > 0)
+                                <span style="color: rgb(185 28 28);">просрочено {{ $s->myMeasurementsOverdue() }}</span> ·
+                            @endif
+                            на неделе ещё {{ $s->myMeasurementsAhead() }}
+                        </p>
+                        @if ($s->myMeasurementsToday()->isNotEmpty())
+                            <div class="gravit-lines" style="margin-top: 0.5rem;">
+                                @foreach ($s->myMeasurementsToday() as $deal)
+                                    <div class="gravit-line">
+                                        <span>{{ $deal->measured_at->format('H:i') }} — {{ $deal->clientTitle() }}</span>
+                                        <span style="color: var(--gravit-muted); font-weight: 400;">{{ collect([$deal->client_address, $deal->client_phone])->filter()->implode(' · ') }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
+                @if ($s->seesSales())
+                    <div class="gravit-tile gravit-tile--third">
+                        <p class="gravit-tile__label">Мой бонус {{ $p->hint() }}</p>
+                        <p class="gravit-tile__value">{{ $m($s->myBonus()) }}</p>
+                        <p class="gravit-tile__hint">
+                            @if ($s->myBonusPending() > 0) на утверждении {{ $m($s->myBonusPending()) }} · @endif
+                            <a href="{{ \App\Filament\Pages\MySalary::getUrl() }}">моя зарплата</a>
+                        </p>
+                    </div>
+                @endif
+            </div>
+        @endif
+
         {{-- Главные цифры --}}
         <div class="gravit-bento gravit-bento--compact">
             @if ($s->seesSales())
@@ -94,7 +147,7 @@
                 </div>
             @endif
 
-            @if ($s->seesFactory())
+            @if ($s->seesFactoryOverview())
                 <div class="gravit-tile gravit-tile--third">
                     <p class="gravit-tile__label">Нарядов в цеху</p>
                     <p class="gravit-tile__value">{{ $num($s->ordersInWork()) }}</p>
@@ -181,7 +234,7 @@
                 </div>
             @endif
 
-            @if ($s->seesFactory())
+            @if ($s->seesFactoryOverview())
                 <div class="gravit-tile gravit-tile--half">
                     <p class="gravit-tile__label">Загрузка цеха</p>
                     <div class="gravit-lines" style="margin-top: 0.6rem;">
@@ -255,7 +308,7 @@
                 </div>
             @endif
 
-            @if ($s->seesFactory() && ($s->seesPayroll() || $money))
+            @if ($s->seesFactoryOverview() && ($s->seesPayroll() || $money))
                 <div class="gravit-tile gravit-tile--half">
                     <p class="gravit-tile__label">Выработка цеха {{ $p->hint() }}</p>
                     <div class="gravit-lines" style="margin-top: 0.6rem;">
