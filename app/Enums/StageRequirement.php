@@ -83,7 +83,7 @@ enum StageRequirement: string implements HasLabel
             self::City, self::CompanyDetails, self::MeasuredAt => 'вкладка «Клиент»',
             self::Doors => 'вкладка «Двери»',
             self::ContractNumber, self::ContractDate, self::Documents => 'вкладка «Договор»',
-            self::Prepayment, self::PaidInFull => 'вкладка «Оплата»',
+            self::Prepayment, self::PaidInFull => 'кнопка «Принять оплату»',
             self::Manager, self::DueDate => 'панель «Управление»',
         };
     }

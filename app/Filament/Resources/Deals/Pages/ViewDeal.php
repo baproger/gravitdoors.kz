@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Deals\Pages;
 
+use App\Filament\Actions\DealActions;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
-use App\Services\QrCodeService;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\ViewRecord;
-use Illuminate\Support\HtmlString;
 
 /**
  * Карточка сделки для тех, у кого доступ «только чтение».
@@ -35,6 +34,13 @@ class ViewDeal extends ViewRecord
         return 'Просмотр: изменения недоступны на вашем уровне доступа.';
     }
 
+    /** После действия из шапки (оплата, этап) показать новое состояние, а не снимок при открытии. */
+    public function refreshCard(): void
+    {
+        $this->record->refresh();
+        $this->fillForm();
+    }
+
     protected function getHeaderActions(): array
     {
         /** @var Deal $deal */
@@ -47,27 +53,9 @@ class ViewDeal extends ViewRecord
                 ->url(fn (): string => DealResource::getUrl('edit', ['record' => $deal]))
                 ->visible(fn (): bool => auth()->user()?->can('update', $deal) ?? false),
 
-            Action::make('qr')
-                ->label('QR для двери')
-                ->icon('heroicon-o-qr-code')
-                ->color('gray')
-                ->modalHeading(fn (): string => "Заказ {$deal->number}")
-                ->modalSubmitAction(false)
-                ->modalCancelActionLabel('Закрыть')
-                ->modalContent(fn (): HtmlString => new HtmlString(
-                    '<div style="text-align:center">'
-                    .app(QrCodeService::class)->svg($deal->qr_code_hash
-                        ? route('track.show', $deal->qr_code_hash)
-                        : url('/'), 240)
-                    .'</div>',
-                )),
-
-            Action::make('track')
-                ->label('Страница клиента')
-                ->icon('heroicon-o-globe-alt')
-                ->color('gray')
-                ->url(fn (): string => route('track.show', $deal->qr_code_hash))
-                ->openUrlInNewTab(),
+            // Те же группы по отделам, что в карточке: у читателя останутся только
+            // разрешённые его правами (обычно «Клиент»), пустые группы Filament прячет.
+            ...DealActions::headerGroups(),
         ];
     }
 }

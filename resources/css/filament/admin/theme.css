@@ -696,6 +696,26 @@
     color: var(--gravit-muted);
 }
 
+/* Подсказка «не хватает оплаты» с кнопкой прямо в ней: текст слева, кнопка справа. */
+.gravit-stepper__hint--action {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 0.75rem;
+}
+
+/* «Принять оплату» — синяя, чтобы не путать с зелёным «Готово ✓» цеха. */
+.gravit-finish--pay {
+    border-color: rgb(47 111 237);
+    background: rgb(47 111 237);
+}
+
+.gravit-finish--pay:hover:not(:disabled) {
+    border-color: rgb(29 78 216);
+    background: rgb(29 78 216);
+}
+
 /* ---------- Адаптив ---------- */
 
 /*

@@ -4,29 +4,21 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Deals\Tables;
 
-use App\Enums\AccessLevel;
 use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\Permission;
 use App\Enums\PipelineType;
-use App\Exceptions\ProductionException;
+use App\Filament\Actions\DealActions;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
 use App\Models\FactoryStage;
-use App\Models\MaterialStock;
-use App\Models\StockMovement;
 use App\Services\AccessControl;
-use App\Services\DoorProductionService;
 use App\Support\Filament\TableFilters;
 use App\Support\Money;
-use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
@@ -38,7 +30,6 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Validation\ValidationException;
 
 class DealsTable
 {
@@ -192,208 +183,10 @@ class DealsTable
             ])
             ->filtersFormColumns(2)
             ->recordActions([
+                // Действия те же, что в карточке (DealActions): одни правила и права.
                 ActionGroup::make([
                     EditAction::make(),
-
-                    Action::make('handOff')
-                        ->label('Передать в производство')
-                        ->icon('heroicon-o-arrow-right-circle')
-                        ->color('warning')
-                        ->requiresConfirmation()
-                        ->modalHeading('Передать сделку на завод?')
-                        ->modalDescription('Будет создан производственный наряд, а материалы спецификации спишутся со склада.')
-                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('move', $record) ?? false)
-                        ->visible(fn (Deal $record): bool => ! $record->isFactoryOrder()
-                            && ! $record->status_id->isClosed()
-                            && $record->activeProductionOrder() === null
-                            && $record->completedProductionOrder() === null)
-                        ->action(function (Deal $record, DoorProductionService $production): void {
-                            // Через moveToStage, а не напрямую: иначе кнопка обходила бы
-                            // регламент этапов, который проверяется при переходе.
-                            $stage = FactoryStage::query()
-                                ->ofPipeline(PipelineType::Sales)
-                                ->active()
-                                ->where('triggers_production', true)
-                                ->ordered()
-                                ->first();
-
-                            if (! $stage) {
-                                Notification::make()->danger()
-                                    ->title('Этап передачи в производство не настроен')
-                                    ->send();
-
-                                return;
-                            }
-
-                            try {
-                                $production->moveToStage($record, $stage, auth()->user());
-
-                                $order = $record->refresh()->productionOrder;
-
-                                Notification::make()
-                                    ->success()
-                                    ->title('Наряд создан')
-                                    ->body("Производственный наряд {$order?->number} принят цехом.")
-                                    ->send();
-                            } catch (ProductionException $e) {
-                                Notification::make()->danger()
-                                    ->title('Не удалось передать в цех')
-                                    ->body($e->getMessage())
-                                    ->persistent()
-                                    ->send();
-                            }
-                        }),
-
-                    Action::make('blockShipment')
-                        ->label(fn (Deal $record): string => $record->isShipmentBlocked() ? 'Снять блокировку отгрузки' : 'Заблокировать отгрузку')
-                        ->icon(fn (Deal $record): string => $record->isShipmentBlocked() ? 'heroicon-o-lock-open' : 'heroicon-o-lock-closed')
-                        ->color(fn (Deal $record): string => $record->isShipmentBlocked() ? 'success' : 'danger')
-                        ->modalHeading(fn (Deal $record): string => $record->isShipmentBlocked()
-                            ? "Снять блокировку с {$record->number}?"
-                            : "Придержать отгрузку {$record->number}?")
-                        ->modalDescription(fn (Deal $record): string => $record->isShipmentBlocked()
-                            ? 'Сделка снова пойдёт по воронке до закрытия.'
-                            : 'Цех продолжит работу, но дальше «Передано в производство» сделка не пойдёт, пока блокировка стоит.')
-                        ->schema(fn (Deal $record): array => $record->isShipmentBlocked() ? [] : [
-                            Textarea::make('reason')
-                                ->label('Причина')
-                                ->placeholder('Долг 320 000 ₸ по договору')
-                                ->required()
-                                ->rows(2),
-                        ])
-                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('flagPayment', $record) ?? false)
-                        ->visible(fn (Deal $record): bool => ! $record->isFactoryOrder() && ! $record->status_id->isClosed())
-                        ->action(function (Deal $record, array $data, DoorProductionService $production): void {
-                            try {
-                                $blocked = ! $record->isShipmentBlocked();
-                                $production->setShipmentBlock($record, $blocked, $data['reason'] ?? null, auth()->user());
-
-                                Notification::make()->success()
-                                    ->title($blocked ? 'Отгрузка заблокирована' : 'Блокировка снята')
-                                    ->send();
-                            } catch (ValidationException $e) {
-                                Notification::make()->danger()->title('Не сохранено')->body(collect($e->errors())->flatten()->implode(' '))->send();
-                            }
-                        }),
-
-                    Action::make('factoryMaterials')
-                        ->label('Факт материалов')
-                        ->icon('heroicon-o-archive-box-arrow-down')
-                        ->color('gray')
-                        ->modalHeading(fn (Deal $record): string => "Фактический расход по наряду {$record->number}")
-                        ->modalDescription('Списание сверх плана или возврат неиспользованного. Плановый расход уже списан при передаче в цех.')
-                        ->schema([
-                            Select::make('material_stock_id')
-                                ->label('Материал')
-                                ->options(fn (): array => MaterialStock::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all())
-                                ->searchable()
-                                ->required()
-                                ->native(false),
-                            Select::make('direction')
-                                ->label('Что произошло')
-                                ->options([
-                                    StockMovement::TYPE_OUT => 'Ушло больше плана — списать',
-                                    StockMovement::TYPE_IN => 'Осталось — вернуть на склад',
-                                ])
-                                ->default(StockMovement::TYPE_OUT)
-                                ->required()
-                                ->native(false),
-                            TextInput::make('quantity')->label('Количество')->numeric()->minValue(0.001)->required(),
-                            TextInput::make('comment')->label('Комментарий')->maxLength(255),
-                        ])
-                        ->authorize(fn (): bool => AccessControl::can(Permission::FactoryMaterials, AccessLevel::Full))
-                        ->visible(fn (Deal $record): bool => $record->isFactoryOrder() && ! $record->status_id->isClosed())
-                        ->action(function (Deal $record, array $data, DoorProductionService $production): void {
-                            try {
-                                $production->adjustMaterials(
-                                    $record,
-                                    (int) $data['material_stock_id'],
-                                    (float) $data['quantity'],
-                                    (string) $data['direction'],
-                                    $data['comment'] ?? null,
-                                    auth()->user(),
-                                );
-
-                                Notification::make()->success()->title('Расход отмечен')->send();
-                            } catch (ValidationException $e) {
-                                Notification::make()->danger()->title('Не записано')->body(collect($e->errors())->flatten()->implode(' '))->send();
-                            }
-                        }),
-
-                    Action::make('completeStage')
-                        ->label('Завершить этап цеха')
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->modalHeading(fn (Deal $record): string => 'Этап «'.($record->currentStage->name ?? '—').'» выполнен?')
-                        ->modalDescription('Этап закроется, оплата запишется на исполнителя. Последний этап завершит наряд и вернёт сделку отделу продаж.')
-                        // Видимость — не защита: право проверяется и на сервере, иначе рабочий
-                        // закрывал бы этапы из списка, хотя политика ему это запрещает.
-                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('move', $record) ?? false)
-                        ->visible(fn (Deal $record): bool => $record->isFactoryOrder() && ! $record->status_id->isClosed())
-                        ->action(function (Deal $record, DoorProductionService $production): void {
-                            try {
-                                $stage = $record->currentStage?->name;
-                                $production->completeCurrentStage($record, auth()->user());
-
-                                Notification::make()
-                                    ->success()
-                                    ->title("Этап «{$stage}» закрыт")
-                                    ->body($record->refresh()->currentStage?->name
-                                        ? "Наряд перешёл на «{$record->currentStage->name}»."
-                                        : 'Производство завершено, сделка готова к отгрузке.')
-                                    ->send();
-                            } catch (ProductionException $e) {
-                                Notification::make()->danger()->title('Ошибка')->body($e->getMessage())->send();
-                            }
-                        }),
-
-                    Action::make('cancelOrder')
-                        ->label('Отменить наряд')
-                        ->icon('heroicon-o-x-circle')
-                        ->color('danger')
-                        ->requiresConfirmation()
-                        ->modalHeading('Отменить производственный наряд?')
-                        ->modalDescription('Списанные материалы вернутся на склад, сделка клиента вернётся в работу.')
-                        ->schema([
-                            Textarea::make('reason')
-                                ->label('Причина отмены')
-                                ->required()
-                                ->rows(2),
-                        ])
-                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('update', $record) ?? false)
-                        ->visible(fn (Deal $record): bool => $record->isFactoryOrder() && ! $record->status_id->isClosed())
-                        ->action(function (Deal $record, array $data, DoorProductionService $production): void {
-                            try {
-                                $production->cancelProduction($record, auth()->user(), $data['reason']);
-
-                                Notification::make()
-                                    ->success()
-                                    ->title("Наряд {$record->number} отменён")
-                                    ->body('Материалы возвращены на склад.')
-                                    ->send();
-                            } catch (ProductionException $e) {
-                                Notification::make()->danger()->title('Ошибка')->body($e->getMessage())->send();
-                            }
-                        }),
-
-                    Action::make('recalculate')
-                        ->label('Пересчитать цену')
-                        ->icon('heroicon-o-calculator')
-                        ->authorize(fn (Deal $record): bool => auth()->user()?->can('update', $record) ?? false)
-                        ->visible(fn (Deal $record): bool => $record->salesDeal()->doorConfigurations()->exists())
-                        ->action(function (Deal $record, DoorProductionService $production): void {
-                            $production->syncPricing($record);
-
-                            Notification::make()->success()->title('Цена пересчитана по спецификации')->send();
-                        }),
-
-                    Action::make('track')
-                        ->label('Страница для клиента')
-                        ->icon('heroicon-o-qr-code')
-                        ->color('gray')
-                        ->url(fn (Deal $record): string => route('track.show', $record->qr_code_hash))
-                        ->openUrlInNewTab(),
+                    ...DealActions::forTable(),
                 ]),
             ])
             ->toolbarActions([

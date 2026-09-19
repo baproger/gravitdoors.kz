@@ -13,6 +13,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\Permission;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
+use App\Filament\Actions\DealActions;
 use App\Models\CashAccount;
 use App\Models\Deal;
 use App\Models\FactoryStage;
@@ -29,6 +30,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
@@ -211,6 +213,20 @@ class DealForm
     private static function paymentFields(): array
     {
         return [
+            // Кнопка «Принять оплату» — первое, что видно на вкладке: она подставляет
+            // остаток и сохраняет платёж сразу, без «Сохранить» внизу карточки.
+            // Список ниже — те же платежи, их можно поправить и сохранить формой.
+            Section::make('Оплата')
+                ->icon('heroicon-o-banknotes')
+                ->visible(fn (?Deal $record): bool => $record !== null && ! $record->isFactoryOrder())
+                ->schema([
+                    Placeholder::make('payment_state')
+                        ->hiddenLabel()
+                        ->content(fn (?Deal $record): HtmlString => self::paymentState($record)),
+
+                    Actions::make([DealActions::pay()])->alignStart(),
+                ]),
+
             Section::make('Платежи клиента')
                 ->description('Каждый платёж — с чеком. Сумма платежей становится предоплатой сделки.')
                 ->schema([
@@ -512,6 +528,32 @@ class DealForm
         }
 
         return blank($value) ? null : $enum::tryFrom((string) $value)?->getLabel();
+    }
+
+    /** Одной строкой: сколько по договору, сколько внесено, сколько осталось. */
+    private static function paymentState(?Deal $record): HtmlString
+    {
+        if (! $record) {
+            return new HtmlString('');
+        }
+
+        $remaining = $record->remainingPayment();
+        $rows = [
+            ['Сумма сделки', Money::format((float) $record->total_price), false],
+            ['Оплачено', Money::format((float) $record->prepayment), false],
+            [$remaining > 0 ? 'Остаток к оплате' : 'Оплачено полностью', $remaining > 0 ? Money::format($remaining) : '✓', true],
+        ];
+
+        $html = collect($rows)
+            ->map(fn (array $row): string => sprintf(
+                '<div class="gravit-line%s"><span>%s</span><span>%s</span></div>',
+                $row[2] ? ' gravit-line--total' : '',
+                e($row[0]),
+                e($row[1]),
+            ))
+            ->implode('');
+
+        return new HtmlString('<div class="gravit-lines">'.$html.'</div>');
     }
 
     private static function summary(Get $get, ?Deal $record): HtmlString

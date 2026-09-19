@@ -5,85 +5,31 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Deals\Pages;
 
 use App\Exceptions\ProductionException;
+use App\Filament\Actions\DealActions;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Services\DoorProductionService;
-use App\Services\QrCodeService;
-use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
-use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Illuminate\Support\HtmlString;
 
 class EditDeal extends EditRecord
 {
     protected static string $resource = DealResource::class;
 
+    /**
+     * Шапка карточки: «Принять оплату» отдельной кнопкой, остальное — по отделам
+     * (Отдел продаж · Финансы · Завод · Клиент). Сами действия общие со списком
+     * и «Счетами» — `DealActions`, здесь только удаление, оно есть лишь у карточки.
+     */
     protected function getHeaderActions(): array
     {
         /** @var Deal $deal */
         $deal = $this->record;
 
         return [
-            Action::make('qr')
-                ->label('QR для двери')
-                ->icon('heroicon-o-qr-code')
-                ->color('gray')
-                ->modalHeading(fn (): string => "Заказ {$this->record->number}")
-                ->modalSubmitAction(false)
-                ->modalCancelActionLabel('Закрыть')
-                // Стикер клеится на изделие: сканируя его, клиент и кладовщик
-                // попадают на один и тот же публичный статус заказа.
-                ->modalContent(fn (): HtmlString => new HtmlString(
-                    '<div style="text-align:center">'
-                    .app(QrCodeService::class)->svg($this->record->qr_code_hash
-                        ? route('track.show', $this->record->qr_code_hash)
-                        : url('/'), 240)
-                    .'<p style="margin-top:.75rem;font-size:.75rem;word-break:break-all">'
-                    .e(route('track.show', $this->record->qr_code_hash))
-                    .'</p></div>',
-                )),
-
-            Action::make('track')
-                ->label('Страница клиента')
-                ->icon('heroicon-o-qr-code')
-                ->color('gray')
-                ->url(fn (): string => route('track.show', $this->record->qr_code_hash))
-                ->openUrlInNewTab(),
-
-            Action::make('cancelDeal')
-                ->label('Отменить сделку')
-                ->icon('heroicon-o-no-symbol')
-                ->color('danger')
-                ->requiresConfirmation()
-                ->modalHeading('Отменить сделку?')
-                ->modalDescription(fn (): string => $deal->activeProductionOrder()
-                    ? 'Наряд в цеху будет отменён, списанные материалы вернутся на склад. Сделка получит статус «Отменена» и закроется.'
-                    : 'Сделка получит статус «Отменена» и закроется. Обратно открыть её из интерфейса нельзя.')
-                ->schema([
-                    Textarea::make('reason')
-                        ->label('Причина')
-                        ->required()
-                        ->rows(2),
-                ])
-                ->modalSubmitActionLabel('Да, отменить')
-                ->authorize(fn (): bool => auth()->user()->can('update', $deal))
-                ->visible(fn (): bool => ! $deal->isFactoryOrder() && ! $deal->status_id->isClosed())
-                ->action(function (array $data) use ($deal): void {
-                    try {
-                        app(DoorProductionService::class)->cancelDeal($deal, auth()->user(), $data['reason']);
-                    } catch (ProductionException $e) {
-                        Notification::make()->danger()->title('Сделка не отменена')->body($e->getMessage())->send();
-
-                        return;
-                    }
-
-                    $this->refreshFormData(['status_id', 'current_stage_id']);
-
-                    Notification::make()->success()->title("Сделка {$deal->number} отменена")->send();
-                }),
+            ...DealActions::headerGroups(),
 
             DeleteAction::make()
                 // Политику администратор проходит всегда, поэтому правило проверяется здесь.
@@ -92,6 +38,17 @@ class EditDeal extends EditRecord
                     ? 'Наряд уйдёт в корзину вместе с историей этапов.'
                     : 'Сделка уйдёт в корзину вместе с позициями, платежами и историей.'),
         ];
+    }
+
+    /**
+     * Перечитать карточку после действия из шапки (оплата, передача в цех,
+     * блокировка): платежи, этап, статус и сводка должны показать новое состояние,
+     * а не то, что было при открытии страницы.
+     */
+    public function refreshCard(): void
+    {
+        $this->record->refresh();
+        $this->fillForm();
     }
 
     protected function afterSave(): void
@@ -112,29 +69,11 @@ class EditDeal extends EditRecord
         }
     }
 
-    /** Подтверждение закрытия наряда — модалка Filament вместо системного confirm(). */
-    public function completeStageAction(): Action
-    {
-        /** @var Deal $order */
-        $order = $this->record;
-
-        return Action::make('completeStage')
-            ->requiresConfirmation()
-            ->color('success')
-            ->modalIcon('heroicon-o-check-badge')
-            ->modalIconColor('success')
-            ->modalHeading(fn (): string => 'Этап «'.($order->currentStage->name ?? '—').'» выполнен?')
-            ->modalDescription(fn (): string => 'Наряд '.$order->number.' закроется, сдельная оплата за этап запишется на вас'
-                .($order->parentDeal ? ', а сделка '.$order->parentDeal->number.' перейдёт в «Готово к отгрузке».' : '.'))
-            ->modalSubmitActionLabel('Да, закрыть наряд')
-            ->modalCancelActionLabel('Отмена')
-            ->action(fn () => $this->completeStage());
-    }
-
     /**
      * «Готово ✓» под полосой этапов наряда: у последнего этапа цеха нет соседа
      * справа, поэтому сама полоса наряд закрыть не может. Та же логика, что и
      * у планшета цеха: закрыть этап, начислить оплату, вернуть сделку продажам.
+     * Кнопка с подтверждением — действие `completeStage` из шапки (DealActions).
      */
     public function completeStage(): void
     {

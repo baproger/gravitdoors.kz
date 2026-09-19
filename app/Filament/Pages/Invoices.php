@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
-use App\Enums\AccessLevel;
-use App\Enums\DealEventType;
-use App\Enums\PaymentMethod;
 use App\Enums\Permission;
 use App\Enums\PipelineType;
+use App\Filament\Actions\DealActions;
 use App\Filament\Resources\Deals\DealResource;
-use App\Models\CashAccount;
 use App\Models\Deal;
-use App\Models\DealEvent;
-use App\Models\DealPayment;
 use App\Models\FactoryStage;
 use App\Models\User;
 use App\Services\AccessControl;
@@ -21,12 +16,6 @@ use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use App\Support\Plural;
 use BackedEnum;
-use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -35,7 +24,6 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use UnitEnum;
 
@@ -154,64 +142,9 @@ class Invoices extends Page implements HasTable
             ])
             ->filtersFormColumns(2)
             ->recordActions([
-                Action::make('pay')
-                    ->label('Принять оплату')
-                    ->icon('heroicon-o-banknotes')
-                    ->color('success')
-                    ->modalHeading(fn (Deal $record): string => "Оплата по {$record->number} — остаток ".Money::format($record->remainingPayment()))
-                    ->authorize(fn (): bool => AccessControl::can(Permission::FinanceIncomes, AccessLevel::Full))
-                    ->visible(fn (Deal $record): bool => $record->remainingPayment() > 0 && ! $record->status_id->isClosed())
-                    ->schema([
-                        TextInput::make('amount')->label('Сумма')->numeric()->minValue(1)->required()->default(fn (Deal $record): float => $record->remainingPayment())->suffix(config('gravit.currency.symbol')),
-                        Select::make('method')->label('Способ')->options(PaymentMethod::class)->default(PaymentMethod::Kaspi->value)->required()->native(false),
-                        Select::make('account_id')
-                            ->label('Счёт')
-                            ->options(fn (): array => CashAccount::query()->where('is_active', true)->orderBy('id')->pluck('name', 'id')->all())
-                            ->visible(fn (): bool => CashAccount::query()->where('is_active', true)->count() > 2)
-                            ->native(false),
-                        DatePicker::make('paid_at')->label('Дата')->default(now())->maxDate(now())->displayFormat('d.m.Y')->required(),
-                        FileUpload::make('receipt_path')
-                            ->label('Чек')
-                            ->required()
-                            ->directory('receipts')
-                            ->disk('public')
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
-                            ->maxSize(10240)
-                            ->columnSpanFull(),
-                    ])
-                    ->action(function (Deal $record, array $data): void {
-                        try {
-                            DealPayment::create([
-                                'deal_id' => $record->id,
-                                'amount' => (float) $data['amount'],
-                                'method' => $data['method'],
-                                'account_id' => $data['account_id'] ?? null,
-                                'paid_at' => $data['paid_at'],
-                                'receipt_path' => $data['receipt_path'],
-                            ]);
-
-                            Notification::make()->success()->title('Оплата принята')
-                                ->body('Остаток: '.Money::format($record->refresh()->remainingPayment()))->send();
-                        } catch (ValidationException $e) {
-                            Notification::make()->danger()->title('Не принято')->body(collect($e->errors())->flatten()->implode(' '))->send();
-                        }
-                    }),
-
-                Action::make('remind')
-                    ->label('Напомнить')
-                    ->icon('heroicon-o-bell-alert')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->modalHeading('Отметить напоминание об оплате?')
-                    ->modalDescription('В историю сделки ляжет запись «напомнили об оплате» с датой и вашим именем. Отправка сообщения клиенту — следующий шаг плана.')
-                    ->authorize(fn (): bool => AccessControl::can(Permission::FinanceInvoices, AccessLevel::Full))
-                    ->visible(fn (Deal $record): bool => $record->remainingPayment() > 0 && ! $record->status_id->isClosed())
-                    ->action(function (Deal $record): void {
-                        DealEvent::record($record, DealEventType::PaymentReminder,
-                            'Напомнили клиенту об оплате: остаток '.Money::format($record->remainingPayment()), auth()->user());
-
-                        Notification::make()->success()->title('Напоминание записано в историю')->send();
-                    }),
+                // Те же кнопки, что в карточке сделки и списке (DealActions).
+                DealActions::pay(),
+                DealActions::remind(),
             ])
             ->paginated([25, 50])
             ->emptyStateHeading(fn (): string => match ($this->mode) {

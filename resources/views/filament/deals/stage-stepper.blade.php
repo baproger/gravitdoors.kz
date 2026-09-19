@@ -153,9 +153,25 @@
                 .'.' }}
         </p>
     @elseif ($nextStage && ($blocked = $nextStage->missingFor($record)) !== [])
-        <p class="gravit-stepper__hint">
-            Для перехода на «{{ $nextStage->name }}» не хватает:
-            {{ collect($blocked)->map(fn ($r) => $r->getLabel().' ('.$r->hint().')')->implode('; ') }}
-        </p>
+        @php
+            // Не хватает только оплаты — предлагаем принять её прямо здесь, а не
+            // отправляем искать вкладку: раньше на этом месте люди застревали.
+            $paymentOnly = collect($blocked)->every(fn ($r) => in_array($r, [\App\Enums\StageRequirement::Prepayment, \App\Enums\StageRequirement::PaidInFull], true));
+            $canPay = $paymentOnly && $record->remainingPayment() > 0 && \App\Filament\Actions\DealActions::canAcceptPayment($record);
+        @endphp
+        <div class="gravit-stepper__hint {{ $canPay ? 'gravit-stepper__hint--action' : '' }}">
+            <span>
+                Для перехода на «{{ $nextStage->name }}» не хватает:
+                {{ collect($blocked)->map(fn ($r) => $r->getLabel().' ('.$r->hint().')')->implode('; ') }}
+            </span>
+            @if ($canPay)
+                <button
+                    type="button"
+                    class="gravit-finish gravit-finish--pay"
+                    wire:click="mountAction('pay')"
+                    wire:loading.attr="disabled"
+                >Принять оплату — остаток {{ \App\Support\Money::format($record->remainingPayment()) }}</button>
+            @endif
+        </div>
     @endif
 @endif
