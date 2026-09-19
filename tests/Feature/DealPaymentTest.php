@@ -83,7 +83,7 @@ class DealPaymentTest extends TestCase
 
     public function test_receipt_is_uploaded_from_the_deal_card(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $deal = $this->makeDeal();
 
         // fillForm, а не set(): файл должен пройти через FileUpload, иначе
@@ -106,7 +106,7 @@ class DealPaymentTest extends TestCase
         $payment = $deal->refresh()->payments()->firstOrFail();
 
         $this->assertEqualsWithDelta(70_000, (float) $payment->amount, 0.01);
-        Storage::disk('public')->assertExists($payment->receipt_path);
+        Storage::disk('local')->assertExists($payment->receipt_path);
         $this->assertEqualsWithDelta(70_000, (float) $deal->prepayment, 0.01);
     }
 

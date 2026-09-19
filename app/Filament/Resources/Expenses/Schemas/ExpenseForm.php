@@ -87,7 +87,6 @@ class ExpenseForm
                                 : 'Для зарплаты и налогов не нужен';
                         })
                         ->directory('expenses')
-                        ->disk('public')
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
                         ->maxSize(10240)
                         ->openable()

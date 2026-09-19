@@ -35,7 +35,7 @@ class UploadCompressionTest extends TestCase
     {
         parent::setUp();
 
-        Storage::fake('public');
+        Storage::fake('local');
         $this->seed([FactoryStageSeeder::class, CashAccountSeeder::class]);
         $this->manager = User::factory()->create(['role' => UserRole::Manager->value]);
     }
@@ -56,10 +56,10 @@ class UploadCompressionTest extends TestCase
             ->assertHasNoErrors();
 
         $path = $deal->payments()->firstOrFail()->receipt_path;
-        Storage::disk('public')->assertExists($path);
+        Storage::disk('local')->assertExists($path);
         $this->assertStringEndsWith('.jpg', $path, 'PNG без прозрачности становится JPEG');
 
-        [$w, $h] = getimagesize(Storage::disk('public')->path($path));
+        [$w, $h] = getimagesize(Storage::disk('local')->path($path));
         $this->assertSame(1600, $w);
         $this->assertSame(1067, $h);
     }
@@ -75,7 +75,7 @@ class UploadCompressionTest extends TestCase
         $path = $this->manager->refresh()->avatar_path;
         $this->assertNotEmpty($path);
 
-        [$w, $h] = getimagesize(Storage::disk('public')->path($path));
+        [$w, $h] = getimagesize(Storage::disk('local')->path($path));
         $this->assertSame(1600, $w);
         $this->assertSame(1600, $h);
     }
@@ -94,7 +94,7 @@ class UploadCompressionTest extends TestCase
         $stored = $deal->refresh()->documents;
         $this->assertCount(1, $stored);
         $this->assertStringEndsWith('.docx', $stored[0]);
-        $this->assertSame(strlen(str_repeat('PK docx ', 2000)), Storage::disk('public')->size($stored[0]));
+        $this->assertSame(strlen(str_repeat('PK docx ', 2000)), Storage::disk('local')->size($stored[0]));
     }
 
     private function deal(): Deal

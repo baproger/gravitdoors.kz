@@ -45,7 +45,6 @@ class UserForm
                         ->imageEditor()
                         ->imageEditorAspectRatios(['1:1'])
                         ->directory('avatars')
-                        ->disk('public')
                         ->maxSize(4096)
                         ->columnSpan(1),
 

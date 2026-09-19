@@ -8,6 +8,7 @@ use App\Enums\ExpenseCategory;
 use App\Enums\ExpenseStatus;
 use App\Enums\PaymentMethod;
 use App\Observers\ExpenseObserver;
+use App\Support\Uploads\PrivateFiles;
 use Database\Factories\ExpenseFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,7 +18,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Расход компании. В сводку попадает только подтверждённый (approved).
@@ -122,6 +122,6 @@ class Expense extends Model
 
     public function receiptUrl(): ?string
     {
-        return $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null;
+        return PrivateFiles::url($this->receipt_path);
     }
 }

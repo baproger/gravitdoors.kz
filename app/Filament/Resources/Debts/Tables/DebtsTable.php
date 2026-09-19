@@ -13,6 +13,7 @@ use App\Services\CashLedger;
 use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use App\Support\Plural;
+use App\Support\Uploads\PrivateFiles;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -27,7 +28,6 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class DebtsTable
@@ -95,7 +95,6 @@ class DebtsTable
                             ->label('Чек / платёжка')
                             ->required(fn (Debt $record): bool => $record->category->expenseCategory()->requiresReceipt())
                             ->directory('expenses')
-                            ->disk('public')
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
                             ->maxSize(10240)
                             ->columnSpanFull(),
@@ -139,7 +138,7 @@ class DebtsTable
                     ->label('Документ')
                     ->icon('heroicon-o-paper-clip')
                     ->color('gray')
-                    ->url(fn (Debt $record): ?string => $record->document_path ? Storage::disk('public')->url($record->document_path) : null)
+                    ->url(fn (Debt $record): ?string => PrivateFiles::url($record->document_path))
                     ->openUrlInNewTab()
                     ->visible(fn (Debt $record): bool => $record->document_path !== null),
 

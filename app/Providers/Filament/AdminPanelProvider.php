@@ -6,6 +6,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Auth\EditProfile;
 use App\Filament\Pages\Dashboard;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -32,6 +33,13 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // Второй фактор — приложение-аутентификатор (Google Authenticator, Яндекс.Ключ):
+            // пароль директора или бухгалтера могут подсмотреть или выманить, а телефон —
+            // нет. Включается каждым в своём профиле; коды восстановления — на случай
+            // потери телефона. Директору стоит включить в первый же день.
+            ->multiFactorAuthentication([
+                AppAuthentication::make()->recoverable()->brandName('Gravit ERP'),
+            ])
             // Каждый правит свой профиль сам: имя, контакты, аватар и пароль.
             // Роль и оклад остаются в разделе «Сотрудники» у администратора.
             ->profile(EditProfile::class, isSimple: false)

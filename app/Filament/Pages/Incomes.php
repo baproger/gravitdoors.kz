@@ -145,7 +145,6 @@ class Incomes extends Page implements HasTable
                         ->label('Чек')
                         ->required()
                         ->directory('receipts')
-                        ->disk('public')
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
                         ->maxSize(10240)
                         ->columnSpanFull(),

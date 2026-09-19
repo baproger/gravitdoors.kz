@@ -284,7 +284,6 @@ class DealForm
                                 ->helperText('Фото или PDF чека, до 10 МБ')
                                 ->required()
                                 ->directory('receipts')
-                                ->disk('public')
                                 ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
                                 ->maxSize(10240)
                                 ->openable()
@@ -360,7 +359,6 @@ class DealForm
                     ->openable()
                     ->downloadable()
                     ->directory('deals')
-                    ->disk('public')
                     ->acceptedFileTypes([
                         'application/pdf',
                         'image/jpeg',

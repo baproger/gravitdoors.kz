@@ -57,7 +57,7 @@ class FinanceExpensesTest extends TestCase
 
     public function test_accountant_creates_a_pending_expense_from_the_page(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $this->actingAs($this->accountant);
 
         Livewire::test(ManageExpenses::class)
@@ -73,7 +73,7 @@ class FinanceExpensesTest extends TestCase
 
         $expense = Expense::query()->firstOrFail();
 
-        Storage::disk('public')->assertExists($expense->receipt_path);
+        Storage::disk('local')->assertExists($expense->receipt_path);
 
         $this->assertSame(ExpenseStatus::Pending, $expense->status);
         $this->assertSame($this->accountant->id, $expense->user_id);

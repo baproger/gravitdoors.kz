@@ -62,7 +62,7 @@ class FinanceInvoicesTest extends TestCase
 
     public function test_payment_from_the_list_and_reminder_in_history(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $deal = $this->deal(400_000);
 
         Livewire::test(Invoices::class)

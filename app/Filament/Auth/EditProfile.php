@@ -46,7 +46,6 @@ class EditProfile extends BaseEditProfile
                         ->imageEditor()
                         ->imageEditorAspectRatios(['1:1'])
                         ->directory('avatars')
-                        ->disk('public')
                         ->maxSize(4096)
                         ->helperText('Квадратное фото до 4 МБ. Видно коллегам в карточке сотрудника.')
                         ->columnSpanFull(),

@@ -127,7 +127,7 @@ class FinanceDebtsTest extends TestCase
 
     public function test_pay_action_from_the_table(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $debt = Debt::factory()->create(['amount' => 80_000, 'category' => 'loan']);
 
         Livewire::test(ManageDebts::class)

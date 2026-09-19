@@ -6,12 +6,12 @@ namespace App\Models;
 
 use App\Enums\PaymentMethod;
 use App\Observers\DealPaymentObserver;
+use App\Support\Uploads\PrivateFiles;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Платёж клиента по сделке с чеком.
@@ -87,6 +87,6 @@ class DealPayment extends Model
 
     public function receiptUrl(): ?string
     {
-        return $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null;
+        return PrivateFiles::url($this->receipt_path);
     }
 }

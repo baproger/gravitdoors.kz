@@ -10,6 +10,7 @@ use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
 use App\Services\AccessControl;
 use App\Support\Money;
+use App\Support\Uploads\PrivateFiles;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -32,7 +33,8 @@ class UsersTable
                 ImageColumn::make('avatar_path')
                     ->label('')
                     ->circular()
-                    ->disk('public')
+                    ->disk(PrivateFiles::DISK)
+                    ->visibility('private')
                     // Инициалы рисуются локально: внешний сервис аватаров в панели ни к чему.
                     ->defaultImageUrl(fn (User $record): string => self::initialsAvatar($record->name))
                     ->visibleFrom('sm'),

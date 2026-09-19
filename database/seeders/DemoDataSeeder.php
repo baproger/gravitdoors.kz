@@ -33,8 +33,8 @@ class DemoDataSeeder extends Seeder
     {
         $path = "deals/{$number}.txt";
 
-        if (! Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->put($path, "Договор {$number} (демонстрационный файл)");
+        if (! Storage::disk('local')->exists($path)) {
+            Storage::disk('local')->put($path, "Договор {$number} (демонстрационный файл)");
         }
 
         return $path;
@@ -44,8 +44,8 @@ class DemoDataSeeder extends Seeder
     {
         $path = "receipts/{$number}.txt";
 
-        if (! Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->put($path, "Чек об оплате по сделке {$number} (демонстрационный файл)");
+        if (! Storage::disk('local')->exists($path)) {
+            Storage::disk('local')->put($path, "Чек об оплате по сделке {$number} (демонстрационный файл)");
         }
 
         return $path;

@@ -29,7 +29,7 @@ class BackupDatabase extends Command
         {--keep=14 : Сколько последних копий базы хранить}
         {--keep-files=3 : Сколько последних архивов файлов хранить}';
 
-    protected $description = 'Снимок базы и папки storage/app/public с ротацией старых копий';
+    protected $description = 'Снимок базы и загруженных файлов (storage/app) с ротацией старых копий';
 
     private ServerHealth $health;
 
@@ -76,7 +76,7 @@ class BackupDatabase extends Command
      */
     private function archiveFiles(string $dir, string $stamp): void
     {
-        $files = storage_path('app/public');
+        $files = storage_path('app');
 
         if (! File::isDirectory($files)) {
             return;

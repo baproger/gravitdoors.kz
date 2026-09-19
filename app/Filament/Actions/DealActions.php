@@ -158,7 +158,6 @@ final class DealActions
                     ->helperText('Фото или PDF чека, до 10 МБ')
                     ->required()
                     ->directory('receipts')
-                    ->disk('public')
                     ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
                     ->maxSize(10240)
                     ->columnSpanFull(),

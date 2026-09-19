@@ -106,7 +106,7 @@ class EmployeeProfileTest extends TestCase
 
     public function test_anyone_can_change_their_own_avatar(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
 
         $worker = User::factory()->create(['role' => UserRole::Worker->value]);
         $this->actingAs($worker);
@@ -119,7 +119,7 @@ class EmployeeProfileTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertNotNull($worker->refresh()->avatar_path, 'Аватар не сохранился');
-        Storage::disk('public')->assertExists($worker->avatar_path);
+        Storage::disk('local')->assertExists($worker->avatar_path);
     }
 
     public function test_profile_does_not_expose_role_or_salary(): void

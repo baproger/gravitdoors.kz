@@ -6,6 +6,7 @@ use App\Enums\AccessLevel;
 use App\Enums\Permission;
 use App\Models\User;
 use App\Services\AccessControl;
+use App\Support\Uploads\PrivateFiles;
 use App\Support\Uploads\UploadCompressor;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -19,6 +20,7 @@ use Filament\Support\Enums\Width;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -40,6 +42,12 @@ class AppServiceProvider extends ServiceProvider
         // пришлось бы отдельно учить пропускать хозяина системы. Остальные роли
         // проходят через реестр прав (AccessControl), а не через эту дверь.
         Gate::before(fn (User $user) => $user->isAdmin() ? true : null);
+
+        // Сайт живёт на https: все ссылки (в том числе подписанные на файлы) строятся
+        // с https, даже если прокси хостинга не передал схему.
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
 
         $this->registerAccessDirective();
         $this->configureFilamentDefaults();
@@ -86,7 +94,12 @@ class AppServiceProvider extends ServiceProvider
         // Всё, что загружают (чеки, договоры, аватары), сжимается при сохранении:
         // фото с телефона — 4–8 МБ, диск на хостинге — 15 ГБ. Одна настройка на
         // все поля, чтобы новое поле загрузки не забыли подключить.
-        FileUpload::configureUsing(fn (FileUpload $upload) => UploadCompressor::configure($upload));
+        FileUpload::configureUsing(function (FileUpload $upload): void {
+            // Все загрузки — на закрытый диск: чек или договор не должен открываться
+            // по прямой ссылке без входа. Ссылки выдаются подписанными (PrivateFiles).
+            $upload->disk(PrivateFiles::DISK)->visibility('private');
+            UploadCompressor::configure($upload);
+        });
 
         CreateAction::configureUsing(fn (CreateAction $action) => $action
             ->modalWidth(Width::FiveExtraLarge)

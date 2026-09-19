@@ -29,7 +29,6 @@ class DebtForm
                         ->label('Документ')
                         ->helperText('Счёт, договор, акт — до 10 МБ')
                         ->directory('debts')
-                        ->disk('public')
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
                         ->maxSize(10240)
                         ->openable(),

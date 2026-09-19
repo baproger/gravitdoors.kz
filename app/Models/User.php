@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Support\Uploads\PrivateFiles;
 use Database\Factories\UserFactory;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
@@ -17,7 +20,6 @@ use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\DatabaseNotificationCollection;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * @property int $id
@@ -34,6 +36,8 @@ use Illuminate\Support\Facades\Storage;
  * @property string|null $avatar_path
  * @property numeric $salary
  * @property numeric|null $bonus_percent
+ * @property string|null $app_authentication_secret
+ * @property array<string>|null $app_authentication_recovery_codes
  * @property Carbon|null $hired_at
  * @property Carbon|null $birth_date
  * @property-read Collection<int, Deal> $deals
@@ -65,7 +69,7 @@ use Illuminate\Support\Facades\Storage;
  *
  * @mixin \Eloquent
  */
-class User extends Authenticatable implements FilamentUser, HasAvatar
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasAvatar
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -89,6 +93,8 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
             'salary' => 'decimal:2',
             'bonus_percent' => 'decimal:2',
             'hired_at' => 'date',
+            'app_authentication_secret' => 'encrypted',
+            'app_authentication_recovery_codes' => 'encrypted:array',
             'birth_date' => 'date',
         ];
     }
@@ -96,9 +102,42 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
     /** Аватар в шапке панели и в карточке сотрудника. */
     public function getFilamentAvatarUrl(): ?string
     {
-        return $this->avatar_path
-            ? Storage::disk('public')->url($this->avatar_path)
-            : null;
+        return PrivateFiles::url($this->avatar_path, minutes: 120);
+    }
+
+    /*
+     | Двухфакторный вход через приложение-аутентификатор. Секрет и коды
+     | восстановления лежат зашифрованными (каст `encrypted`): утечка базы
+     | без APP_KEY второй фактор не раскроет.
+     */
+    public function getAppAuthenticationSecret(): ?string
+    {
+        return $this->app_authentication_secret;
+    }
+
+    public function saveAppAuthenticationSecret(#[\SensitiveParameter] ?string $secret): void
+    {
+        $this->app_authentication_secret = $secret;
+        $this->save();
+    }
+
+    /** Подпись записи в приложении-аутентификаторе: почта, по ней сотрудник входит. */
+    public function getAppAuthenticationHolderName(): string
+    {
+        return $this->email;
+    }
+
+    /** @return array<string>|null */
+    public function getAppAuthenticationRecoveryCodes(): ?array
+    {
+        return $this->app_authentication_recovery_codes;
+    }
+
+    /** @param array<string>|null $codes */
+    public function saveAppAuthenticationRecoveryCodes(#[\SensitiveParameter] ?array $codes): void
+    {
+        $this->app_authentication_recovery_codes = $codes;
+        $this->save();
     }
 
     /** Инициалы для заглушки аватара. */

@@ -42,7 +42,7 @@ class DealCardActionsTest extends TestCase
     {
         parent::setUp();
 
-        Storage::fake('public');
+        Storage::fake('local');
         $this->seed([FactoryStageSeeder::class, CashAccountSeeder::class]);
 
         $this->manager = User::factory()->create(['role' => UserRole::Manager->value]);

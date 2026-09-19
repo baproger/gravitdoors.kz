@@ -59,7 +59,7 @@ class FinanceIncomesTest extends TestCase
 
     public function test_adding_a_receipt_updates_the_deal_and_the_cash_desk(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $deal = $this->deal(600_000);
 
         Livewire::test(Incomes::class)
@@ -76,12 +76,12 @@ class FinanceIncomesTest extends TestCase
         $this->assertEqualsWithDelta(150_000, (float) $deal->prepayment, 0.01);
         $this->assertEqualsWithDelta(450_000, $deal->remainingPayment(), 0.01);
         $this->assertSame(1, CashMovement::query()->where('direction', 'in')->count(), 'Платёж не попал в кассу');
-        Storage::disk('public')->assertExists(DealPayment::query()->firstOrFail()->receipt_path);
+        Storage::disk('local')->assertExists(DealPayment::query()->firstOrFail()->receipt_path);
     }
 
     public function test_overpayment_is_refused_on_the_server(): void
     {
-        Storage::fake('public');
+        Storage::fake('local');
         $deal = $this->deal(100_000);
 
         Livewire::test(Incomes::class)
