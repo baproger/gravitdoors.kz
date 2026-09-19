@@ -3,7 +3,7 @@
 > Внутренняя ERP производства металлических входных дверей «Gravit».
 > Этот файл — вход в проект: что это, как устроено, какие правила зашиты и почему.
 > Технические подробности по экранам и тестам — в `README.md`, сервер — в `docs/server.md`,
-> незакрытые планы — в `finance-plan.md` и `roles-and-settings-plan.md`.
+> незакрытые планы — в `finance-plan.md`, `roles-and-settings-plan.md` и `deals-import-plan.md` (следующая задача: импорт сделок из Excel/CSV).
 >
 > Состояние на 19 сентября 2026: 423 теста, проходят на SQLite и на MySQL.
 
@@ -221,7 +221,7 @@ Light SaaS / glassmorphism, компактная плотность. Три ур
 | Общие фильтры таблиц | `app/Support/Filament/TableFilters.php` |
 | Сервер, память, развёртывание | `docs/server.md`, `deploy/` (setup, push, конфиги nginx/PHP-FPM/cron), `deploy.sh`, `.env.production.example` |
 | Установка на бою | `app/Console/Commands/Install.php`, `database/seeders/ProductionSeeder.php` |
-| Планы | `finance-plan.md` (шаги 9–12), `roles-and-settings-plan.md` (часть B) |
+| Планы | `finance-plan.md` (шаги 9–12), `roles-and-settings-plan.md` (часть B), `deals-import-plan.md` (импорт сделок, не начат) |
 | Сквозные тесты | `tests/Feature/DealLifecycleTest.php`, `RoleMatrixAcceptanceTest.php`, `ProjectConsistencyTest.php` |
 
 Команды: `gravit:install` (первый запуск на бою), `gravit:daily-check`, `gravit:server-check`, `gravit:backup`, `gravit:finance-backfill` (разнести старые платежи по кассе), `gravit:rebuild-stage-visits`. Состояние машины (диск, память) читает `app/Support/ServerHealth.php`; пороги — `config/gravit.php`, секция `server`.
