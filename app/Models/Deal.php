@@ -65,12 +65,19 @@ use Illuminate\Support\Str;
  * @property string|null $contract_number
  * @property Carbon|null $contract_date
  * @property Carbon|null $measured_at дата и время выезда замерщика
+ * @property int|null $measurement_height высота проёма по замеру, мм
+ * @property int|null $measurement_width ширина проёма по замеру, мм
+ * @property string|null $measurement_comment
+ * @property Carbon|null $measurement_done_at когда замер фактически проведён
+ * @property int|null $measurement_by_id
  * @property numeric $prepayment
  * @property PaymentMethod|null $payment_method
  * @property numeric $delivery_cost
  * @property numeric $installation_cost
  * @property array<array-key, mixed>|null $documents
  * @property-read FactoryStage|null $currentStage
+ * @property-read User|null $measuredBy
+ * @property-read DealStageVisit|null $latestStageVisit
  * @property-read Collection<int, DoorConfiguration> $doorConfigurations
  * @property-read int|null $door_configurations_count
  * @property-read Collection<int, DealEvent> $events
@@ -150,6 +157,8 @@ class Deal extends Model
         'client_name', 'client_type', 'client_company', 'client_bin',
         'client_phone', 'client_email', 'client_phone_extra', 'client_address', 'city', 'source',
         'contract_number', 'contract_date', 'documents', 'measured_at',
+        'measurement_height', 'measurement_width', 'measurement_comment',
+        'measurement_done_at', 'measurement_by_id',
         'total_price', 'cost_price', 'prepayment', 'payment_method',
         'delivery_cost', 'installation_cost',
         'status_id', 'pipeline_type', 'current_stage_id',
@@ -174,6 +183,9 @@ class Deal extends Model
             'due_date' => 'date',
             'contract_date' => 'date',
             'measured_at' => 'datetime',
+            'measurement_height' => 'integer',
+            'measurement_width' => 'integer',
+            'measurement_done_at' => 'datetime',
             'documents' => 'array',
             'stage_entered_at' => 'datetime',
             'production_started_at' => 'datetime',
@@ -236,6 +248,12 @@ class Deal extends Model
         return $this->belongsTo(User::class, 'manager_id');
     }
 
+    /** Кто снял замер. @return BelongsTo<User, $this> */
+    public function measuredBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'measurement_by_id');
+    }
+
     /** Сделка продаж, породившая этот наряд. @return BelongsTo<Deal, $this> */
     public function parentDeal(): BelongsTo
     {
@@ -286,6 +304,16 @@ class Deal extends Model
     public function stageVisits(): HasMany
     {
         return $this->hasMany(DealStageVisit::class)->orderBy('entered_at');
+    }
+
+    /**
+     * Последний заход на этап: по нему видно, кто и когда двинул сделку.
+     *
+     * @return HasOne<DealStageVisit, $this>
+     */
+    public function latestStageVisit(): HasOne
+    {
+        return $this->hasOne(DealStageVisit::class)->latestOfMany();
     }
 
     /** @return HasMany<DealEvent, $this> */
@@ -499,6 +527,22 @@ class Deal extends Model
     public function overdueDays(): int
     {
         return $this->isOverdue() ? (int) $this->due_date->diffInDays(today()) : 0;
+    }
+
+    /** Замерщик съездил и записал результат. */
+    public function hasMeasurement(): bool
+    {
+        return $this->measurement_done_at !== null;
+    }
+
+    /** Размеры проёма по замеру: «2100 × 900 мм». */
+    public function measurementSize(): ?string
+    {
+        if ($this->measurement_height === null || $this->measurement_width === null) {
+            return null;
+        }
+
+        return "{$this->measurement_height} × {$this->measurement_width} мм";
     }
 
     /**

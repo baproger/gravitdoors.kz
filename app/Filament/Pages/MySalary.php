@@ -13,6 +13,7 @@ use App\Models\SalarySheet;
 use App\Services\AccessControl;
 use App\Services\PayrollService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
@@ -44,6 +45,21 @@ class MySalary extends Page
     public static function canAccess(): bool
     {
         return AccessControl::can(Permission::FinanceMySalary, AccessLevel::Full);
+    }
+
+    /**
+     * Кнопка «Моя зарплата» в уведомлении колокольчика.
+     *
+     * Все уведомления о деньгах сотруднику (бонус начислен, бонус утверждён,
+     * зарплата выплачена) ведут сюда: раздел открыт каждой роли, и цифры на
+     * странице свои, так что на 403 кнопка не приведёт никого.
+     */
+    public static function openAction(?string $month = null): Action
+    {
+        return Action::make('mySalary')
+            ->label('Моя зарплата')
+            ->url(static::getUrl($month !== null ? ['month' => $month] : []))
+            ->markAsRead();
     }
 
     public function mount(): void

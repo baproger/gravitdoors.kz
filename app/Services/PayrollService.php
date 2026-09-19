@@ -9,6 +9,7 @@ use App\Enums\ExpenseStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\ProductionStatus;
 use App\Enums\SalarySheetStatus;
+use App\Filament\Pages\MySalary;
 use App\Models\Bonus;
 use App\Models\Expense;
 use App\Models\ProductionLog;
@@ -171,6 +172,7 @@ class PayrollService
                 ->body("За {$sheet->month} · {$method->getLabel()}".($sheet->remaining() > 0 ? ' · остаток '.Money::format($sheet->remaining()) : ''))
                 ->icon('heroicon-o-banknotes')
                 ->success()
+                ->actions([MySalary::openAction($sheet->month)])
                 ->sendToDatabase($sheet->user);
 
             return $payment;

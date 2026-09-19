@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $user_id
  * @property Carbon $entered_at
  * @property Carbon|null $left_at
+ * @property-read User|null $user
  */
 class DealStageVisit extends Model
 {
@@ -36,6 +37,12 @@ class DealStageVisit extends Model
     public function stage(): BelongsTo
     {
         return $this->belongsTo(FactoryStage::class, 'stage_id');
+    }
+
+    /** Кто привёл сделку на этап; пусто у переходов без пользователя. @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     /** Длительность захода в часах; у открытого — до текущего момента. */

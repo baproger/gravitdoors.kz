@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\BonusStatus;
 use App\Enums\DealEventType;
+use App\Filament\Pages\MySalary;
 use App\Models\Bonus;
 use App\Models\Deal;
 use App\Models\DealEvent;
@@ -64,6 +65,7 @@ class BonusAccrual
             ->body(Money::format($amount).($autoApprove ? ' — утверждён, войдёт в ведомость' : ' — ждёт утверждения администратором'))
             ->icon('heroicon-o-gift')
             ->success()
+            ->actions([MySalary::openAction($bonus->month)])
             ->sendToDatabase($manager);
 
         return $bonus;

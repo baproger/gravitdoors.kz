@@ -59,7 +59,17 @@ class FinanceBonusAccrualTest extends TestCase
         $this->assertSame(BonusStatus::Pending, $bonus->status);
         $this->assertSame(BonusAccrual::SOURCE_DEAL, $bonus->source);
         $this->assertStringContainsString('2%', $bonus->reason);
-        $this->assertSame(1, $this->manager->notifications()->count(), 'Менеджер не узнал о бонусе');
+        // Ровно одно уведомление о бонусе. Не считаем все подряд: директор закрыл
+        // чужую сделку, и менеджеру отдельно приходит «сделка перенесена».
+        $bonusNotices = $this->manager->notifications()->get()
+            ->filter(fn ($n): bool => str_starts_with($n->data['title'], 'Бонус за сделку'));
+        $this->assertCount(1, $bonusNotices, 'Менеджер не узнал о бонусе');
+
+        // Уведомление о деньгах ведёт в «Мою зарплату» за месяц начисления:
+        // раздел открыт каждой роли, на 403 кнопка не приведёт.
+        $action = $bonusNotices->first()->data['actions'][0];
+        $this->assertSame('Моя зарплата', $action['label']);
+        $this->assertStringContainsString('month='.$bonus->month, $action['url']);
 
         app(BonusAccrual::class)->forCompletedDeal($deal->refresh(), $this->admin);
         $this->assertSame(1, Bonus::query()->where('deal_id', $deal->id)->count(), 'Бонус начислен дважды');

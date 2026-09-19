@@ -39,7 +39,7 @@ class DealsTable
             ->defaultSort('id', 'desc')
             // Этап, наряд и менеджер — одним запросом на страницу, а не по запросу на строку:
             // пометка «ждёт завод» и имя ответственного есть в каждой строке.
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['currentStage', 'manager', 'productionOrder.currentStage', 'stageVisits']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['currentStage', 'manager', 'productionOrder.currentStage', 'stageVisits', 'latestStageVisit.user']))
             ->recordClasses(fn (Deal $record): ?string => $record->isOverdue() || $record->isMeasurementOverdue() ? 'dl-row--overdue' : null)
             ->columns([
                 // Строка из блоков вместо десяти колонок: название больше не сжимается
@@ -102,6 +102,15 @@ class DealsTable
                                 $record->activeProductionOrder() !== null => 'info',
                                 default => 'gray',
                             })
+                            ->size(TextSize::ExtraSmall),
+
+                        // Кто двинул сделку. Раньше это было видно только в
+                        // истории внутри карточки, и директор не замечал, что
+                        // менеджер перевёл заказ на другой этап.
+                        TextColumn::make('stage_moved')
+                            ->label('Этап изменён')
+                            ->state(fn (Deal $record): ?string => self::stageMoved($record))
+                            ->color('gray')
                             ->size(TextSize::ExtraSmall),
                     ])
                         ->space(1)
@@ -180,6 +189,7 @@ class DealsTable
 
                 TableFilters::period('due_date', 'Срок сдачи'),
                 TableFilters::period('created_at', 'Дата создания'),
+                TableFilters::period('stage_entered_at', 'Этап изменён'),
             ])
             ->filtersFormColumns(2)
             ->recordActions([
@@ -243,6 +253,18 @@ class DealsTable
         };
     }
 
+    /** Кто и когда привёл сделку на текущий этап; у старых заходов автора нет. */
+    private static function stageMoved(Deal $record): ?string
+    {
+        $who = $record->latestStageVisit?->user?->name;
+
+        if ($who === null || $record->stage_entered_at === null) {
+            return null;
+        }
+
+        return 'перенёс '.$who.', '.self::ago($record->stage_entered_at->diffInHours(now()));
+    }
+
     /** Что происходит со сделкой прямо сейчас — одна короткая строка под этапом. */
     private static function stageNote(Deal $record): ?string
     {
@@ -262,9 +284,13 @@ class DealsTable
             return null;
         }
 
-        $hours = $record->hours_on_stage;
+        return 'на этапе '.self::ago($record->hours_on_stage);
+    }
 
-        return 'на этапе '.match (true) {
+    /** Часы человеческим языком: «меньше часа», «5 ч», «3 дн.». */
+    private static function ago(float $hours): string
+    {
+        return match (true) {
             $hours < 1 => 'меньше часа',
             $hours < 24 => (int) round($hours).' ч',
             default => (int) floor($hours / 24).' дн.',

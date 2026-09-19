@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Bonuses\Tables;
 
 use App\Enums\BonusStatus;
+use App\Filament\Pages\MySalary;
 use App\Models\Bonus;
 use App\Models\User;
 use App\Support\Filament\TableFilters;
@@ -58,6 +59,7 @@ class BonusesTable
                             ->body($record->reason.' — войдёт в ведомость за '.$record->month)
                             ->icon('heroicon-o-gift')
                             ->success()
+                            ->actions([MySalary::openAction($record->month)])
                             ->sendToDatabase($record->user);
                     }),
                 Action::make('revoke')
