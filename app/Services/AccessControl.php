@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Enums\AccessLevel;
 use App\Enums\Permission;
 use App\Enums\UserRole;
+use App\Models\Role;
 use App\Models\RolePermission;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -36,15 +37,24 @@ final class AccessControl
      */
     private static ?array $memo = null;
 
-    /** Уровень роли по конкретному праву. */
-    public static function level(UserRole $role, Permission $permission): AccessLevel
+    /**
+     * Уровень роли по конкретному праву.
+     *
+     * Роль приходит кодом, а не моделью: реестр спрашивают сотни раз за
+     * отрисовку, и справочник ради строки-кода подтягивать незачем.
+     */
+    public static function level(?string $role, Permission $permission): AccessLevel
     {
+        if ($role === null || $role === '') {
+            return AccessLevel::None;
+        }
+
         // Директор — хозяин системы: настройками его запереть нельзя.
-        if ($role === UserRole::Admin) {
+        if ($role === UserRole::Admin->value) {
             return AccessLevel::Full;
         }
 
-        $override = self::overrides()[$role->value][$permission->value] ?? null;
+        $override = self::overrides()[$role][$permission->value] ?? null;
 
         if ($override !== null) {
             $level = AccessLevel::tryFrom($override);
@@ -64,7 +74,7 @@ final class AccessControl
             return AccessLevel::None;
         }
 
-        return self::level($user->role, $permission);
+        return self::level($user->roleCode(), $permission);
     }
 
     /** Хватает ли пользователю прав. По умолчанию достаточно «чтения». */
@@ -91,11 +101,20 @@ final class AccessControl
         return self::levelFor(auth()->user(), $permission);
     }
 
-    public static function set(UserRole $role, Permission $permission, AccessLevel $level, ?User $actor = null): void
+    public static function set(string $role, Permission $permission, AccessLevel $level, ?User $actor = null): void
     {
-        if ($role === UserRole::Admin) {
+        if ($role === UserRole::Admin->value) {
             throw ValidationException::withMessages([
                 'role' => 'Директор всегда имеет полный доступ: иначе систему можно запереть без единого хозяина.',
+            ]);
+        }
+
+        // Хозяин системы один. Раздать право на саму матрицу значило бы дать
+        // сотруднику выписать себе любые права — в том числе те, что директор
+        // оставил за собой.
+        if ($permission === Permission::SettingsAccess && $level !== AccessLevel::None) {
+            throw ValidationException::withMessages([
+                'level' => 'Роли и доступы настраивает только директор: иначе роль сможет выдать себе всё остальное.',
             ]);
         }
 
@@ -107,10 +126,10 @@ final class AccessControl
 
         if ($level === $permission->default($role)) {
             // Совпало с рекомендованным — храним пустоту, а не копию значения по умолчанию.
-            RolePermission::query()->where('role', $role->value)->where('permission', $permission->value)->delete();
+            RolePermission::query()->where('role', $role)->where('permission', $permission->value)->delete();
         } else {
             RolePermission::query()->updateOrCreate(
-                ['role' => $role->value, 'permission' => $permission->value],
+                ['role' => $role, 'permission' => $permission->value],
                 ['level' => $level->value, 'updated_by' => $actor?->id],
             );
         }
@@ -119,9 +138,44 @@ final class AccessControl
     }
 
     /** Вернуть роль к рекомендованным значениям. */
-    public static function reset(UserRole $role): void
+    public static function reset(string $role): void
     {
-        RolePermission::query()->where('role', $role->value)->delete();
+        RolePermission::query()->where('role', $role)->delete();
+
+        self::flush();
+    }
+
+    /**
+     * Скопировать права одной роли другой — так заводится новая роль:
+     * «как менеджер, только без финансов» вместо 32 кликов по матрице.
+     */
+    public static function copy(string $from, string $to, ?User $actor = null): void
+    {
+        RolePermission::query()->where('role', $to)->delete();
+
+        $rows = [];
+
+        foreach (Permission::cases() as $permission) {
+            $level = self::level($from, $permission);
+
+            // Право на саму матрицу не копируется даже с директора.
+            if ($permission === Permission::SettingsAccess || $level === $permission->default($to)) {
+                continue;
+            }
+
+            $rows[] = [
+                'role' => $to,
+                'permission' => $permission->value,
+                'level' => $level->value,
+                'updated_by' => $actor?->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        if ($rows !== []) {
+            RolePermission::query()->insert($rows);
+        }
 
         self::flush();
     }
@@ -135,9 +189,9 @@ final class AccessControl
     {
         $matrix = [];
 
-        foreach (UserRole::cases() as $role) {
+        foreach (Role::cached()->keys() as $code) {
             foreach (Permission::cases() as $permission) {
-                $matrix[$role->value][$permission->value] = self::level($role, $permission);
+                $matrix[(string) $code][$permission->value] = self::level((string) $code, $permission);
             }
         }
 
@@ -145,15 +199,16 @@ final class AccessControl
     }
 
     /** Отличается ли уровень от рекомендованного — для подсветки в матрице. */
-    public static function isOverridden(UserRole $role, Permission $permission): bool
+    public static function isOverridden(string $role, Permission $permission): bool
     {
-        return $role !== UserRole::Admin
-            && isset(self::overrides()[$role->value][$permission->value]);
+        return $role !== UserRole::Admin->value
+            && isset(self::overrides()[$role][$permission->value]);
     }
 
     public static function flush(): void
     {
         self::$memo = null;
+        Role::forgetCache();
         Cache::forget(self::CACHE_KEY);
     }
 

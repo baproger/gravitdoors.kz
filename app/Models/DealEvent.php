@@ -6,7 +6,6 @@ namespace App\Models;
 
 use App\Enums\DealEventType;
 use App\Enums\Department;
-use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -87,7 +86,7 @@ class DealEvent extends Model
         return static::create([
             'deal_id' => $deal->id,
             'user_id' => $user?->id,
-            'department' => ($department ?? Department::forRole($user?->role instanceof UserRole ? $user->role : null))->value,
+            'department' => ($department ?? Department::forRole($user?->roleCode()))->value,
             'type' => $type,
             'description' => $description,
             'changes' => $changes,

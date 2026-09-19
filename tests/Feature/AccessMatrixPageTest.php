@@ -52,7 +52,7 @@ class AccessMatrixPageTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertTrue(AccessControl::allows($accountant, Permission::SettingsStages));
-        $this->assertSame(AccessLevel::Read, AccessControl::level(UserRole::Accountant, Permission::SettingsStages));
+        $this->assertSame(AccessLevel::Read, AccessControl::level(UserRole::Accountant->value, Permission::SettingsStages));
     }
 
     public function test_director_column_cannot_be_changed(): void
@@ -60,7 +60,7 @@ class AccessMatrixPageTest extends TestCase
         Livewire::test(AccessMatrix::class)
             ->call('setLevel', UserRole::Admin->value, Permission::SettingsAccess->value, AccessLevel::None->value);
 
-        $this->assertSame(AccessLevel::Full, AccessControl::level(UserRole::Admin, Permission::SettingsAccess));
+        $this->assertSame(AccessLevel::Full, AccessControl::level(UserRole::Admin->value, Permission::SettingsAccess));
         $this->assertSame(0, RolePermission::query()->count());
     }
 
@@ -70,19 +70,19 @@ class AccessMatrixPageTest extends TestCase
             ->call('setLevel', UserRole::Manager->value, Permission::WorkMaterials->value, AccessLevel::Own->value)
             ->assertHasNoErrors();
 
-        $this->assertSame(AccessLevel::Read, AccessControl::level(UserRole::Manager, Permission::WorkMaterials));
+        $this->assertSame(AccessLevel::Read, AccessControl::level(UserRole::Manager->value, Permission::WorkMaterials));
     }
 
     public function test_reset_action_returns_the_role_to_recommended(): void
     {
-        AccessControl::set(UserRole::Hr, Permission::FinanceCash, AccessLevel::Full);
-        $this->assertTrue(AccessControl::level(UserRole::Hr, Permission::FinanceCash)->allows());
+        AccessControl::set(UserRole::Hr->value, Permission::FinanceCash, AccessLevel::Full);
+        $this->assertTrue(AccessControl::level(UserRole::Hr->value, Permission::FinanceCash)->allows());
 
         Livewire::test(AccessMatrix::class)
             ->callAction('resetRole', data: ['role' => UserRole::Hr->value])
             ->assertHasNoErrors();
 
-        $this->assertSame(AccessLevel::None, AccessControl::level(UserRole::Hr, Permission::FinanceCash));
+        $this->assertSame(AccessLevel::None, AccessControl::level(UserRole::Hr->value, Permission::FinanceCash));
     }
 
     /**
@@ -98,7 +98,7 @@ class AccessMatrixPageTest extends TestCase
         $page->call('setLevel', UserRole::Manager->value, Permission::FinanceCash->value, AccessLevel::Full->value)
             ->assertForbidden();
 
-        $this->assertSame(AccessLevel::None, AccessControl::level(UserRole::Manager, Permission::FinanceCash));
+        $this->assertSame(AccessLevel::None, AccessControl::level(UserRole::Manager->value, Permission::FinanceCash));
         $this->assertFalse(AccessMatrix::canAccess());
     }
 }

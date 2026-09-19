@@ -12,6 +12,7 @@ use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -30,7 +31,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property UserRole $role
+ * @property-read Role|null $role роль справочником; код лежит в колонке `role`
  * @property string|null $phone
  * @property bool $is_active
  * @property string|null $avatar_path
@@ -88,7 +89,6 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'role' => UserRole::class,
             'is_active' => 'boolean',
             'salary' => 'decimal:2',
             'bonus_percent' => 'decimal:2',
@@ -187,14 +187,37 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         return $this->hasMany(ProductionLog::class, 'worker_id');
     }
 
+    /**
+     * Роль сотрудника строкой — как она лежит в колонке.
+     *
+     * Читать код, а не `role->code`: проверки прав идут сотнями за отрисовку,
+     * и тянуть ради них справочник незачем.
+     */
+    public function roleCode(): string
+    {
+        return (string) ($this->attributes['role'] ?? '');
+    }
+
+    /**
+     * Роль справочником. Аксессор, а не связь: код лежит прямо в колонке, а
+     * справочник целиком уже в памяти запроса — лишнего запроса не будет.
+     *
+     * Роль могла быть скрыта или переименована; если строки нет вовсе (база
+     * правилась руками), отдаём null, и реестр прав закроет всё.
+     */
+    protected function role(): Attribute
+    {
+        return Attribute::get(fn (): ?Role => Role::byCode($this->roleCode()));
+    }
+
     public function isAdmin(): bool
     {
-        return $this->role === UserRole::Admin;
+        return $this->roleCode() === UserRole::Admin->value;
     }
 
     public function isFactoryStaff(): bool
     {
-        return in_array($this->role, [UserRole::Master, UserRole::Worker], true);
+        return $this->role?->isFactoryStaff() ?? false;
     }
 
     /** Сдельный заработок за период по закрытым этапам цеха. */

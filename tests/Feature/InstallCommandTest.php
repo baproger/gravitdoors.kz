@@ -29,7 +29,7 @@ class InstallCommandTest extends TestCase
             ->assertSuccessful();
 
         $admin = User::query()->where('email', 'director@gravit.kz')->firstOrFail();
-        $this->assertSame(UserRole::Admin, $admin->role);
+        $this->assertSame(UserRole::Admin->value, $admin->roleCode());
         $this->assertTrue(Hash::check('secret123', $admin->password));
         $this->assertTrue($admin->isAdmin());
 

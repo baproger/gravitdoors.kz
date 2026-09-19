@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Enums\PipelineType;
-use App\Enums\UserRole;
 use App\Exceptions\ProductionException;
 use App\Models\Deal;
 use App\Models\FactoryStage;
+use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\DoorProductionService;
@@ -117,7 +117,7 @@ class WorkshopScreen extends Component
     public function getWorkersProperty(): Collection
     {
         return User::query()
-            ->whereIn('role', [UserRole::Worker->value, UserRole::Master->value])
+            ->whereIn('role', Role::codesWith('is_factory_staff'))
             ->where('is_active', true)
             ->orderBy('name')
             ->get();

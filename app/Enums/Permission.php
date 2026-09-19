@@ -163,10 +163,15 @@ enum Permission: string implements HasLabel
         return in_array($level, $this->levels(), true);
     }
 
-    /** Рекомендованный уровень для роли. */
-    public function default(UserRole $role): AccessLevel
+    /**
+     * Рекомендованный уровень для роли.
+     *
+     * Придуманные в панели роли здесь не перечислены и начинаются с «Нет»:
+     * права им проставляются копированием с существующей роли.
+     */
+    public function default(string $role): AccessLevel
     {
-        return $this->defaults()[$role->value] ?? AccessLevel::None;
+        return $this->defaults()[$role] ?? AccessLevel::None;
     }
 
     /**

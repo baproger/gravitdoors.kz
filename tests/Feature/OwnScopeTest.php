@@ -154,13 +154,13 @@ class OwnScopeTest extends TestCase
 
     public function test_raising_the_level_to_full_opens_all_deals(): void
     {
-        AccessControl::set(UserRole::Manager, Permission::WorkDeals, AccessLevel::Full);
-        AccessControl::set(UserRole::Manager, Permission::WorkSalesKanban, AccessLevel::Full);
+        AccessControl::set(UserRole::Manager->value, Permission::WorkDeals, AccessLevel::Full);
+        AccessControl::set(UserRole::Manager->value, Permission::WorkSalesKanban, AccessLevel::Full);
 
         $this->assertTrue(DealResource::getEloquentQuery()->pluck('title')->contains('Чужая сделка'));
         $this->assertTrue($this->manager->fresh()->can('view', $this->foreign));
 
-        AccessControl::reset(UserRole::Manager);
+        AccessControl::reset(UserRole::Manager->value);
     }
 
     private function deal(string $title, ?User $owner): Deal

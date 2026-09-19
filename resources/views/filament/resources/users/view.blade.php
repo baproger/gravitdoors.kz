@@ -191,7 +191,7 @@
                 @endif
 
                 <p class="gravit-person__name">{{ $employee->name }}</p>
-                <p class="gravit-person__role">{{ $employee->role->getLabel() }}</p>
+                <p class="gravit-person__role">{{ $employee->role?->getLabel() ?? $employee->roleCode() }}</p>
                 <a href="mailto:{{ $employee->email }}" class="gravit-person__email">{{ $employee->email }}</a>
 
                 <dl class="gravit-person__facts">

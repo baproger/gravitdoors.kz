@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Observers;
 
 use App\Enums\DealEventType;
-use App\Enums\UserRole;
 use App\Models\Deal;
 use App\Models\DealEvent;
 use App\Models\DealStageVisit;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\DealFieldLabels;
 use Filament\Notifications\Notification;
@@ -125,10 +125,7 @@ class DealObserver
     {
         $surveyors = User::query()
             ->where('is_active', true)
-            ->whereIn('role', array_map(
-                fn (UserRole $role): string => $role->value,
-                array_filter(UserRole::cases(), fn (UserRole $role): bool => $role->doesSurveys()),
-            ))
+            ->whereIn('role', Role::codesWith('does_surveys'))
             ->get();
 
         if ($surveyors->isEmpty()) {

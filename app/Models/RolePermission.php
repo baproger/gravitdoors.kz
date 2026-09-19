@@ -6,7 +6,6 @@ namespace App\Models;
 
 use App\Enums\AccessLevel;
 use App\Enums\Permission;
-use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Одно отличие матрицы доступа от рекомендованного значения.
  *
  * @property int $id
- * @property UserRole $role
+ * @property string $role код роли из справочника `roles`
  * @property Permission $permission
  * @property AccessLevel $level
  * @property int|null $updated_by
@@ -29,7 +28,6 @@ class RolePermission extends Model
     protected function casts(): array
     {
         return [
-            'role' => UserRole::class,
             'permission' => Permission::class,
             'level' => AccessLevel::class,
         ];

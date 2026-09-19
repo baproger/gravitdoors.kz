@@ -105,9 +105,9 @@ class FinanceDebtsTest extends TestCase
         Livewire::test(ManageDebts::class)->assertActionVisible(TestAction::make('pay')->table($debt));
 
         // Без права «Подтверждение» раздел остаётся, а платить нельзя.
-        AccessControl::set(UserRole::Accountant, Permission::FinanceApprove, AccessLevel::None);
+        AccessControl::set(UserRole::Accountant->value, Permission::FinanceApprove, AccessLevel::None);
         $this->assertFalse($accountant->fresh()->can('pay', $debt->fresh()));
-        AccessControl::reset(UserRole::Accountant);
+        AccessControl::reset(UserRole::Accountant->value);
 
         foreach ([UserRole::Manager, UserRole::Hr, UserRole::Master] as $role) {
             $this->actingAs(User::factory()->create(['role' => $role->value]));

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Models\Role;
 use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasIcon;
 use Filament\Support\Contracts\HasLabel;
@@ -59,14 +60,27 @@ enum Department: string implements HasColor, HasIcon, HasLabel
     }
 
     /** Действие без пользователя — это автоматика системы. */
-    public static function forRole(?UserRole $role): self
+    /**
+     * Каким отделом подписаны действия роли в истории сделки.
+     *
+     * По коду, а не по модели роли: у семи базовых ролей отдел известен, а
+     * придуманная в панели роль подписывается «Системой» — отдельного поля у
+     * неё нет, и выдумывать отдел за владельца система не станет.
+     */
+    public static function forRole(Role|UserRole|string|null $role): self
     {
-        return match ($role) {
-            UserRole::Admin, UserRole::Manager => self::Sales,
-            UserRole::Accountant => self::Finance,
-            UserRole::Hr => self::Hr,
-            UserRole::Surveyor => self::Survey,
-            UserRole::Master, UserRole::Worker => self::Factory,
+        $code = match (true) {
+            $role instanceof Role => $role->code,
+            $role instanceof UserRole => $role->value,
+            default => (string) $role,
+        };
+
+        return match ($code) {
+            UserRole::Admin->value, UserRole::Manager->value => self::Sales,
+            UserRole::Accountant->value => self::Finance,
+            UserRole::Hr->value => self::Hr,
+            UserRole::Surveyor->value => self::Survey,
+            UserRole::Master->value, UserRole::Worker->value => self::Factory,
             default => self::System,
         };
     }

@@ -56,7 +56,7 @@ class PriceListPageTest extends TestCase
         $this->get('/admin/door-options')->assertForbidden();
 
         // Директор выдаёт чтение — раздел появляется, но правки недоступны.
-        AccessControl::set(UserRole::Manager, Permission::SettingsPrice, AccessLevel::Read);
+        AccessControl::set(UserRole::Manager->value, Permission::SettingsPrice, AccessLevel::Read);
 
         $this->get('/admin/door-options')
             ->assertOk()
@@ -67,7 +67,7 @@ class PriceListPageTest extends TestCase
             ->call('toggleActive', $this->option('metal_1_5')->id)
             ->assertForbidden();
 
-        AccessControl::reset(UserRole::Manager);
+        AccessControl::reset(UserRole::Manager->value);
     }
 
     public function test_workshop_cannot_open_the_price_list(): void

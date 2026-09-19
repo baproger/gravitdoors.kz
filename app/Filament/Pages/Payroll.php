@@ -6,8 +6,8 @@ namespace App\Filament\Pages;
 
 use App\Enums\Permission;
 use App\Enums\ProductionStatus;
-use App\Enums\UserRole;
 use App\Models\ProductionLog;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\AccessControl;
 use BackedEnum;
@@ -120,7 +120,7 @@ class Payroll extends Page
         $paid = $this->rows()->pluck('worker.id');
 
         return User::query()
-            ->whereIn('role', [UserRole::Worker->value, UserRole::Master->value])
+            ->whereIn('role', Role::codesWith('is_factory_staff'))
             ->where('is_active', true)
             ->whereNotIn('id', $paid)
             ->orderBy('name')

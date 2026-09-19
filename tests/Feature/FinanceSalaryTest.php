@@ -174,9 +174,9 @@ class FinanceSalaryTest extends TestCase
         $this->assertFalse($manager->can('create', Bonus::class));
 
         // Кадры утверждают; без права «Подтверждение» кнопка пропадает.
-        AccessControl::set(UserRole::Hr, Permission::FinanceApprove, AccessLevel::None);
+        AccessControl::set(UserRole::Hr->value, Permission::FinanceApprove, AccessLevel::None);
         Livewire::test(ManageBonuses::class)->assertActionHidden(TestAction::make('approve')->table($bonus));
-        AccessControl::reset(UserRole::Hr);
+        AccessControl::reset(UserRole::Hr->value);
 
         Livewire::test(ManageBonuses::class)->callAction(TestAction::make('approve')->table($bonus))->assertHasNoErrors();
 

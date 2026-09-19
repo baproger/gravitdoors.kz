@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Users\Tables;
 
 use App\Enums\Permission;
-use App\Enums\UserRole;
 use App\Filament\Resources\Users\UserResource;
+use App\Models\Role;
 use App\Models\User;
 use App\Services\AccessControl;
 use App\Support\Money;
@@ -47,7 +47,17 @@ class UsersTable
 
                 TextColumn::make('email')->label('E-mail')->copyable()->toggleable()->visibleFrom('md'),
 
-                TextColumn::make('role')->label('Роль')->badge(),
+                TextColumn::make('role')->label('Роль')->badge()
+                    ->state(function (User $record): string {
+                        $role = $record->role;
+
+                        return $role !== null ? $role->name : $record->roleCode();
+                    })
+                    ->color(function (User $record): string {
+                        $role = $record->role;
+
+                        return $role !== null ? $role->color : 'gray';
+                    }),
 
                 TextColumn::make('salary')
                     ->label('Оклад')
@@ -68,7 +78,9 @@ class UsersTable
                     ->disabled(fn (User $record): bool => ! (auth()->user()?->can('update', $record) ?? false)),
             ])
             ->filters([
-                SelectFilter::make('role')->label('Роль')->options(UserRole::class)->multiple(),
+                SelectFilter::make('role')->label('Роль')
+                    ->options(fn (): array => Role::cached()->mapWithKeys(fn (Role $role): array => [$role->code => $role->name])->all())
+                    ->multiple(),
 
                 TernaryFilter::make('is_active')
                     ->label('Доступ в систему')

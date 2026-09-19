@@ -56,7 +56,7 @@ class AccessControlTest extends TestCase
         foreach ($cases as [$permission, $role, $expected]) {
             $this->assertSame(
                 $expected,
-                AccessControl::level($role, $permission),
+                AccessControl::level($role->value, $permission),
                 "{$role->getLabel()} → {$permission->getLabel()}",
             );
         }
@@ -65,11 +65,11 @@ class AccessControlTest extends TestCase
     public function test_every_role_can_see_own_salary_and_director_has_everything(): void
     {
         foreach (UserRole::cases() as $role) {
-            $this->assertSame(AccessLevel::Full, AccessControl::level($role, Permission::FinanceMySalary), $role->getLabel());
+            $this->assertSame(AccessLevel::Full, AccessControl::level($role->value, Permission::FinanceMySalary), $role->getLabel());
         }
 
         foreach (Permission::cases() as $permission) {
-            $this->assertSame(AccessLevel::Full, AccessControl::level(UserRole::Admin, $permission), $permission->getLabel());
+            $this->assertSame(AccessLevel::Full, AccessControl::level(UserRole::Admin->value, $permission), $permission->getLabel());
         }
     }
 
@@ -79,40 +79,40 @@ class AccessControlTest extends TestCase
 
         $this->assertFalse(AccessControl::allows($manager, Permission::FinanceOverview));
 
-        AccessControl::set(UserRole::Manager, Permission::FinanceOverview, AccessLevel::Read);
+        AccessControl::set(UserRole::Manager->value, Permission::FinanceOverview, AccessLevel::Read);
 
         $this->assertTrue(AccessControl::allows($manager, Permission::FinanceOverview));
         $this->assertFalse(AccessControl::allows($manager, Permission::FinanceOverview, AccessLevel::Full));
-        $this->assertTrue(AccessControl::isOverridden(UserRole::Manager, Permission::FinanceOverview));
+        $this->assertTrue(AccessControl::isOverridden(UserRole::Manager->value, Permission::FinanceOverview));
     }
 
     public function test_setting_the_recommended_level_removes_the_row(): void
     {
-        AccessControl::set(UserRole::Manager, Permission::FinanceOverview, AccessLevel::Full);
+        AccessControl::set(UserRole::Manager->value, Permission::FinanceOverview, AccessLevel::Full);
         $this->assertSame(1, RolePermission::query()->count());
 
-        AccessControl::set(UserRole::Manager, Permission::FinanceOverview, AccessLevel::None);
+        AccessControl::set(UserRole::Manager->value, Permission::FinanceOverview, AccessLevel::None);
 
         $this->assertSame(0, RolePermission::query()->count(), 'Копия значения по умолчанию в базе не нужна');
-        $this->assertFalse(AccessControl::isOverridden(UserRole::Manager, Permission::FinanceOverview));
+        $this->assertFalse(AccessControl::isOverridden(UserRole::Manager->value, Permission::FinanceOverview));
     }
 
     public function test_reset_returns_the_role_to_recommended(): void
     {
-        AccessControl::set(UserRole::Accountant, Permission::SettingsStages, AccessLevel::Full);
-        AccessControl::set(UserRole::Accountant, Permission::WorkDeals, AccessLevel::None);
+        AccessControl::set(UserRole::Accountant->value, Permission::SettingsStages, AccessLevel::Full);
+        AccessControl::set(UserRole::Accountant->value, Permission::WorkDeals, AccessLevel::None);
 
-        AccessControl::reset(UserRole::Accountant);
+        AccessControl::reset(UserRole::Accountant->value);
 
-        $this->assertSame(AccessLevel::None, AccessControl::level(UserRole::Accountant, Permission::SettingsStages));
-        $this->assertSame(AccessLevel::Full, AccessControl::level(UserRole::Accountant, Permission::WorkDeals));
+        $this->assertSame(AccessLevel::None, AccessControl::level(UserRole::Accountant->value, Permission::SettingsStages));
+        $this->assertSame(AccessLevel::Full, AccessControl::level(UserRole::Accountant->value, Permission::WorkDeals));
     }
 
     public function test_director_cannot_be_limited(): void
     {
         $this->expectException(ValidationException::class);
 
-        AccessControl::set(UserRole::Admin, Permission::SettingsAccess, AccessLevel::None);
+        AccessControl::set(UserRole::Admin->value, Permission::SettingsAccess, AccessLevel::None);
     }
 
     public function test_unsupported_level_is_refused(): void
@@ -120,7 +120,7 @@ class AccessControlTest extends TestCase
         $this->expectException(ValidationException::class);
 
         // «Только свои» не бывает у склада: у остатка нет владельца.
-        AccessControl::set(UserRole::Manager, Permission::WorkMaterials, AccessLevel::Own);
+        AccessControl::set(UserRole::Manager->value, Permission::WorkMaterials, AccessLevel::Own);
     }
 
     public function test_inactive_user_has_no_access(): void
@@ -140,7 +140,7 @@ class AccessControlTest extends TestCase
         ]);
         AccessControl::flush();
 
-        $this->assertSame(AccessLevel::Read, AccessControl::level(UserRole::Manager, Permission::WorkMaterials));
+        $this->assertSame(AccessLevel::Read, AccessControl::level(UserRole::Manager->value, Permission::WorkMaterials));
     }
 
     public function test_every_permission_has_a_label_and_at_least_two_levels(): void
@@ -153,7 +153,7 @@ class AccessControlTest extends TestCase
 
             foreach (UserRole::cases() as $role) {
                 $this->assertTrue(
-                    $permission->supports($permission->default($role)),
+                    $permission->supports($permission->default($role->value)),
                     "Рекомендованный уровень {$role->getLabel()} → {$permission->getLabel()} не поддерживается правом",
                 );
             }

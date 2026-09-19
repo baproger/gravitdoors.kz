@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Users\Schemas;
 use App\Enums\AccessLevel;
 use App\Enums\Permission;
 use App\Enums\UserRole;
+use App\Models\Role;
 use App\Models\Setting;
 use App\Services\AccessControl;
 use App\Support\Validation;
@@ -60,8 +61,14 @@ class UserForm
 
                             Select::make('role')
                                 ->label('Роль')
-                                ->options(UserRole::class)
+                                // Из справочника, а не из перечня: роли заводит
+                                // директор в «Настройки → Роли и доступы».
+                                ->options(fn (): array => Role::assignable()
+                                    ->mapWithKeys(fn (Role $role): array => [$role->code => $role->name])
+                                    ->all())
                                 ->default(UserRole::Manager->value)
+                                ->helperText(fn (?string $state): ?string => Role::byCode($state)?->hint)
+                                ->live()
                                 ->required()
                                 ->native(false),
 

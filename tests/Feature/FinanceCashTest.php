@@ -116,9 +116,9 @@ class FinanceCashTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => UserRole::Accountant->value]));
         Livewire::test(CashDesk::class)->assertActionVisible('adjust');
 
-        AccessControl::set(UserRole::Accountant, Permission::FinanceApprove, AccessLevel::None);
+        AccessControl::set(UserRole::Accountant->value, Permission::FinanceApprove, AccessLevel::None);
         Livewire::test(CashDesk::class)->assertActionHidden('adjust');
-        AccessControl::reset(UserRole::Accountant);
+        AccessControl::reset(UserRole::Accountant->value);
 
         // Менеджеру продаж касса не открывается вовсе.
         $this->actingAs(User::factory()->create(['role' => UserRole::Manager->value]));

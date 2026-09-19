@@ -19,7 +19,7 @@
                         @foreach ($roles as $role)
                             <th class="am__role">
                                 <span class="am__role-name">{{ $role->getLabel() }}</span>
-                                @if ($role === \App\Enums\UserRole::Admin)
+                                @if ($role->isAdmin())
                                     <span class="am__role-note">всегда полный</span>
                                 @elseif ($this->overrideCount($role) > 0)
                                     <span class="am__role-note am__role-note--changed">изменено: {{ $this->overrideCount($role) }}</span>
@@ -49,13 +49,13 @@
                                 @foreach ($roles as $role)
                                     @php($level = $this->levelOf($role, $permission))
                                     <td class="am__cell">
-                                        @if ($role === \App\Enums\UserRole::Admin)
+                                        @if ($role->isAdmin())
                                             <span class="am__fixed" title="Директор проходит любую проверку">Полный</span>
                                         @else
                                             <select
                                                 class="am__select am__select--{{ $level->value }} {{ $this->isOverridden($role, $permission) ? 'am__select--changed' : '' }}"
                                                 title="{{ $level->hint() }}"
-                                                wire:change="setLevel(@js($role->value), @js($permission->value), $event.target.value)"
+                                                wire:change="setLevel(@js($role->code), @js($permission->value), $event.target.value)"
                                             >
                                                 @foreach ($permission->levels() as $option)
                                                     <option value="{{ $option->value }}" @selected($option === $level)>{{ $option->getLabel() }}</option>

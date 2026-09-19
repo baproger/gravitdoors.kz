@@ -88,9 +88,9 @@ class FinanceExpensesTest extends TestCase
         $this->assertTrue($this->accountant->can('approve', $expense));
 
         // Сняв «Подтверждение», директор оставляет проверку за собой.
-        AccessControl::set(UserRole::Accountant, Permission::FinanceApprove, AccessLevel::None);
+        AccessControl::set(UserRole::Accountant->value, Permission::FinanceApprove, AccessLevel::None);
         $this->assertFalse($this->accountant->fresh()->can('approve', $expense));
-        AccessControl::reset(UserRole::Accountant);
+        AccessControl::reset(UserRole::Accountant->value);
 
         Livewire::test(ManageExpenses::class)
             ->callAction(TestAction::make('approve')->table($expense))
