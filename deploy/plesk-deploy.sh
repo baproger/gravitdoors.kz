@@ -41,6 +41,28 @@ if [ -z "${COMPOSER:-}" ]; then
   fi
 fi
 
+# Куда развернули. Если репозиторий оказался внутри веб-корня, наружу смотрят
+# config, database и storage с чеками клиентов. Один раз так и вышло: в Plesk
+# в «Путь сервера» указали каталог вместе с /public. Останавливаемся до того,
+# как скрипт накатит миграции в такой установке.
+if [ -f public/index.php ] && [ -f ../artisan ] && [ -f ../public/index.php ]; then
+  echo "✗ Похоже, репозиторий развёрнут внутрь веб-корня: рядом с этим каталогом лежит вторая копия проекта."
+  echo "  Plesk → Git → «Путь сервера» должен указывать на каталог проекта БЕЗ /public на конце,"
+  echo "  а «Корневой каталог документов» домена — на <каталог проекта>/public."
+  echo "  Подробно: docs/plesk.md, шаги 2 и 3."
+  exit 1
+fi
+
+# Тот же случай наоборот: в самом public/ оказался код приложения.
+for leaked in app config database routes tests; do
+  if [ -d "public/$leaked" ]; then
+    echo "✗ В public/ лежит каталог «$leaked» — это код приложения внутри веб-корня."
+    echo "  Удалите из public/ всё, кроме index.php, .htaccess, build, css, js, fonts,"
+    echo "  favicon.ico, robots.txt и .well-known, и поправьте путь развёртывания."
+    exit 1
+  fi
+done
+
 if [ ! -f .env ]; then
   cp .env.production.example .env
   echo "✗ Создан .env из .env.production.example — впишите APP_URL и DB_* (Plesk → Базы данных) и запустите снова."

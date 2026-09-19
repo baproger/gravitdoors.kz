@@ -155,6 +155,39 @@ class SecurityHardeningTest extends TestCase
         $this->assertFalse(auth()->check(), 'После пяти попыток вход должен быть заблокирован на минуту');
     }
 
+    /**
+     * Веб-корень не отдаёт код приложения.
+     *
+     * Однажды Plesk развернул репозиторий внутрь `public/`, и наружу смотрели
+     * `config`, `database` и `storage` с чеками клиентов. Правила в
+     * `public/.htaccess` закрывают такие пути, даже если файлы там окажутся;
+     * тест стережёт сами правила, чтобы их не потеряли при обновлении Laravel.
+     */
+    public function test_public_htaccess_blocks_application_directories(): void
+    {
+        $htaccess = file_get_contents(public_path('.htaccess'));
+
+        foreach (['app', 'config', 'database', 'routes', 'storage', 'tests', 'vendor'] as $dir) {
+            $this->assertStringContainsString($dir, $htaccess, "Каталог {$dir} должен быть закрыт");
+        }
+
+        $this->assertStringContainsString('RedirectMatch 404', $htaccess);
+        $this->assertStringContainsString('env', $htaccess, '.env не должен отдаваться наружу');
+        $this->assertStringContainsString('Options -Indexes', $htaccess, 'Списки файлов показывать нельзя');
+    }
+
+    /** Загрузки лежат на закрытом диске, поэтому запрет на /storage/ их не ломает. */
+    public function test_uploads_do_not_rely_on_public_storage(): void
+    {
+        $this->assertSame('local', PrivateFiles::DISK);
+
+        foreach (['app', 'resources'] as $dir) {
+            $matches = [];
+            exec('grep -rn "disk(\'public\')" '.base_path($dir).' 2>/dev/null', $matches);
+            $this->assertSame([], $matches, "Публичный диск не должен использоваться ({$dir})");
+        }
+    }
+
     private function deal(): Deal
     {
         return Deal::create([

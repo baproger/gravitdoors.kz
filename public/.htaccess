@@ -1,3 +1,18 @@
+# Наружу отдаётся только содержимое public/. Если код приложения когда-нибудь
+# окажется внутри веб-корня — при неверном пути развёртывания, при распаковке
+# архива не туда, — он не должен быть доступен по прямой ссылке. Один раз это
+# уже случилось: Plesk развернул репозиторий в public/, и наружу смотрели
+# config, database, storage с чеками и договорами.
+#
+# Загрузки здесь не пострадают: чеки и договоры лежат на закрытом диске и
+# отдаются подписанными ссылками, а не из public/storage.
+RedirectMatch 404 (?i)^/(app|bootstrap|config|database|deploy|docs|resources|routes|storage|tests|vendor|git|node_modules)(/|$)
+RedirectMatch 404 (?i)^/(artisan|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|phpstan\.neon|vite\.config\.js|deploy\.sh|.*\.md)$
+RedirectMatch 404 (?i)/\.(env|git|gitignore|gitattributes|editorconfig)
+
+# Индексы каталогов не показываем даже там, где отдавать нечего.
+Options -Indexes
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

@@ -1292,10 +1292,30 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     --tw-ring-shadow: 0 0 #0000;
 }
 
-.fi-section,
-.fi-sc-tabs.fi-contained,
+/* Таблице обрезка нужна: без неё шапка вылезает из скруглённых углов. */
 .fi-ta-ctn {
     overflow: clip;
+}
+
+/* А секциям и вкладкам — нет. Обрезка срезала выпадающие списки формы:
+   «Модель» внутри позиции заказа уезжала под край карточки, и выбрать
+   вариант можно было только вслепую. Скругление держим на шапке и подвале
+   самой секции, а содержимое не трогаем. */
+.fi-section,
+.fi-sc-tabs.fi-contained {
+    overflow: visible;
+}
+
+.fi-section > .fi-section-header,
+.fi-sc-tabs.fi-contained > .fi-tabs {
+    border-start-start-radius: var(--gs-r-1);
+    border-start-end-radius: var(--gs-r-1);
+}
+
+.fi-section > .fi-section-content-ctn:last-child,
+.fi-sc-tabs.fi-contained > .fi-tabs-content:last-child {
+    border-end-start-radius: var(--gs-r-1);
+    border-end-end-radius: var(--gs-r-1);
 }
 
 /* Шапка карточки: без своей заливки, отделена линией. Своя заливка шапки

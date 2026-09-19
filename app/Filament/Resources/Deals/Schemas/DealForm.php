@@ -19,6 +19,7 @@ use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\User;
 use App\Services\AccessControl;
+use App\Support\Cities;
 use App\Support\Money;
 use App\Support\Validation;
 use Carbon\Carbon;
@@ -161,7 +162,25 @@ class DealForm
                     ->required(fn (Get $get): bool => self::isCompany($get('client_type')))
                     ->visible(fn (Get $get): bool => self::isCompany($get('client_type'))),
 
-                TextInput::make('city')->label('Город')->placeholder('Алматы')->maxLength(100),
+                // Список, а не свободный ввод: «Алматы», «алматы» и «г. Алматы»
+                // превращали фильтр по городу в три разных города. Чего нет
+                // в списке — добавляется кнопкой «+» прямо отсюда и тут же
+                // становится доступно остальным менеджерам.
+                Select::make('city')
+                    ->label('Город')
+                    ->options(fn (): array => Cities::options())
+                    ->searchable()
+                    ->native(false)
+                    ->placeholder('Выберите или добавьте')
+                    ->createOptionForm([
+                        TextInput::make('city')
+                            ->label('Название города')
+                            ->placeholder('Каскелен')
+                            ->required()
+                            ->maxLength(100),
+                    ])
+                    ->createOptionUsing(fn (array $data): ?string => Cities::normalize($data['city']))
+                    ->createOptionModalHeading('Новый город'),
 
                 // Со временем: замерщику нужен час выезда, а не «в этот день».
                 DateTimePicker::make('measured_at')
