@@ -9,13 +9,14 @@
 #   2. swap 1 ГБ и swappiness=10 — без этого ядро при нехватке памяти убьёт PHP;
 #   3. PHP-FPM: пул из трёх статичных процессов, opcache без JIT (deploy/php/*);
 #   4. nginx: сайт с лимитами на публичные адреса (deploy/nginx/gravit.conf);
-#   5. каталог сайта, .env из .env.production.example, cron планировщика, logrotate.
+#   5. deploy-ключ для GitHub, git clone репозитория, .env из .env.production.example;
+#   6. cron планировщика, sudo для deploy.sh, logrotate.
 #
-# Код сюда попадает через deploy/push.sh с рабочей машины (rsync) или git clone
-# в $APP_DIR — этот скрипт код не качает.
+# С рабочей машины всё это запускает deploy/bootstrap.sh: он копирует папку
+# deploy/ на сервер, выполняет этот скрипт и сам добавляет deploy-ключ в GitHub.
+# Руками: scp -r deploy root@<ip>:/root/gravit-deploy && ssh root@<ip> bash /root/gravit-deploy/server-setup.sh
 #
-# Запуск: sudo bash /var/www/gravit/deploy/server-setup.sh
-# Переменные окружения для переопределения: APP_DIR, PHP_VERSION, DOMAIN, SWAP_SIZE.
+# Переменные окружения для переопределения: APP_DIR, PHP_VERSION, DOMAIN, SWAP_SIZE, REPO_URL.
 
 set -euo pipefail
 
@@ -23,6 +24,8 @@ APP_DIR="${APP_DIR:-/var/www/gravit}"
 PHP_VERSION="${PHP_VERSION:-8.5}"
 DOMAIN="${DOMAIN:-erp.gravit.kz}"
 SWAP_SIZE="${SWAP_SIZE:-1G}"
+# Откуда брать код: приватный репозиторий на GitHub, доступ по deploy-ключу (шаг 5).
+REPO_URL="${REPO_URL:-git@github.com:baproger/gravitdoors.kz.git}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -85,8 +88,28 @@ systemctl reload nginx
 echo "→ 5/6 Каталог сайта, .env, права"
 mkdir -p "$APP_DIR"
 if [ ! -f "$APP_DIR/artisan" ]; then
-  echo "   Кода в $APP_DIR ещё нет: залейте его deploy/push.sh с рабочей машины и запустите deploy.sh."
-else
+  # Репозиторий приватный: сервер ходит в GitHub по deploy-ключу (только чтение).
+  # Ключ живёт у www-data — от него же работают deploy.sh и cron.
+  SSH_DIR=/var/www/.ssh
+  mkdir -p "$SSH_DIR" && chown www-data:www-data "$SSH_DIR" && chmod 700 "$SSH_DIR"
+  if [ ! -f "$SSH_DIR/id_ed25519" ]; then
+    sudo -u www-data ssh-keygen -q -t ed25519 -N '' -C "gravit-erp@$(hostname)" -f "$SSH_DIR/id_ed25519"
+  fi
+  ssh-keyscan -t ed25519 github.com 2>/dev/null > "$SSH_DIR/known_hosts"
+  chown www-data:www-data "$SSH_DIR/known_hosts"
+  echo
+  echo "   Deploy-ключ сервера (добавить в GitHub → репозиторий → Settings → Deploy keys, без записи):"
+  echo "   $(cat "$SSH_DIR/id_ed25519.pub")"
+  echo "   или с рабочей машины: gh repo deploy-key add <файл с ключом> -R baproger/gravitdoors.kz -t \"$(hostname)\""
+  echo
+  chown www-data:www-data "$APP_DIR"
+  if sudo -u www-data git clone -q "$REPO_URL" "$APP_DIR" 2>/dev/null; then
+    echo "   Код склонирован из $REPO_URL"
+  else
+    echo "   Клонировать пока нельзя: добавьте deploy-ключ в GitHub и запустите скрипт ещё раз."
+  fi
+fi
+if [ -f "$APP_DIR/artisan" ]; then
   if [ ! -f "$APP_DIR/.env" ]; then
     cp "$APP_DIR/.env.production.example" "$APP_DIR/.env"
     echo "   Создан $APP_DIR/.env из .env.production.example — впишите DB_* и APP_URL."
@@ -123,9 +146,9 @@ cat > /etc/logrotate.d/gravit <<EOF
 EOF
 
 echo
-echo "✓ Сервер настроен. Дальше:"
-echo "   1. Впишите в $APP_DIR/.env: APP_URL, DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD."
-echo "   2. На рабочей машине: bash deploy/push.sh root@$(hostname -I 2>/dev/null | awk '{print $1}')"
-echo "      или на сервере: cd $APP_DIR && sudo -u www-data bash deploy.sh"
-echo "   3. Первый раз: sudo -u www-data php artisan gravit:install  (справочники и директор)."
-echo "   4. HTTPS: certbot --nginx -d ${DOMAIN}"
+echo "✓ Сервер настроен. Дальше на сервере:"
+echo "   1. nano $APP_DIR/.env — APP_URL, DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD."
+echo "   2. cd $APP_DIR && sudo -u www-data bash deploy.sh        (composer, ключ, миграции, кэши)"
+echo "   3. sudo -u www-data php artisan gravit:install           (справочники и директор)"
+echo "   4. certbot --nginx -d ${DOMAIN}                          (HTTPS)"
+echo "   Обновления потом: cd $APP_DIR && sudo -u www-data bash deploy.sh  (git pull внутри)."

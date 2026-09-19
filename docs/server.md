@@ -249,23 +249,27 @@ HTTPS — через certbot (`apt install certbot python3-certbot-nginx`).
 
 ## Развёртывание
 
-Удалённого git-репозитория у проекта нет, поэтому код едет на сервер
-rsync-ом с рабочей машины: `deploy/push.sh` собирает фронтенд, копирует
-только нужное (без `vendor`, `node_modules`, `.env`, `storage`, `tests`) и
-запускает `deploy.sh` на сервере от `www-data`.
+Код живёт в приватном репозитории `github.com/baproger/gravitdoors.kz`
+(ветка `main`). Сервер клонирует его по deploy-ключу — SSH-ключу только на
+чтение, который лежит у `www-data` в `/var/www/.ssh` — и обновляется
+через `git pull` внутри `deploy.sh`. Сборка фронтенда `public/build`
+закоммичена, поэтому Node на сервере не нужен.
 
-Первый раз, с рабочей машины:
+Первый раз, с рабочей машины (нужен `gh auth login`):
 
 ```bash
-bash deploy/push.sh root@<ip сервера> --setup     # залить код и настроить сервер
+bash deploy/bootstrap.sh root@<ip сервера>
 ```
+
+Скрипт копирует `deploy/` на сервер, запускает `server-setup.sh` (пакеты,
+swap, PHP-FPM, nginx, cron), добавляет напечатанный deploy-ключ в GitHub
+через `gh` и клонирует репозиторий в `/var/www/gravit`.
 
 Дальше на сервере:
 
 ```bash
 nano /var/www/gravit/.env                          # APP_URL, DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD
-cd /var/www/gravit && sudo -u www-data php artisan key:generate
-sudo -u www-data bash deploy.sh                    # composer, миграции, кэши
+cd /var/www/gravit && sudo -u www-data bash deploy.sh   # composer, APP_KEY, миграции, кэши
 sudo -u www-data php artisan gravit:install        # справочники без демо-данных + директор
 certbot --nginx -d erp.gravit.kz                   # HTTPS
 ```
@@ -275,14 +279,16 @@ certbot --nginx -d erp.gravit.kz                   # HTTPS
 и пароль директора. Демо-сделок и демо-сотрудников на бою нет. Повторный
 запуск справочники не трогает: их правит владелец в панели.
 
-Обновление: `bash deploy/push.sh root@<ip>` с рабочей машины. `deploy.sh`
-проверяет место на диске, делает бэкап перед миграциями, ставит composer
-без dev-пакетов, кэширует конфиг, маршруты, представления и компоненты
-Filament, перезагружает PHP-FPM (иначе opcache исполняет старый код) и в
-конце печатает состояние сервера.
+Обновление: закоммитить и запушить в `main`, затем на сервере
+`cd /var/www/gravit && sudo -u www-data bash deploy.sh`. Скрипт проверяет
+место на диске, делает `git pull`, ставит composer без dev-пакетов, делает
+бэкап перед миграциями, кэширует конфиг, маршруты, представления и
+компоненты Filament, перезагружает PHP-FPM (иначе opcache исполняет старый
+код) и в конце печатает состояние сервера.
 
-Если репозиторий появится на GitHub — `deploy.sh` сам сделает `git pull`,
-когда у него есть remote, и `push.sh` станет не нужен.
+Запасной путь без GitHub — `bash deploy/push.sh root@<ip>`: rsync кода с
+рабочей машины и тот же `deploy.sh` без `git pull`. Пригодится, если надо
+проверить незакоммиченную правку прямо на сервере.
 
 ## Когда сервер станет мал
 

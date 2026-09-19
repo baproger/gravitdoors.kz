@@ -40,7 +40,7 @@
 
 Демо-доступы после `--seed` (пароль `password`): `admin@gravit.kz` (директор), `manager@`, `accountant@`, `hr@`, `surveyor@`, `master@` (начальник производства), `worker@`. Код планшета цеха — **Настройки → Экран цеха**.
 
-Боевой сервер: `bash deploy/push.sh root@<ip> --setup` с рабочей машины (rsync, remote у репозитория нет), затем на сервере `.env`, `deploy.sh` и `php artisan gravit:install` — справочники без демо-данных и директор. Подробно — `docs/server.md`.
+Код — в приватном репозитории `github.com/baproger/gravitdoors.kz`, ветка `main`. Боевой сервер: `bash deploy/bootstrap.sh root@<ip>` с рабочей машины (настройка VPS, deploy-ключ в GitHub, `git clone`), затем на сервере `.env`, `deploy.sh` и `php artisan gravit:install` — справочники без демо-данных и директор. Обновления: push в `main` и `deploy.sh` на сервере. Подробно — `docs/server.md`.
 
 **Важно про базу.** `migrate:fresh` стирает всё, включая настроенные руками этапы и права. Один раз это уже случилось: 13 этапов цеха пришлось восстанавливать. Поэтому боевая цепочка цеха теперь в сидере `GravitFactoryStagesSeeder` и накатывается последней при любом `--seed`. На боевом сервере `migrate:fresh` не запускать; для проверок есть тесты в памяти и `gravit:backup`.
 

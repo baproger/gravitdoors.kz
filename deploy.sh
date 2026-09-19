@@ -47,6 +47,17 @@ echo "→ Зависимости PHP (без dev)"
 # меняется только этим скриптом, поэтому карта всегда актуальна.
 composer install --no-dev --classmap-authoritative --no-interaction --prefer-dist --no-progress
 
+# Первый запуск: ключ шифрования можно сгенерировать только когда vendor уже есть.
+if [ ! -f .env ]; then
+  cp .env.production.example .env
+  echo "→ Создан .env из .env.production.example — впишите APP_URL и DB_* и запустите скрипт снова."
+  exit 1
+fi
+if ! grep -qE '^APP_KEY=.+' .env; then
+  echo "→ Ключ приложения"
+  php artisan key:generate --force
+fi
+
 echo "→ Режим обслуживания"
 php artisan down --retry=15 || true
 

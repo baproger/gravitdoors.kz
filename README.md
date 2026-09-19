@@ -612,9 +612,11 @@ php artisan test
 - `docs/server.md` — бюджет памяти, MySQL hoster.kz, настройки PHP-FPM, opcache, nginx, cron, диск.
 - `.env.production.example` — боевой `.env`: кэш и сессии в файлах, очередь
   синхронная, логи 7 дней уровня `warning`, SQLite в WAL.
-- `deploy/` — всё для сервера: `server-setup.sh` (пакеты, swap, PHP-FPM, nginx, cron — один раз),
-  `push.sh` (залить код с рабочей машины rsync-ом и обновить сайт), готовые конфиги
-  nginx, PHP-FPM, opcache и cron.
+- Код — в приватном репозитории `github.com/baproger/gravitdoors.kz` (`main`); сервер клонирует
+  его по deploy-ключу и обновляется через `git pull` внутри `deploy.sh`.
+- `deploy/` — всё для сервера: `bootstrap.sh` (с рабочей машины: настроить голый VPS, добавить
+  deploy-ключ в GitHub, склонировать), `server-setup.sh` (пакеты, swap, PHP-FPM, nginx, cron),
+  `push.sh` (запасной путь: rsync без GitHub), готовые конфиги nginx, PHP-FPM, opcache и cron.
 - `php artisan gravit:install` — первый запуск на бою: миграции, справочники без демо-данных
   (этапы, склад, касса, прайс) и директор. Повторный запуск справочники не трогает.
 - `deploy.sh` — обновление одной командой: проверка диска, бэкап, миграции, кэши,
