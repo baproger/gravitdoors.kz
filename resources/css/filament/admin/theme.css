@@ -4156,6 +4156,23 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     --lg-hue: 47 111 237;      /* primary панели */
     --lg-deep: 12 31 74;       /* дальний угол градиента */
     --lg-ink: 15 23 42;
+    /* Сильный ease-out: встроенный слишком вялый, вход должен быть резвым. */
+    --lg-ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* Появление: снизу вверх с проявлением. Блоки входят по очереди сверху вниз —
+   бренд, заголовок, плитки, подпись, — так взгляд читает экран в том же
+   порядке, в каком он построен. */
+@keyframes lg-rise {
+    from { opacity: 0; transform: translate3d(0, 12px, 0); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* Фоновое свечение еле заметно плывёт: экран выглядит живым, а не картинкой.
+   22 секунды и 3 % амплитуды — заметить можно, только если приглядываться. */
+@keyframes lg-drift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(2.5rem, -1.5rem, 0) scale(1.06); }
 }
 
 .lg-split {
@@ -4201,6 +4218,13 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 .lg-stage__glow--top { top: -18rem; left: -14rem; background: rgb(125 211 252 / 0.55); }
 .lg-stage__glow--bottom { bottom: -22rem; right: -16rem; background: rgb(129 140 248 / 0.45); }
 
+.lg-stage__glow {
+    animation: lg-drift 22s var(--lg-ease) infinite alternate;
+    will-change: transform;
+}
+
+.lg-stage__glow--bottom { animation-duration: 28s; animation-direction: alternate-reverse; }
+
 .lg-stage__inner {
     position: relative;
     display: flex;
@@ -4211,6 +4235,24 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     margin: auto;
     padding: 3.5rem 3rem;
 }
+
+/* Лесенка 70 мс: всё разом — это вспышка, а не появление. */
+.lg-brand,
+.lg-pitch,
+.lg-facts > li,
+.lg-stage__foot,
+.lg-form__inner {
+    animation: lg-rise 380ms var(--lg-ease) both;
+}
+
+.lg-brand { animation-delay: 60ms; }
+.lg-pitch { animation-delay: 130ms; }
+.lg-facts > li:nth-child(1) { animation-delay: 200ms; }
+.lg-facts > li:nth-child(2) { animation-delay: 270ms; }
+.lg-facts > li:nth-child(3) { animation-delay: 340ms; }
+.lg-stage__foot { animation-delay: 410ms; }
+/* Форма входит раньше плиток: за ней пришли, ждать её нельзя. */
+.lg-form__inner { animation-delay: 120ms; }
 
 .lg-brand { display: flex; align-items: center; gap: 0.75rem; }
 
@@ -4270,6 +4312,19 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     backdrop-filter: blur(6px);
 }
 
+.lg-fact {
+    transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+/* Только для мыши: на тапе телефон присылает ложный hover и плитка залипает. */
+@media (hover: hover) and (pointer: fine) {
+    .lg-fact:hover {
+        transform: translate3d(0, -2px, 0);
+        background-color: rgb(255 255 255 / 0.13);
+        border-color: rgb(255 255 255 / 0.22);
+    }
+}
+
 .lg-fact__value { font-size: 1.5rem; font-weight: 700; line-height: 1; }
 .lg-fact__label { font-size: 0.72rem; line-height: 1.35; color: rgb(255 255 255 / 0.62); }
 
@@ -4315,7 +4370,15 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 /* Кнопка «Войти» во всю ширину: на странице входа она единственная. */
 .lg-form .fi-form-actions .fi-ac,
 .lg-form .fi-form-actions .fi-btn { width: 100%; }
-.lg-form .fi-form-actions .fi-btn { justify-content: center; padding-block: 0.7rem; }
+
+.lg-form .fi-form-actions .fi-btn {
+    justify-content: center;
+    padding-block: 0.7rem;
+    transition: transform 120ms ease;
+}
+
+/* Проминается под пальцем — подтверждение, что нажатие услышано. */
+.lg-form .fi-form-actions .fi-btn:active { transform: scale(0.985); }
 
 /* ---------- телефон и планшет ---------- */
 
@@ -4339,6 +4402,23 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     .lg-fact__label { font-size: 0.72rem; }
 }
 
+/* Меньше движения — не «совсем без»: проявление остаётся, поездки уходят. */
 @media (prefers-reduced-motion: reduce) {
-    .lg-stage__glow { filter: none; opacity: 0.2; }
+    .lg-brand,
+    .lg-pitch,
+    .lg-facts > li,
+    .lg-stage__foot,
+    .lg-form__inner {
+        animation-name: lg-fade;
+        animation-duration: 200ms;
+    }
+
+    .lg-stage__glow { animation: none; filter: none; opacity: 0.2; }
+    .lg-fact:hover { transform: none; }
+    .lg-form .fi-form-actions .fi-btn:active { transform: none; }
+}
+
+@keyframes lg-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
