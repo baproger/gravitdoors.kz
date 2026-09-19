@@ -157,7 +157,7 @@ final class BentoLayout
 
         $tile = $placed[$key];
 
-        if ($tile['row'] + $tile['rows'] !== $row || ! self::isFree($grid, $row, $tile['col'], $tile['span'], 1)) {
+        if ($row !== $tile['row'] + $tile['rows'] || ! self::isFree($grid, $row, $tile['col'], $tile['span'], 1)) {
             return false;
         }
 

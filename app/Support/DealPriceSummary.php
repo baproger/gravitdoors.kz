@@ -7,7 +7,12 @@ namespace App\Support;
 use Illuminate\Contracts\Support\Arrayable;
 
 /**
- * Итог по всей сделке: сумма расчётов всех позиций (дверей) заказа.
+ * Итог по всей сделке: суммы всех позиций плюс то, что считается на заказ целиком.
+ *
+ * Сдельная оплата цеха — именно такая величина: наряд проходит этап один раз,
+ * сколько бы дверей в нём ни было, и оплата за этап выплачивается один раз.
+ * Поэтому труд прибавляется здесь, а не в каждой позиции: иначе заказ на три
+ * двери показывал бы тройную себестоимость труда при одинарной выплате цеху.
  *
  * @implements Arrayable<string, mixed>
  */
@@ -17,17 +22,28 @@ final readonly class DealPriceSummary implements Arrayable
     public function __construct(
         public array $positions,
         public float $total,
-        public float $estimatedCost,
+        public float $materialsCost,
+        public float $laborCost,
     ) {}
 
-    /** @param list<PriceBreakdown> $positions */
-    public static function of(array $positions): self
+    /**
+     * @param  list<PriceBreakdown>  $positions
+     * @param  float  $laborCost  сдельная оплата всех этапов цеха — один раз на заказ
+     */
+    public static function of(array $positions, float $laborCost = 0.0): self
     {
         return new self(
             positions: $positions,
             total: round(array_sum(array_map(fn (PriceBreakdown $b): float => $b->total, $positions)), 2),
-            estimatedCost: round(array_sum(array_map(fn (PriceBreakdown $b): float => $b->estimatedCost, $positions)), 2),
+            materialsCost: round(array_sum(array_map(fn (PriceBreakdown $b): float => $b->materialsCost, $positions)), 2),
+            laborCost: round($laborCost, 2),
         );
+    }
+
+    /** Себестоимость заказа: материалы всех позиций плюс труд цеха один раз. */
+    public function estimatedCost(): float
+    {
+        return round($this->materialsCost + $this->laborCost, 2);
     }
 
     public function doorsCount(): int
@@ -37,7 +53,7 @@ final readonly class DealPriceSummary implements Arrayable
 
     public function profit(): float
     {
-        return round($this->total - $this->estimatedCost, 2);
+        return round($this->total - $this->estimatedCost(), 2);
     }
 
     public function marginPercent(): float
@@ -52,7 +68,9 @@ final readonly class DealPriceSummary implements Arrayable
             'positions' => array_map(fn (PriceBreakdown $b): array => $b->toArray(), $this->positions),
             'doors_count' => $this->doorsCount(),
             'total' => $this->total,
-            'estimated_cost' => $this->estimatedCost,
+            'materials_cost' => $this->materialsCost,
+            'labor_cost' => $this->laborCost,
+            'estimated_cost' => $this->estimatedCost(),
             'profit' => $this->profit(),
             'margin_percent' => $this->marginPercent(),
         ];

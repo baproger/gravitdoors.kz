@@ -313,12 +313,12 @@ class DoorProductionService
 
         $salesDeal->forceFill([
             'total_price' => $total,
-            'cost_price' => $summary->estimatedCost,
+            'cost_price' => $summary->estimatedCost(),
         ])->save();
 
         $salesDeal->productionOrder()->update([
             'total_price' => $total,
-            'cost_price' => $summary->estimatedCost,
+            'cost_price' => $summary->estimatedCost(),
         ]);
 
         return $deal->refresh();

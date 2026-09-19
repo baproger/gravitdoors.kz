@@ -7,9 +7,14 @@ namespace App\Support;
 use Illuminate\Contracts\Support\Arrayable;
 
 /**
- * Результат расчёта двери: не только сумма, но и её расшифровка.
+ * Результат расчёта одной позиции заказа: не только сумма, но и её расшифровка.
  * Расшифровка сохраняется в door_configurations.price_breakdown, поэтому
  * последующая правка прайса не переписывает историю уже посчитанных заказов.
+ *
+ * `materialsCost` — только материалы позиции. Сдельной оплаты цеха здесь нет:
+ * она платится один раз за наряд, сколько бы дверей в нём ни было, поэтому
+ * живёт на уровне сделки (`DealPriceSummary`), а не позиции. Прибыль и маржа
+ * по той же причине считаются только по сделке целиком.
  *
  * @implements Arrayable<string, mixed>
  */
@@ -28,18 +33,8 @@ final readonly class PriceBreakdown implements Arrayable
         public float $markupAmount,
         public float $unitPrice,
         public float $total,
-        public float $estimatedCost,
+        public float $materialsCost,
     ) {}
-
-    public function profit(): float
-    {
-        return round($this->total - $this->estimatedCost, 2);
-    }
-
-    public function marginPercent(): float
-    {
-        return $this->total > 0.0 ? round($this->profit() / $this->total * 100, 2) : 0.0;
-    }
 
     /** @return array<string, mixed> */
     public function toArray(): array
@@ -54,9 +49,7 @@ final readonly class PriceBreakdown implements Arrayable
             'markup_amount' => $this->markupAmount,
             'unit_price' => $this->unitPrice,
             'total' => $this->total,
-            'estimated_cost' => $this->estimatedCost,
-            'profit' => $this->profit(),
-            'margin_percent' => $this->marginPercent(),
+            'materials_cost' => $this->materialsCost,
             'calculated_at' => now()->toDateTimeString(),
         ];
     }

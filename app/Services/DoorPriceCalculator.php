@@ -19,8 +19,10 @@ use Illuminate\Support\Collection;
  *
  * Ни одна цена не зашита в код — всё берётся из door_options, поэтому
  * прайс правится в админке. Себестоимость считается из другого источника:
- * материалы (door_options.consumption × material_stocks.price_per_unit)
- * плюс сдельная оплата этапов цеха (factory_stages.operation_cost).
+ * материалы позиции (door_options.consumption × material_stocks.price_per_unit)
+ * плюс сдельная оплата этапов цеха (factory_stages.operation_cost) — она
+ * прибавляется один раз на заказ, в `DealPriceSummary`, а не к каждой двери:
+ * наряд проходит этап один раз и оплата за этап выплачивается один раз.
  */
 class DoorPriceCalculator
 {
@@ -70,7 +72,8 @@ class DoorPriceCalculator
         $unitPrice = $this->round($optionsTotal + $assembly + $markup);
         $total = $this->round($unitPrice * $quantity);
 
-        $estimatedCost = round(($materialsCost + $this->laborCost()) * $quantity, 2);
+        // Только материалы: труд цеха прибавляется на уровне заказа.
+        $positionMaterials = round($materialsCost * $quantity, 2);
 
         return new PriceBreakdown(
             lines: $lines,
@@ -82,7 +85,7 @@ class DoorPriceCalculator
             markupAmount: $markup,
             unitPrice: $unitPrice,
             total: $total,
-            estimatedCost: $estimatedCost,
+            materialsCost: $positionMaterials,
         );
     }
 
@@ -115,6 +118,7 @@ class DoorPriceCalculator
     {
         return DealPriceSummary::of(
             $deal->configurations()->map(fn (DoorConfiguration $c): PriceBreakdown => $this->applyTo($c))->all(),
+            $this->laborCost(),
         );
     }
 
@@ -220,7 +224,7 @@ class DoorPriceCalculator
         );
     }
 
-    /** Сдельная оплата всех активных этапов цеха — трудозатраты на одно изделие. */
+    /** Сдельная оплата всех активных этапов цеха — трудозатраты на один заказ. */
     private function laborCost(): float
     {
         return (float) FactoryStage::query()

@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\DealStatus;
 use App\Enums\DoorOptionCategory;
+use App\Enums\PipelineType;
 use App\Enums\PriceType;
+use App\Models\Deal;
+use App\Models\DoorConfiguration;
 use App\Models\DoorOption;
 use App\Services\DoorPriceCalculator;
 use Database\Seeders\DoorOptionSeeder;
@@ -93,17 +97,52 @@ class DoorPriceCalculatorTest extends TestCase
         $this->assertEqualsWithDelta(38_500, $breakdown->unitPrice, 0.01);
     }
 
-    public function test_estimated_cost_includes_materials_and_labour(): void
+    /** Позиция несёт только свои материалы: труд цеха считается на заказ. */
+    public function test_position_cost_is_materials_only_and_scales_with_quantity(): void
     {
-        // Сдельная оплата всех этапов цеха: 3000+6000+4500+5000+4000+2000 = 24 500 ₸.
-        $breakdown = $this->calculator->calculate([
+        // Металл: 0.36 листа/м² × 2 м² × 35 000 ₸ = 25 200 ₸ материалов на дверь.
+        $one = $this->calculator->calculate([
             'height' => 2000,
             'width' => 1000,
             'metal_thickness' => 'metal_1_5',
         ]);
 
-        // Металл: 0.36 листа/м² × 2 м² × 35 000 ₸ = 25 200 ₸ материалов.
-        $this->assertEqualsWithDelta(25_200 + 24_500, $breakdown->estimatedCost, 0.01);
+        $three = $this->calculator->calculate([
+            'height' => 2000,
+            'width' => 1000,
+            'metal_thickness' => 'metal_1_5',
+            'quantity' => 3,
+        ]);
+
+        $this->assertEqualsWithDelta(25_200, $one->materialsCost, 0.01);
+        $this->assertEqualsWithDelta(75_600, $three->materialsCost, 0.01);
+    }
+
+    /**
+     * Сдельная оплата — один раз на заказ, сколько бы дверей в нём ни было.
+     *
+     * Наряд проходит этап один раз и оплата за этап выплачивается один раз
+     * (production_logs заводится на заказ). Пока труд умножался на количество,
+     * заказ на три двери показывал тройную себестоимость труда при одинарной
+     * выплате цеху — прибыль на таких заказах была занижена.
+     */
+    public function test_labour_is_counted_once_per_order_not_per_door(): void
+    {
+        // Сдельная оплата всех этапов цеха: 3000+6000+4500+5000+4000+2000 = 24 500 ₸.
+        $labour = 24_500;
+        $materials = 25_200;
+
+        $deal = $this->dealWith(quantity: 3);
+        $summary = $this->calculator->applyToDeal($deal);
+
+        $this->assertSame(3, $summary->doorsCount());
+        $this->assertEqualsWithDelta($materials * 3, $summary->materialsCost, 0.01);
+        $this->assertEqualsWithDelta($labour, $summary->laborCost, 0.01, 'Труд не должен умножаться на двери');
+        $this->assertEqualsWithDelta($materials * 3 + $labour, $summary->estimatedCost(), 0.01);
+
+        // Две позиции по одной двери — тот же заказ, тот же труд один раз.
+        $split = $this->calculator->applyToDeal($this->dealWith(quantity: 1, positions: 2));
+        $this->assertEqualsWithDelta($labour, $split->laborCost, 0.01);
     }
 
     /**
@@ -147,5 +186,33 @@ class DoorPriceCalculatorTest extends TestCase
 
         $this->assertArrayHasKey('lock_kale', $options);
         $this->assertSame(PriceType::Fixed, DoorOption::query()->where('code', 'lock_kale')->firstOrFail()->price_type);
+    }
+
+    /** Сделка с дверьми одного вида: quantity в каждой позиции. */
+    private function dealWith(int $quantity, int $positions = 1): Deal
+    {
+        $deal = Deal::create([
+            'title' => 'Расчёт',
+            'client_name' => 'Клиент',
+            'client_phone' => '+7 (700) 000-00-00',
+            'due_date' => now()->addWeeks(2),
+            'status_id' => DealStatus::InWork,
+            'pipeline_type' => PipelineType::Sales,
+        ]);
+
+        foreach (range(1, $positions) as $ignored) {
+            DoorConfiguration::create([
+                'deal_id' => $deal->id,
+                'category' => 'premium',
+                'model' => 'lion',
+                'height' => 2000,
+                'width' => 1000,
+                'quantity' => $quantity,
+                'opening_side' => 'right',
+                'metal_thickness' => 'metal_1_5',
+            ]);
+        }
+
+        return $deal->refresh();
     }
 }
