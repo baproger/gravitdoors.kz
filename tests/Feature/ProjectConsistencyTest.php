@@ -36,7 +36,7 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * Противоречия между правилами project.md и кодом, найденные аудитом.
+ * Противоречия между правилами README и кодом, найденные аудитом.
  * Каждый тест — одно правило, которое раньше обходилось.
  */
 class ProjectConsistencyTest extends TestCase
