@@ -17,7 +17,9 @@ final class Money
     {
         $value = (float) ($value ?? 0);
 
+        // Перед знаком валюты — неразрывный пробел: в узкой плитке «231 340 ₸»
+        // переносился так, что ₸ уезжал на отдельную строку.
         return number_format($value, $withFraction ? 2 : 0, ',', ' ')
-            .' '.config('gravit.currency.symbol');
+            ."\u{00A0}".config('gravit.currency.symbol');
     }
 }

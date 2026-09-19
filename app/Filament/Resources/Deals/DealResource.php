@@ -14,6 +14,7 @@ use App\Filament\Resources\Deals\Schemas\DealForm;
 use App\Filament\Resources\Deals\Tables\DealsTable;
 use App\Models\Deal;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -96,6 +97,21 @@ class DealResource extends Resource
         return auth()->user()?->can('update', $record)
             ? static::getUrl('edit', ['record' => $record])
             : static::getUrl('view', ['record' => $record]);
+    }
+
+    /**
+     * Кнопка «Открыть сделку» в уведомлении колокольчика.
+     *
+     * Всегда просмотр, а не `cardUrl()`: та выбирает экран по правам того, кто
+     * сейчас в системе, а уведомление читает другой человек. Со страницы
+     * просмотра «Редактировать» есть у всех, кому можно править.
+     */
+    public static function openAction(Deal $record): Action
+    {
+        return Action::make('open')
+            ->label('Открыть сделку')
+            ->url(static::getUrl('view', ['record' => $record]))
+            ->markAsRead();
     }
 
     public static function getRecordRouteBindingEloquentQuery(): Builder

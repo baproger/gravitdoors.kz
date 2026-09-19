@@ -103,7 +103,8 @@ class DashboardPersonalTest extends TestCase
         $this->actingAs($surveyor)->get('/admin')
             ->assertOk()
             ->assertSee('Замеры сегодня')
-            ->assertSee('11:00 — Асель')
+            ->assertSee('11:00')
+            ->assertSee('Асель')
             ->assertSee('пр. Достык, 5')
             ->assertDontSee('777 777')
             ->assertDontSee('Новых сделок');

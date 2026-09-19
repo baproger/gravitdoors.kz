@@ -116,6 +116,16 @@ class DashboardStats
             || AccessControl::allows($this->viewer(), Permission::WorkFactoryKanban, AccessLevel::Full);
     }
 
+    /**
+     * Работает руками в цеху (рабочий, начальник производства): ему начисляется
+     * сдельная оплата, и «Мой заработок» имеет смысл. Кадрам с правом «чтение»
+     * на воронку завода эти плитки не нужны — они этапы не закрывают.
+     */
+    public function worksInShop(): bool
+    {
+        return (bool) $this->viewer()?->role->isFactoryStaff();
+    }
+
     /** Замерщики и начальник производства: им нужен список выездов, а не воронка. */
     public function doesSurveys(): bool
     {
@@ -592,6 +602,17 @@ class DashboardStats
     public function myMeasurementsOverdue(): int
     {
         return $this->once('myMeasurementsOverdue', fn () => $this->myMeasurements()->measurementOverdue()->count());
+    }
+
+    /**
+     * Сами просроченные выезды, а не только их число: замерщику нужно записать
+     * вчерашний замер, а страница «Просроченные» ему не открывается.
+     *
+     * @return Collection<int, Deal>
+     */
+    public function myMeasurementsOverdueList(): Collection
+    {
+        return $this->once('myMeasurementsOverdueList', fn () => $this->myMeasurements()->measurementOverdue()->get());
     }
 
     /** Утверждённые бонусы сотрудника за период. */

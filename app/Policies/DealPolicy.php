@@ -81,6 +81,22 @@ class DealPolicy
         return $level === AccessLevel::Full || $this->owns($user, $deal);
     }
 
+    /**
+     * Записать результат замера.
+     *
+     * Отдельное полномочие, а не `update`: у замерщика нет доступа ни к списку
+     * сделок, ни к воронке — карточка ему не открывается, — но цифры со своего
+     * выезда он внести обязан, иначе они и дальше пойдут голосом.
+     */
+    public function measure(User $user, Deal $deal): bool
+    {
+        if ($deal->isFactoryOrder() || $deal->status_id->isClosed() || $deal->measured_at === null) {
+            return false;
+        }
+
+        return $user->role->doesSurveys() || $this->update($user, $deal);
+    }
+
     /** Отказ клиента: сделка закрывается со статусом «Отменена». */
     public function cancel(User $user, Deal $deal): bool
     {

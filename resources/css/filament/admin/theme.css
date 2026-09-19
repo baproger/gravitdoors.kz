@@ -3551,44 +3551,73 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     font-weight: 600;
 }
 
-/* ---------- Инфопанель ---------- */
+/* ==========================================================================
+   Инфопанель — bento-сетка
+   Одна сетка с плотной укладкой: у каждой роли свой набор плиток, и сетка
+   сама закрывает дыры. 12 колонок на широком экране, 6 на планшете, одна на
+   телефоне. Размер плитки — модификатор (s ¼, m ⅓, w ½, l ⅔), высота — tall.
+   ========================================================================== */
 
-.db__period {
+.db { display: flex; flex-direction: column; gap: 1rem; }
+
+/* ---------- Период ---------- */
+
+.db__toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.35rem;
-    margin-bottom: 0.9rem;
+    gap: 0.5rem 0.75rem;
 }
 
-.db__chip {
-    min-height: 1.85rem;
-    padding: 0 0.7rem;
+/* Сегментный переключатель: одна капсула вместо россыпи кнопок. На телефоне
+   прокручивается по горизонтали, а не переносится в три строки. */
+.db__period {
+    display: inline-flex;
+    gap: 0.15rem;
+    max-width: 100%;
+    padding: 0.2rem;
     border: 1px solid var(--gravit-border);
     border-radius: 999px;
     background: var(--gravit-glass-strong);
+    box-shadow: var(--gravit-shadow);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.db__period::-webkit-scrollbar { display: none; }
+
+.db__chip {
+    flex: 0 0 auto;
+    min-height: 1.85rem;
+    padding: 0 0.8rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
     color: var(--gravit-muted);
     font-size: 0.75rem;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
-.db__chip:hover { color: var(--gravit-text); }
+.db__chip:hover { color: var(--gravit-text); background: rgb(15 23 42 / 0.04); }
+.dark .db__chip:hover { background: rgb(255 255 255 / 0.06); }
 
-.db__chip--active {
+.db__chip--active,
+.db__chip--active:hover {
     background: rgb(47 111 237);
-    border-color: rgb(47 111 237);
     color: #fff;
+    box-shadow: 0 1px 2px rgb(47 111 237 / 0.35), 0 4px 10px -4px rgb(47 111 237 / 0.5);
 }
 
 .db__range { display: inline-flex; align-items: center; gap: 0.3rem; }
 
 .db__date {
-    min-height: 1.85rem;
-    padding: 0 0.5rem;
+    min-height: 2.25rem;
+    padding: 0 0.6rem;
     border: 1px solid var(--gravit-border);
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     background: var(--gravit-glass-strong);
     color: var(--gravit-text);
     font-size: 0.75rem;
@@ -3597,36 +3626,424 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 .db__dash { color: var(--gravit-muted); }
 
 .db__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     margin-inline-start: auto;
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--gravit-muted);
 }
 
-.db__tile--alert {
-    border-color: rgb(220 38 38 / 0.25);
-    background: rgb(254 242 242);
+.db__label-icon { width: 1rem; height: 1rem; }
+
+/* ---------- Сетка ---------- */
+
+.db-bento {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-flow: row dense;
+    grid-auto-rows: minmax(8.5rem, auto);
+    gap: 0.875rem;
+    transition: opacity 0.2s ease;
 }
 
-.dark .db__tile--alert { background: rgb(76 29 29 / 0.25); }
+/* Пока Livewire пересчитывает период, цифры слегка гаснут — видно, что идёт загрузка. */
+.db-bento--busy { opacity: 0.55; }
 
-/* «Моя работа»: личный блок сотрудника над общими цифрами; синяя плитка — то, что у него в руках сейчас. */
-.db__mine { margin-bottom: 0.75rem; }
-
-.db__tile--accent {
-    border-color: rgb(47 111 237 / 0.3);
-    background: rgb(239 246 255);
+@media (min-width: 640px) {
+    .db-bento { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .db-tile--s,
+    .db-tile--m { grid-column: span 3; }
+    .db-tile--w,
+    .db-tile--l { grid-column: span 6; }
+    .db-tile--tall { grid-row: span 2; }
 }
 
-.dark .db__tile--accent { background: rgb(30 58 138 / 0.2); }
+/* Широкий экран: пролёт считает сервер (App\Support\BentoLayout) и передаёт
+   в --span / --rows — он уже растянул соседей в места, где остались бы дыры. */
+@media (min-width: 1280px) {
+    .db-bento { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+    .db-tile {
+        grid-column: span var(--span, 3);
+        grid-row: span var(--rows, 1);
+    }
+}
 
-/* Столбики «приход / расход» по месяцам */
+/* ---------- Плитка ---------- */
+
+/* Цвет отдела задаётся тройкой RGB: из неё и иконка, и мягкий отсвет в углу. */
+.db-tile { --tone: 47 111 237; }
+.db-tile--sales   { --tone: 47 111 237; }
+.db-tile--money   { --tone: 22 163 74; }
+.db-tile--factory { --tone: 217 119 6; }
+.db-tile--stock   { --tone: 100 116 139; }
+.db-tile--people  { --tone: 124 58 237; }
+.db-tile--mine    { --tone: 79 70 229; }
+.db-tile--finance { --tone: 74 222 128; }
+
+.db-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 1rem 1.1rem 1.05rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: 1.25rem;
+    background:
+        radial-gradient(120% 90% at 100% 0%, rgb(var(--tone) / 0.09), transparent 55%),
+        var(--gravit-glass);
+    backdrop-filter: blur(14px);
+    box-shadow: var(--gravit-shadow);
+    color: var(--gravit-text);
+    text-decoration: none;
+    overflow: hidden;
+    /* Числа подстраиваются под ширину самой плитки, а не окна: «12 450 000 ₸»
+       в узкой плитке не вылезает за край. */
+    container-type: inline-size;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.db-tile--link { cursor: pointer; }
+
+.db-tile--link:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--tone) / 0.35);
+    box-shadow: var(--gravit-shadow-lift);
+}
+
+.db-tile--link:focus-visible {
+    outline: 2px solid rgb(var(--tone));
+    outline-offset: 2px;
+}
+
+.db-tile__head {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.db-tile__icon {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 0.65rem;
+    background: rgb(var(--tone) / 0.12);
+    color: rgb(var(--tone));
+}
+
+.db-tile__icon svg { width: 1.05rem; height: 1.05rem; }
+
+/* Подпись переносится на вторую строку, а не обрезается: «Новых сделок за
+   этот ме…» в узкой плитке терял самое важное — за какой период. */
+.db-tile__label {
+    display: -webkit-box;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gravit-muted);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.db-tile__go {
+    flex: 0 0 auto;
+    width: 1rem;
+    height: 1rem;
+    margin-inline-start: auto;
+    color: var(--gravit-muted);
+    opacity: 0.35;
+    transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.db-tile--link:hover .db-tile__go {
+    opacity: 1;
+    color: rgb(var(--tone));
+    transform: translate(1px, -1px);
+}
+
+.db-tile__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.35rem 0.75rem;
+}
+
+.db-tile__value {
+    margin-top: 0.7rem;
+    font-size: clamp(1.4rem, 12cqi, 2.1rem);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--gravit-text);
+}
+
+.db-tile__value--hero { font-size: clamp(2rem, 9cqi, 3.1rem); }
+.db-tile__value--good { color: rgb(21 128 61); }
+.db-tile__value--bad  { color: rgb(185 28 28); }
+.dark .db-tile__value--good { color: rgb(74 222 128); }
+.dark .db-tile__value--bad  { color: rgb(252 165 165); }
+
+.db-tile__hint {
+    margin-top: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--gravit-muted);
+}
+
+/* Подпись прижата к низу: в одной строке сетки подписи стоят на одной линии,
+   даже если у соседней плитки значение короче. */
+.db-tile__foot {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: var(--gravit-muted);
+}
+
+.db-tile__body { margin-top: 0.8rem; }
+
+/* Длинный список в две колонки на широкой плитке: иначе в плитке во всю
+   ширину название и сумма разъезжаются по краям, и строку не прочесть. */
+@container (min-width: 30rem) {
+    .db-columns:not(.db-columns--wide) { column-count: 2; column-gap: 1.5rem; }
+}
+
+@container (min-width: 46rem) {
+    .db-columns--wide { display: block; column-count: 2; column-gap: 2.5rem; }
+    .db-columns--wide > * { margin-bottom: 0.3rem; }
+}
+
+.db-columns > * { break-inside: avoid; }
+
+.db-tile__aside { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.7rem; }
+
+.db-tile__legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+    font-size: 0.6875rem;
+    color: var(--gravit-muted);
+}
+
+.db-tile__legend .gravit-dot + .gravit-dot { margin-inline-start: 0.4rem; }
+
+/* Состояния: просрочка и «в работе сейчас» */
+.db-tile--alert {
+    border-color: rgb(220 38 38 / 0.3);
+    background:
+        radial-gradient(120% 90% at 100% 0%, rgb(220 38 38 / 0.1), transparent 55%),
+        rgb(254 242 242 / 0.85);
+}
+
+.dark .db-tile--alert {
+    background:
+        radial-gradient(120% 90% at 100% 0%, rgb(220 38 38 / 0.18), transparent 55%),
+        rgb(76 29 29 / 0.3);
+}
+
+.db-tile--accent { border-color: rgb(var(--tone) / 0.35); }
+
+.db-tile--accent::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: rgb(var(--tone));
+}
+
+/* Прибыль — единственная тёмная плитка: итог всех денег, глаз находит её первой. */
+.db-tile--finance {
+    border-color: rgb(15 23 42);
+    background:
+        radial-gradient(120% 90% at 100% 0%, rgb(74 222 128 / 0.16), transparent 55%),
+        rgb(15 23 42);
+    color: #fff;
+}
+
+.db-tile--finance .db-tile__label,
+.db-tile--finance .db-tile__foot,
+.db-tile--finance .db-tile__go { color: rgb(148 163 184); }
+.db-tile--finance .db-tile__icon { background: rgb(255 255 255 / 0.08); color: rgb(74 222 128); }
+.db-tile--finance .db-tile__value--good { color: rgb(74 222 128); }
+.db-tile--finance .db-tile__value--bad  { color: rgb(252 165 165); }
+.dark .db-tile--finance { border-color: rgb(148 163 184 / 0.18); background-color: rgb(2 6 23); }
+
+/* Главная плитка денег: число крупно, график занимает остаток высоты. */
+.db-tile--hero .db__chart { flex: 1 1 auto; min-height: 7rem; }
+
+/* ---------- Мелочи внутри плиток ---------- */
+
+.db-trend {
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.db-trend--up   { background: rgb(22 163 74 / 0.12); color: rgb(21 128 61); }
+.db-trend--down { background: rgb(220 38 38 / 0.12); color: rgb(185 28 28); }
+.dark .db-trend--up   { color: rgb(74 222 128); }
+.dark .db-trend--down { color: rgb(252 165 165); }
+
+.db-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.4rem;
+    padding: 0 0.55rem;
+    border-radius: 999px;
+    background: rgb(var(--tone) / 0.1);
+    color: rgb(var(--tone));
+    font-size: 0.6875rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.db-pill--bad { background: rgb(220 38 38 / 0.12); color: rgb(185 28 28); }
+.dark .db-pill--bad { color: rgb(252 165 165); }
+
+.db-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: auto; padding-top: 0.6rem; }
+
+.db-tag {
+    padding: 0.2rem 0.55rem;
+    border: 1px solid rgb(var(--tone) / 0.25);
+    border-radius: 0.5rem;
+    background: rgb(var(--tone) / 0.08);
+    color: rgb(var(--tone));
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.db-rank {
+    display: inline-grid;
+    place-items: center;
+    width: 1.2rem;
+    height: 1.2rem;
+    margin-inline-end: 0.45rem;
+    border-radius: 0.4rem;
+    background: rgb(var(--tone) / 0.1);
+    color: rgb(var(--tone));
+    font-size: 0.625rem;
+    font-weight: 700;
+}
+
+.db-muted { color: var(--gravit-muted); font-weight: 400; }
+.db-bad { color: rgb(185 28 28); }
+.dark .db-bad { color: rgb(252 165 165); }
+
+/* Список выездов: время слева крупной меткой, клиент и адрес справа. */
+.db-agenda {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.8rem;
+    padding: 0;
+    list-style: none;
+}
+
+.db-agenda__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: 0.8rem;
+    background: var(--gravit-glass-strong);
+}
+
+.db-agenda__time {
+    flex: 0 0 auto;
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.45rem;
+    background: rgb(var(--tone) / 0.12);
+    color: rgb(var(--tone));
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.db-agenda__body { display: flex; flex-direction: column; min-width: 0; }
+
+.db-agenda__who {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gravit-text);
+}
+
+.db-agenda__where {
+    overflow: hidden;
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--gravit-muted);
+}
+
+/* Замер вчерашний, а не сегодняшний: красным, как просрочка везде в панели. */
+.db-agenda__item--late { border-color: rgb(248 113 113 / 0.55); }
+.db-agenda__item--late .db-agenda__time { background: rgb(185 28 28 / 0.12); color: rgb(185 28 28); }
+.dark .db-agenda__item--late .db-agenda__time { color: rgb(252 165 165); }
+
+/* Кнопка «Замерял» — единственное действие замерщика во всей системе. */
+.db-agenda__done {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.4rem;
+    margin-inline-start: auto;
+}
+
+.db-agenda__size {
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: rgb(21 128 61);
+}
+
+.dark .db-agenda__size { color: rgb(134 239 172); }
+
+.db-agenda__action {
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: 0.5rem;
+    background: var(--gravit-glass-strong);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--gravit-text);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.db-agenda__action:hover { border-color: rgb(var(--tone) / 0.55); background: rgb(var(--tone) / 0.1); }
+
+/* На телефоне кнопка уезжает под адрес, иначе строка ломается на три уровня. */
+@media (max-width: 480px) {
+    .db-agenda__item { flex-wrap: wrap; }
+    .db-agenda__body { flex: 1 1 100%; order: 2; }
+    .db-agenda__done { order: 3; flex: 1 1 100%; justify-content: flex-end; }
+}
+
+/* ---------- Столбики «приход / расход» по месяцам ---------- */
+
 .db__chart {
     display: flex;
     align-items: flex-end;
     gap: 0.35rem;
     height: 8.5rem;
-    margin-top: 0.75rem;
+    margin-top: 0.9rem;
 }
 
 .db__bar-group {
@@ -3649,11 +4066,11 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 .db__bar {
     flex: 1 1 0;
     min-height: 2px;
-    border-radius: 0.2rem 0.2rem 0 0;
+    border-radius: 0.3rem 0.3rem 0.1rem 0.1rem;
 }
 
-.db__bar--in { background: rgb(22 163 74); }
-.db__bar--out { background: rgb(220 38 38 / 0.75); }
+.db__bar--in  { background: linear-gradient(180deg, rgb(34 197 94), rgb(22 163 74)); }
+.db__bar--out { background: rgb(220 38 38 / 0.55); }
 
 .db__bar-label {
     font-size: 0.625rem;
@@ -3661,28 +4078,29 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     white-space: nowrap;
 }
 
-/* Полосы воронки и загрузки цеха */
+/* ---------- Полосы воронки и загрузки цеха ---------- */
+
 .db__funnel {
     display: grid;
     grid-template-columns: minmax(6rem, 10rem) 1fr auto;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.15rem 0;
+    gap: 0.6rem;
+    padding: 0.2rem 0;
     font-size: 0.75rem;
 }
 
 .db__funnel-name {
-    color: var(--gravit-text);
-    font-weight: 600;
-    white-space: nowrap;
     overflow: hidden;
+    font-weight: 600;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--gravit-text);
 }
 
 .db__funnel-track {
-    height: 0.5rem;
+    height: 0.55rem;
     border-radius: 999px;
-    background: var(--gravit-glass);
+    background: rgb(var(--tone) / 0.1);
     overflow: hidden;
 }
 
@@ -3690,15 +4108,16 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     display: block;
     height: 100%;
     border-radius: 999px;
-    background: rgb(47 111 237);
+    background: linear-gradient(90deg, rgb(96 150 255), rgb(47 111 237));
 }
 
-.db__funnel-fill--factory { background: rgb(217 119 6); }
+.db__funnel-fill--factory { background: linear-gradient(90deg, rgb(251 191 36), rgb(217 119 6)); }
 
 .db__funnel-value {
     font-weight: 700;
-    color: var(--gravit-text);
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    color: var(--gravit-text);
 }
 
 .db__funnel-sum {
@@ -3713,4 +4132,14 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
     .db__label { flex-basis: 100%; margin-inline-start: 0; }
     .db__funnel { grid-template-columns: minmax(5rem, 1fr) 1fr auto; }
     .db__chart { height: 6.5rem; }
+    .db-bento { grid-auto-rows: auto; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .db-tile,
+    .db-tile__go,
+    .db-bento { transition: none; }
+    .db-tile--link:hover { transform: none; }
+}
+
+.db-nowrap { white-space: nowrap; }

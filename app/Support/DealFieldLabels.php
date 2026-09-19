@@ -30,6 +30,10 @@ final class DealFieldLabels
         'contract_number' => '№ договора',
         'contract_date' => 'Дата договора',
         'measured_at' => 'Дата замера',
+        'measurement_height' => 'Высота замера',
+        'measurement_width' => 'Ширина замера',
+        'measurement_comment' => 'Комментарий замерщика',
+        'measurement_done_at' => 'Замер проведён',
         'documents' => 'Документы',
         'total_price' => 'Сумма сделки',
         'cost_price' => 'Себестоимость',
@@ -58,6 +62,8 @@ final class DealFieldLabels
         'current_stage_id', 'total_price', 'cost_price',
         // Предоплата — сумма платежей, у каждого платежа своя запись в истории.
         'prepayment', 'payment_method',
+        // Кто замерял — видно в подписи блока «Результат замера», в ленте лишнее.
+        'measurement_by_id',
     ];
 
     public static function label(string $field): string

@@ -183,7 +183,59 @@ class DealForm
                     ->placeholder('ЖК «Алатау», ул. Розыбакиева 247, кв. 45')
                     ->columnSpanFull(),
             ]),
+
+            self::measurementSection(),
         ];
+    }
+
+    /**
+     * Что замерщик привёз с выезда.
+     *
+     * Отдельным блоком, а не в «Дверях»: габариты двери — это заказ, а это факт
+     * проёма, с которым заказ ещё предстоит свести. Заполняется кнопкой
+     * «Замерял» с инфопанели, но менеджер может поправить руками.
+     */
+    private static function measurementSection(): Section
+    {
+        return Section::make('Результат замера')
+            ->icon('heroicon-o-clipboard-document-check')
+            ->columns(2)
+            ->columnSpanFull()
+            ->visible(fn (Get $get): bool => self::isSalesPipeline($get('pipeline_type')))
+            ->schema([
+                Placeholder::make('measurement_done')
+                    ->hiddenLabel()
+                    ->columnSpanFull()
+                    ->content(function (?Deal $record): string {
+                        if (! $record?->hasMeasurement()) {
+                            return 'Замер ещё не проведён. Замерщик запишет размеры кнопкой «Замерял» на инфопанели.';
+                        }
+
+                        $who = $record->measuredBy?->name;
+
+                        return 'Замерял: '.($who !== null ? $who : '—')
+                            .' · '.$record->measurement_done_at->format('d.m.Y H:i');
+                    }),
+
+                TextInput::make('measurement_height')
+                    ->label('Высота проёма, мм')
+                    ->numeric()
+                    ->minValue(config('gravit.pricing.min_height'))
+                    ->maxValue(config('gravit.pricing.max_height')),
+
+                TextInput::make('measurement_width')
+                    ->label('Ширина проёма, мм')
+                    ->numeric()
+                    ->minValue(config('gravit.pricing.min_width'))
+                    ->maxValue(config('gravit.pricing.max_width')),
+
+                Textarea::make('measurement_comment')
+                    ->label('Комментарий замерщика')
+                    ->rows(2)
+                    ->maxLength(1000)
+                    ->placeholder('Проём кривой, нужен доборный профиль')
+                    ->columnSpanFull(),
+            ]);
     }
 
     /** @return list<mixed> */
