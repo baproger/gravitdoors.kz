@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Filament\Actions\NewDealAction;
 use App\Services\DashboardStats;
 use App\Support\Period;
 use BackedEnum;
@@ -44,6 +45,11 @@ class Dashboard extends Page
     public static function canAccess(): bool
     {
         return auth()->check();
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [NewDealAction::make()];
     }
 
     public function getTitle(): string

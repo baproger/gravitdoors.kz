@@ -7,6 +7,7 @@ namespace App\Filament\Pages;
 use App\Enums\ClientType;
 use App\Enums\DealStatus;
 use App\Enums\Permission;
+use App\Filament\Actions\NewDealAction;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
 use App\Services\AccessControl;
@@ -57,6 +58,11 @@ class Clients extends Page implements HasTable
     public function getTitle(): string
     {
         return 'Клиенты';
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [NewDealAction::make()];
     }
 
     public function getSubheading(): ?string

@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\Permission;
 use App\Enums\PipelineType;
+use App\Filament\Actions\NewDealAction;
 use App\Services\AccessControl;
 use App\Support\Filament\KanbanBoardPage;
 use BackedEnum;
@@ -38,6 +39,11 @@ class SalesKanban extends KanbanBoardPage
     public function getTitle(): string
     {
         return 'Воронка продаж';
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [NewDealAction::make()];
     }
 
     public function getSubheading(): ?string

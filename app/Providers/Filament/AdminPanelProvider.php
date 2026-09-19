@@ -17,6 +17,8 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -79,6 +81,9 @@ class AdminPanelProvider extends PanelProvider
             // Виджетов нет: показатели собраны на своей инфопанели (App\Filament\Pages\Dashboard),
             // где они связаны общим периодом и правами доступа.
             ->widgets([])
+            // «Новая сделка» в шапке на каждой странице: главное действие менеджера
+            // не должно зависеть от того, какой раздел открыт.
+            ->renderHook(PanelsRenderHook::GLOBAL_SEARCH_BEFORE, fn (): View => view('filament.topbar-new-deal'))
             ->databaseNotifications()
             // По умолчанию Filament опрашивает уведомления каждые 30 секунд из
             // каждой открытой вкладки: десять вкладок — двадцать запросов в минуту
