@@ -61,6 +61,23 @@ enum DealStatus: int implements HasColor, HasLabel
         return in_array($this, [self::Completed, self::Cancelled], true);
     }
 
+    /**
+     * Значения закрытых статусов для запросов.
+     *
+     * Один список на всю систему: раньше каждый скоуп перечислял их заново,
+     * и новый закрытый статус пришлось бы добавлять в трёх местах — где-нибудь
+     * да забылось бы, и сделка осталась бы висеть в рабочих вкладках.
+     *
+     * @return list<int>
+     */
+    public static function closedValues(): array
+    {
+        return array_values(array_map(
+            fn (self $status): int => $status->value,
+            array_filter(self::cases(), fn (self $status): bool => $status->isClosed()),
+        ));
+    }
+
     /** Что клиент видит на публичной странице /track/{hash}. */
     public function publicLabel(): string
     {

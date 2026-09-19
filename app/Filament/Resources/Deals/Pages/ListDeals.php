@@ -149,8 +149,11 @@ class ListDeals extends ListRecords
                 ->badge(Deal::query()->visibleTo(auth()->user())->sales()->closed()->count())
                 ->modifyQueryUsing(fn ($query) => $query->sales()->closed()->orderByDesc('updated_at')),
 
+            // Счётчик считается своим запросом, поэтому правило про завершённые
+            // наряды повторяется и здесь: иначе во вкладке стояло бы «2», а в
+            // таблице лежала бы одна строка — ровно то, на что и пожаловались.
             'all' => Tab::make('Все, включая закрытые')
-                ->badge(Deal::query()->visibleTo(auth()->user())->count()),
+                ->badge(Deal::query()->visibleTo(auth()->user())->withoutFinishedOrders(auth()->user())->count()),
         ];
     }
 

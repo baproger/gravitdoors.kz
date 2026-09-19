@@ -151,6 +151,74 @@ class DealsListTest extends TestCase
             ->assertCanSeeTableRecords([$open, $closed]);
     }
 
+    /**
+     * Законченный наряд не остаётся второй строкой рядом со своей сделкой.
+     *
+     * Владелец увидел «Закрытые 1, Все 2» и не нашёл вторую запись ни в одной
+     * вкладке: наряд стоял завершённым на этапе «Монтаж» и попадал только в
+     * «Все». Для того, кто видит сделку, законченный наряд — её копия.
+     */
+    public function test_finished_factory_order_does_not_double_its_deal(): void
+    {
+        $deal = $this->deal('Асылбек Шымкент');
+        app(DoorProductionService::class)->moveToStage($deal, $this->stage('handed_to_production'), $this->manager);
+        $order = $deal->refresh()->productionOrder;
+        $this->assertNotNull($order);
+
+        // Пока цех работает — своя строка нужна: это отдельная работа.
+        Livewire::test(ListDeals::class)
+            ->set('activeTab', 'all')
+            ->assertCanSeeTableRecords([$deal, $order]);
+
+        $order->forceFill(['status_id' => DealStatus::Completed])->saveQuietly();
+        $deal->forceFill(['status_id' => DealStatus::Completed])->saveQuietly();
+
+        $page = Livewire::test(ListDeals::class)->set('activeTab', 'all');
+        $page->assertCanSeeTableRecords([$deal])->assertCanNotSeeTableRecords([$order]);
+
+        // Счётчик вкладки считается своим запросом — он должен сойтись с таблицей.
+        $tabs = $page->instance()->getTabs();
+        $this->assertSame('1', (string) $tabs['all']->getBadge(), 'Во вкладке «Все» стояло 2, а строка была одна');
+        $this->assertSame((string) $tabs['closed']->getBadge(), (string) $tabs['all']->getBadge());
+    }
+
+    /** У мастера цеха воронки продаж нет: для него наряд — единственная запись о заказе. */
+    public function test_the_shop_keeps_seeing_its_finished_orders(): void
+    {
+        $deal = $this->deal('Асылбек Шымкент');
+        app(DoorProductionService::class)->moveToStage($deal, $this->stage('handed_to_production'), $this->manager);
+        $order = $deal->refresh()->productionOrder;
+        $order?->forceFill(['status_id' => DealStatus::Completed])->saveQuietly();
+
+        $master = User::factory()->create(['role' => UserRole::Master->value]);
+
+        Livewire::test(ListDeals::class)->actingAs($master);
+        $this->actingAs($master);
+
+        Livewire::test(ListDeals::class)->assertCanSeeTableRecords([$order]);
+    }
+
+    /**
+     * У наряда своих платежей нет — и он не выдаёт чужие за свои.
+     *
+     * Наряд копирует сумму сделки, но не предоплату, поэтому в списке стояло
+     * «остаток 120 900 ₸» рядом со сделкой, где было «оплачено»: две
+     * взаимоисключающие строки про одни и те же деньги.
+     */
+    public function test_factory_order_shows_no_payment_state(): void
+    {
+        $deal = $this->deal('Асылбек Шымкент', ['total_price' => 120_900, 'prepayment' => 120_900]);
+        app(DoorProductionService::class)->moveToStage($deal, $this->stage('handed_to_production'), $this->manager);
+        $order = $deal->refresh()->productionOrder;
+        $this->assertNotNull($order);
+        $this->assertSame(0.0, (float) $order->prepayment, 'Предоплата в наряд не копируется — отсюда и ложный остаток');
+
+        Livewire::test(ListDeals::class)
+            ->set('activeTab', 'all')
+            ->assertTableColumnStateSet('remaining', 'оплачено', $deal)
+            ->assertTableColumnStateSet('remaining', null, $order);
+    }
+
     private function stage(string $code): FactoryStage
     {
         return FactoryStage::query()->ofPipeline(PipelineType::Sales)->where('code', $code)->firstOrFail();

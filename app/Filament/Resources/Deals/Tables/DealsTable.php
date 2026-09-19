@@ -39,7 +39,7 @@ class DealsTable
             ->defaultSort('id', 'desc')
             // Этап, наряд и менеджер — одним запросом на страницу, а не по запросу на строку:
             // пометка «ждёт завод» и имя ответственного есть в каждой строке.
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['currentStage', 'manager', 'productionOrder.currentStage', 'stageVisits', 'latestStageVisit.user']))
+            ->modifyQueryUsing(self::rows(...))
             ->recordClasses(fn (Deal $record): ?string => $record->isOverdue() || $record->isMeasurementOverdue() ? 'dl-row--overdue' : null)
             ->columns([
                 // Строка из блоков вместо десяти колонок: название больше не сжимается
@@ -126,7 +126,13 @@ class DealsTable
 
                         TextColumn::make('remaining')
                             ->label('Остаток')
+                            // У наряда своих платежей нет: клиент платит по
+                            // сделке, а наряд копирует только сумму. Поэтому
+                            // он показывал «остаток 120 900 ₸» рядом со
+                            // сделкой, где стояло «оплачено», — про одни и те
+                            // же деньги две взаимоисключающие строки.
                             ->state(fn (Deal $record): ?string => match (true) {
+                                $record->isFactoryOrder() => null,
                                 (float) $record->total_price <= 0 => null,
                                 $record->isPaidInFull() => 'оплачено',
                                 default => 'остаток '.Money::format($record->remainingPayment()),
@@ -266,6 +272,22 @@ class DealsTable
     }
 
     /** Что происходит со сделкой прямо сейчас — одна короткая строка под этапом. */
+    /**
+     * Что попадает в список и что подгружается заранее.
+     *
+     * Связи — одним запросом на страницу, а не по запросу на строку: пометка
+     * «ждёт завод» и имя ответственного нужны в каждой строке. Законченные
+     * наряды убираются здесь же — см. `Deal::scopeWithoutFinishedOrders()`.
+     *
+     * @param  Builder<Deal>  $query
+     */
+    private static function rows(Builder $query): void
+    {
+        $query
+            ->with(['currentStage', 'manager', 'productionOrder.currentStage', 'stageVisits', 'latestStageVisit.user'])
+            ->withoutFinishedOrders(auth()->user());
+    }
+
     private static function stageNote(Deal $record): ?string
     {
         if ($record->status_id->isClosed()) {

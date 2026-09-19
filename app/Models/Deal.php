@@ -386,16 +386,44 @@ class Deal extends Model
         }
     }
 
+    /**
+     * Убрать из списка наряды, которые цех уже закончил.
+     *
+     * Наряд — копия своей сделки: тот же клиент, та же сумма, тот же срок.
+     * Пока он в цеху, это отдельная работа, и своя строка ему нужна. Но как
+     * только цех закончил и заказ вернулся в продажи, строка начинает
+     * дублировать сделку — и при этом не попадает ни в одну вкладку, кроме
+     * «Все». Получалось «Закрытые 1, Все 2», а вторую запись было не найти.
+     *
+     * Прячем только у тех, кому видна сама сделка. У мастера цеха воронки
+     * продаж нет, и для него наряд — единственная запись о заказе: спрятав
+     * её, мы стёрли бы всю историю его работы.
+     *
+     * Наряд без сделки (сделку удалили) остаётся: иначе он потеряется совсем.
+     */
+    public function scopeWithoutFinishedOrders(Builder $query, ?User $user): void
+    {
+        if (! AccessControl::allows($user, Permission::WorkSalesKanban)) {
+            return;
+        }
+
+        $query->where(function (Builder $inner): void {
+            $inner->where('pipeline_type', '!=', PipelineType::Factory->value)
+                ->orWhereNull('parent_deal_id')
+                ->orWhereNotIn('status_id', DealStatus::closedValues());
+        });
+    }
+
     /** Завершённые и отменённые: архив, из которого растёт база клиентов. */
     public function scopeClosed(Builder $query): void
     {
-        $query->whereIn('status_id', array_map(fn (DealStatus $s): int => $s->value, array_filter(DealStatus::cases(), fn (DealStatus $s): bool => $s->isClosed())));
+        $query->whereIn('status_id', DealStatus::closedValues());
     }
 
     /** @param Builder<Deal> $query */
     public function scopeOpen(Builder $query): void
     {
-        $query->whereNotIn('status_id', [DealStatus::Completed->value, DealStatus::Cancelled->value]);
+        $query->whereNotIn('status_id', DealStatus::closedValues());
     }
 
     /**
