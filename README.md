@@ -612,11 +612,14 @@ php artisan test
 - `docs/server.md` — бюджет памяти, MySQL hoster.kz, настройки PHP-FPM, opcache, nginx, cron, диск.
 - `.env.production.example` — боевой `.env`: кэш и сессии в файлах, очередь
   синхронная, логи 7 дней уровня `warning`, SQLite в WAL.
-- Код — в приватном репозитории `github.com/baproger/gravitdoors.kz` (`main`); сервер клонирует
-  его по deploy-ключу и обновляется через `git pull` внутри `deploy.sh`.
-- `deploy/` — всё для сервера: `bootstrap.sh` (с рабочей машины: настроить голый VPS, добавить
-  deploy-ключ в GitHub, склонировать), `server-setup.sh` (пакеты, swap, PHP-FPM, nginx, cron),
-  `push.sh` (запасной путь: rsync без GitHub), готовые конфиги nginx, PHP-FPM, opcache и cron.
+- Код — в приватном репозитории `github.com/baproger/gravitdoors.kz` (`main`).
+- **Бой — виртуальный хостинг hoster.kz с Plesk**, PHP 8.4: Git-развёртывание из панели,
+  `bash deploy/plesk-deploy.sh` как действие при развёртывании, планировщик раз в минуту.
+  Пошагово — `docs/plesk.md`. Без SSH и Composer — архив `deploy/build-release.sh` с `vendor`.
+- Зависимости закреплены под PHP 8.3+ (`composer.json` → `config.platform.php`): тесты
+  проходят на 8.4 и 8.5.
+- `deploy/` для VPS (на случай переезда): `bootstrap.sh`, `server-setup.sh` (пакеты, swap,
+  PHP-FPM, nginx, cron), `push.sh` (rsync без GitHub), конфиги nginx, PHP-FPM, opcache и cron.
 - `php artisan gravit:install` — первый запуск на бою: миграции, справочники без демо-данных
   (этапы, склад, касса, прайс) и директор. Повторный запуск справочники не трогает.
 - `deploy.sh` — обновление одной командой: проверка диска, бэкап, миграции, кэши,
