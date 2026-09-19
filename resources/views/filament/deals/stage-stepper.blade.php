@@ -139,7 +139,7 @@
 
     @if ($record->isMeasurementOverdue())
         <p class="gravit-stepper__hint gravit-stepper__hint--overdue">
-            Замер был назначен на {{ $record->measured_at->format('d.m.Y') }} — прошло {{ $record->measurementOverdueDays() }} {{ \App\Support\Plural::choose($record->measurementOverdueDays(), 'день', 'дня', 'дней') }}, а сделка всё ещё на «{{ $record->currentStage?->name }}». Проведите замер и переведите сделку дальше или назначьте новую дату.
+            Замер был назначен на {{ $record->measured_at->format('d.m.Y H:i') }} — прошло {{ $record->measurementOverdueDays() }} {{ \App\Support\Plural::choose($record->measurementOverdueDays(), 'день', 'дня', 'дней') }}, а сделка всё ещё на «{{ $record->currentStage?->name }}». Проведите замер и переведите сделку дальше или назначьте новую дату.
         </p>
     @endif
 

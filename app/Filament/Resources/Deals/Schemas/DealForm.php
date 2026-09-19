@@ -24,6 +24,7 @@ use App\Support\Validation;
 use Carbon\Carbon;
 use Closure;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -162,10 +163,13 @@ class DealForm
 
                 TextInput::make('city')->label('Город')->placeholder('Алматы')->maxLength(100),
 
-                DatePicker::make('measured_at')
-                    ->label('Дата замера')
-                    ->displayFormat('d.m.Y')
-                    ->helperText('При сохранении замерщик получит уведомление')
+                // Со временем: замерщику нужен час выезда, а не «в этот день».
+                DateTimePicker::make('measured_at')
+                    ->label('Дата и время замера')
+                    ->displayFormat('d.m.Y H:i')
+                    ->seconds(false)
+                    ->minutesStep(15)
+                    ->helperText('При сохранении замерщик получит уведомление с датой, временем и адресом')
                     ->hint(fn (?Deal $record): ?string => $record?->isMeasurementOverdue()
                         ? 'Просрочен на '.$record->measurementOverdueDays().' дн.'
                         : null)

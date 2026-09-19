@@ -64,7 +64,7 @@ use Illuminate\Support\Str;
  * @property DealSource|null $source
  * @property string|null $contract_number
  * @property Carbon|null $contract_date
- * @property Carbon|null $measured_at
+ * @property Carbon|null $measured_at дата и время выезда замерщика
  * @property numeric $prepayment
  * @property PaymentMethod|null $payment_method
  * @property numeric $delivery_cost
@@ -173,7 +173,7 @@ class Deal extends Model
             'installation_cost' => 'decimal:2',
             'due_date' => 'date',
             'contract_date' => 'date',
-            'measured_at' => 'date',
+            'measured_at' => 'datetime',
             'documents' => 'array',
             'stage_entered_at' => 'datetime',
             'production_started_at' => 'datetime',
@@ -358,6 +358,12 @@ class Deal extends Model
         }
     }
 
+    /** Завершённые и отменённые: архив, из которого растёт база клиентов. */
+    public function scopeClosed(Builder $query): void
+    {
+        $query->whereIn('status_id', array_map(fn (DealStatus $s): int => $s->value, array_filter(DealStatus::cases(), fn (DealStatus $s): bool => $s->isClosed())));
+    }
+
     /** @param Builder<Deal> $query */
     public function scopeOpen(Builder $query): void
     {
@@ -513,7 +519,14 @@ class Deal extends Model
 
     public function measurementOverdueDays(): int
     {
-        return $this->isMeasurementOverdue() ? (int) $this->measured_at->diffInDays(today()) : 0;
+        // По календарным дням: замер вчера в 14:00 — это один день просрочки, а не 0,41.
+        return $this->isMeasurementOverdue() ? (int) $this->measured_at->copy()->startOfDay()->diffInDays(today()) : 0;
+    }
+
+    /** Замеры, назначенные на сегодня (по календарному дню). */
+    public function scopeMeasurementToday(Builder $query): void
+    {
+        $query->sales()->open()->whereDate('measured_at', today())->orderBy('measured_at');
     }
 
     /** Открытые сделки с просроченным замером — самые давние первыми. */

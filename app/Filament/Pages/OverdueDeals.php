@@ -144,8 +144,8 @@ class OverdueDeals extends Page implements HasTable
                         : ($record->isStageOverdue() ? 'и на этапе дольше нормы' : null)),
 
                 TextColumn::make('measured_at')
-                    ->label('Дата замера')
-                    ->date('d.m.Y')
+                    ->label('Замер')
+                    ->dateTime('d.m.Y H:i')
                     ->color('danger')
                     ->weight(FontWeight::SemiBold)
                     ->visible(fn (): bool => $this->mode === 'measurement'),

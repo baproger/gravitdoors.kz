@@ -169,7 +169,7 @@
                                 </div>
 
                                 @if ($deal->isMeasurementOverdue())
-                                    <p class="gravit-card__alert" title="Дата замера {{ $deal->measured_at->format('d.m.Y') }} прошла, сделка не продвинулась">
+                                    <p class="gravit-card__alert" title="Замер {{ $deal->measured_at->format('d.m.Y H:i') }} прошёл, сделка не продвинулась">
                                         Замер просрочен {{ $deal->measurementOverdueDays() }} дн.
                                     </p>
                                 @endif

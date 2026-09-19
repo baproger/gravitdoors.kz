@@ -54,7 +54,7 @@ class DealObserver
             DealEvent::record(
                 $deal,
                 DealEventType::Survey,
-                'Замер назначен на '.$deal->measured_at->format('d.m.Y'),
+                'Замер назначен на '.$deal->measured_at->format('d.m.Y H:i'),
             );
         }
 
@@ -138,7 +138,7 @@ class DealObserver
         $where = collect([$deal->city, $deal->client_address])->filter()->implode(', ');
 
         Notification::make()
-            ->title('Замер '.$deal->measured_at->format('d.m.Y'))
+            ->title('Замер '.$deal->measured_at->format('d.m.Y').' в '.$deal->measured_at->format('H:i'))
             ->body(trim("{$deal->number} · {$deal->clientTitle()}".($where !== '' ? " · {$where}" : '')
                 .($deal->client_phone ? " · {$deal->client_phone}" : '')))
             ->icon('heroicon-o-map-pin')

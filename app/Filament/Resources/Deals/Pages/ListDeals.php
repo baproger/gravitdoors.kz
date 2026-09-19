@@ -142,7 +142,13 @@ class ListDeals extends ListRecords
                 ->badge(Deal::query()->visibleTo(auth()->user())->factoryOrders()->open()->count())
                 ->modifyQueryUsing(fn ($query) => $query->factoryOrders()->open()),
 
-            // Единственная вкладка с закрытыми сделками — иначе сумма вкладок не сходилась бы с «Все».
+            // Закрытые сделки никуда не пропадают: завершённые и отменённые — здесь,
+            // это и есть архив клиентов. Сводка по клиентам — страница «Клиенты».
+            'closed' => Tab::make('Закрытые')
+                ->icon('heroicon-o-archive-box')
+                ->badge(Deal::query()->visibleTo(auth()->user())->sales()->closed()->count())
+                ->modifyQueryUsing(fn ($query) => $query->sales()->closed()->orderByDesc('updated_at')),
+
             'all' => Tab::make('Все, включая закрытые')
                 ->badge(Deal::query()->visibleTo(auth()->user())->count()),
         ];

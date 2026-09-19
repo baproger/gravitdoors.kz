@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Enums\AccessLevel;
 use App\Enums\Permission;
 use App\Filament\Pages\OverdueDeals;
 use App\Filament\Resources\MaterialStocks\MaterialStockResource;
@@ -30,12 +31,16 @@ class DailyCheck extends Command
     {
         $lowStock = MaterialStock::query()->where('is_active', true)->belowLimit()->orderBy('name')->get();
         $overdue = $this->overdueStages();
+        $measurementsToday = Deal::query()->measurementToday()->with('manager')->get();
+        $measurementsOverdue = Deal::query()->measurementOverdue()->with('manager')->get();
 
         $this->table(
             ['Проверка', 'Найдено'],
             [
                 ['Материалы ниже минимума', $lowStock->count()],
                 ['Этапы дольше норматива', $overdue->count()],
+                ['Замеры сегодня', $measurementsToday->count()],
+                ['Замеры просрочены', $measurementsOverdue->count()],
             ],
         );
 
@@ -53,7 +58,15 @@ class DailyCheck extends Command
             $this->notifyOverdue($overdue);
         }
 
-        if ($lowStock->isEmpty() && $overdue->isEmpty()) {
+        if ($measurementsToday->isNotEmpty()) {
+            $this->notifyMeasurementsToday($measurementsToday);
+        }
+
+        if ($measurementsOverdue->isNotEmpty()) {
+            $this->notifyMeasurementsOverdue($measurementsOverdue);
+        }
+
+        if ($lowStock->isEmpty() && $overdue->isEmpty() && $measurementsToday->isEmpty() && $measurementsOverdue->isEmpty()) {
             $this->info('Всё в порядке, уведомлять не о чем.');
         }
 
@@ -123,6 +136,71 @@ class DailyCheck extends Command
             ->sendToDatabase($this->recipients(Permission::WorkOverdue));
 
         $this->warn("Отправлено уведомление о {$orders->count()} просроченных этапах.");
+    }
+
+    /**
+     * Утренний список выездов замерщикам и ответственным менеджерам: время,
+     * клиент, адрес, телефон — всё, что нужно, чтобы поехать.
+     *
+     * @param  Collection<int, Deal>  $deals
+     */
+    private function notifyMeasurementsToday(Collection $deals): void
+    {
+        $lines = $deals->map(fn (Deal $deal): string => trim(
+            $deal->measured_at->format('H:i').' — '.$deal->clientTitle()
+            .(filled($deal->client_address) ? ', '.$deal->client_address : '')
+            .(filled($deal->client_phone) ? ' · '.$deal->client_phone : '')
+        ))->implode('; ');
+
+        $recipients = User::query()
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (User $user): bool => $user->role->doesSurveys() || $deals->contains('manager_id', $user->id))
+            ->values();
+
+        Notification::make()
+            ->title('Замеры сегодня: '.$deals->count())
+            ->body($lines)
+            ->icon('heroicon-o-map-pin')
+            ->info()
+            ->sendToDatabase($recipients);
+
+        $this->line("Замеры на сегодня ({$deals->count()}) отправлены {$recipients->count()} сотрудникам.");
+    }
+
+    /**
+     * Просроченный замер — директору (ведёт всю воронку продаж) и ответственному
+     * менеджеру: дата прошла, а сделка так и стоит до договора.
+     *
+     * @param  Collection<int, Deal>  $deals
+     */
+    private function notifyMeasurementsOverdue(Collection $deals): void
+    {
+        $lines = $deals->take(5)
+            ->map(fn (Deal $deal): string => "{$deal->number} · {$deal->clientTitle()} — замер {$deal->measured_at->format('d.m.Y H:i')}, +{$deal->measurementOverdueDays()} дн.")
+            ->implode('; ');
+        $more = $deals->count() > 5 ? ' и ещё '.($deals->count() - 5) : '';
+
+        $recipients = User::query()
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (User $user): bool => AccessControl::allows($user, Permission::WorkSalesKanban, AccessLevel::Full)
+                || $deals->contains('manager_id', $user->id))
+            ->values();
+
+        Notification::make()
+            ->title('Замеры просрочены: '.$deals->count())
+            ->body($lines.$more)
+            ->danger()
+            ->actions([
+                Action::make('open')
+                    ->label('Открыть просроченные')
+                    ->url(OverdueDeals::getUrl(['mode' => 'measurement']))
+                    ->markAsRead(),
+            ])
+            ->sendToDatabase($recipients);
+
+        $this->warn("Просроченные замеры ({$deals->count()}) отправлены {$recipients->count()} сотрудникам.");
     }
 
     /**
