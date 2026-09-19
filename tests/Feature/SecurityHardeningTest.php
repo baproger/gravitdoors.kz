@@ -13,9 +13,12 @@ use App\Models\FactoryStage;
 use App\Models\User;
 use App\Support\Uploads\PrivateFiles;
 use Database\Seeders\FactoryStageSeeder;
+use Filament\Auth\Pages\Login;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
@@ -103,6 +106,53 @@ class SecurityHardeningTest extends TestCase
         $this->assertNotSame('JBSWY3DPEHPK3PXP', $raw);
         $this->assertSame('JBSWY3DPEHPK3PXP', $admin->fresh()->getAppAuthenticationSecret());
         $this->assertSame(['alpha-1', 'beta-2'], $admin->fresh()->getAppAuthenticationRecoveryCodes());
+    }
+
+    /**
+     * Перебор пароля упирается в пятую попытку за минуту.
+     *
+     * Лимит даёт сам Filament (`Login::authenticate()` → `rateLimit(5)`), своего
+     * кода у нас нет — именно поэтому он под тестом: обновление панели может
+     * снять защиту молча, а логин директора известен всем, кто видел README.
+     */
+    /**
+     * Перебор пароля упирается в пятую попытку за минуту.
+     *
+     * Лимит даёт сам Filament (`Login::authenticate()` → `rateLimit(5)`), своего
+     * кода у нас нет — именно поэтому он под тестом: обновление панели может
+     * снять защиту молча, а логин директора известен всем, кто видел README.
+     */
+    public function test_login_is_throttled_after_five_wrong_passwords(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'director@gravit.kz',
+            'password' => Hash::make('правильный-пароль'),
+            'role' => UserRole::Admin->value,
+        ]);
+
+        // Сначала убеждаемся, что форма вообще пускает с верным паролем —
+        // иначе тест ниже проходил бы и на наглухо сломанном входе.
+        Livewire::test(Login::class)
+            ->fillForm(['email' => $user->email, 'password' => 'правильный-пароль'])
+            ->call('authenticate');
+
+        $this->assertAuthenticatedAs($user);
+        auth()->logout();
+
+        $login = Livewire::test(Login::class);
+
+        foreach (range(1, 5) as $attempt) {
+            $login->fillForm(['email' => $user->email, 'password' => 'подбор-'.$attempt])
+                ->call('authenticate');
+
+            $this->assertFalse(auth()->check(), "Пустили внутрь с неверным паролем, попытка {$attempt}");
+        }
+
+        // Шестая: даже верный пароль не пускает, пока лимит не остынет.
+        $login->fillForm(['email' => $user->email, 'password' => 'правильный-пароль'])
+            ->call('authenticate');
+
+        $this->assertFalse(auth()->check(), 'После пяти попыток вход должен быть заблокирован на минуту');
     }
 
     private function deal(): Deal
