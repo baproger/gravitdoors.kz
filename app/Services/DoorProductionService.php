@@ -25,6 +25,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Связка двух воронок «Отдел продаж ⇄ Завод».
@@ -340,10 +341,13 @@ class DoorProductionService
         ?int $managerId = null,
         int $perColumn = 20,
         array $expandedStageIds = [],
+        ?int $ownerId = null,
     ): Collection {
-        $filter = function ($query) use ($pipeline, $search, $managerId): void {
+        $filter = function ($query) use ($pipeline, $search, $managerId, $ownerId): void {
             $query->where('pipeline_type', $pipeline->value)
                 ->open()
+                // «Только свои»: сделка без ответственного остаётся видимой.
+                ->when($ownerId, fn ($q) => $q->where(fn ($inner) => $inner->where('manager_id', $ownerId)->orWhereNull('manager_id')))
                 ->when($managerId, fn ($q) => $q->where('manager_id', $managerId))
                 ->when($search, fn ($q) => $q->where(function ($inner) use ($search): void {
                     $inner->where('title', 'like', "%{$search}%")
@@ -544,6 +548,88 @@ class DoorProductionService
     }
 
     /**
+     * Факт расхода материалов по наряду: списать сверх плана или вернуть излишек.
+     * Плановый расход уже списан при передаче в цех — здесь только разница.
+     */
+    public function adjustMaterials(Deal $order, int $materialId, float $quantity, string $direction, ?string $comment, ?User $actor = null): StockMovement
+    {
+        if (! $order->isFactoryOrder()) {
+            throw ProductionException::notAFactoryOrder($order);
+        }
+
+        if ($order->status_id->isClosed()) {
+            throw ProductionException::dealClosed($order);
+        }
+
+        if ($quantity <= 0) {
+            throw ValidationException::withMessages(['quantity' => 'Количество должно быть больше нуля.']);
+        }
+
+        if (! in_array($direction, [StockMovement::TYPE_IN, StockMovement::TYPE_OUT], true)) {
+            throw ValidationException::withMessages(['direction' => 'Неизвестное движение склада.']);
+        }
+
+        $material = MaterialStock::query()->findOrFail($materialId);
+
+        return DB::transaction(function () use ($order, $material, $quantity, $direction, $comment, $actor): StockMovement {
+            $movement = StockMovement::create([
+                'material_stock_id' => $material->id,
+                'deal_id' => $order->id,
+                'user_id' => $actor?->id,
+                'type' => $direction,
+                'quantity' => $quantity,
+                'price_per_unit' => $material->price_per_unit,
+                'comment' => trim(($direction === StockMovement::TYPE_OUT ? 'Факт сверх плана' : 'Возврат излишка')
+                    ." по наряду {$order->number}".($comment ? ": {$comment}" : '')),
+            ]);
+
+            $direction === StockMovement::TYPE_OUT
+                ? $material->decrement('quantity', $quantity)
+                : $material->increment('quantity', $quantity);
+
+            DealEvent::record(
+                $order->salesDeal(),
+                DealEventType::Materials,
+                ($direction === StockMovement::TYPE_OUT ? 'Списано сверх плана: ' : 'Возвращён излишек: ')
+                    .rtrim(rtrim((string) $quantity, '0'), '.')." {$material->unit->getLabel()} · {$material->name}",
+                $actor,
+                department: Department::Factory,
+            );
+
+            return $movement;
+        });
+    }
+
+    /**
+     * Придержать или отпустить отгрузку. Ставят финансы, видят все.
+     */
+    public function setShipmentBlock(Deal $deal, bool $blocked, ?string $reason, ?User $actor = null): Deal
+    {
+        if ($deal->isFactoryOrder()) {
+            throw ProductionException::notASalesDeal($deal);
+        }
+
+        if ($blocked && trim((string) $reason) === '') {
+            throw ValidationException::withMessages(['reason' => 'Укажите причину блокировки: её увидят продажи и цех.']);
+        }
+
+        $deal->forceFill($blocked
+            ? ['shipment_blocked_at' => now(), 'shipment_block_reason' => trim((string) $reason), 'shipment_blocked_by' => $actor?->id]
+            : ['shipment_blocked_at' => null, 'shipment_block_reason' => null, 'shipment_blocked_by' => null],
+        )->save();
+
+        DealEvent::record(
+            $deal,
+            DealEventType::Updated,
+            $blocked ? "Отгрузка заблокирована: {$reason}" : 'Блокировка отгрузки снята',
+            $actor,
+            department: Department::Finance,
+        );
+
+        return $deal->refresh();
+    }
+
+    /**
      * Отменить сделку продаж: клиент отказался. Живой наряд отменяется вместе
      * с ней (материалы возвращаются), сделка закрывается статусом «Отменена».
      * Единственный путь к этому статусу — поле «Статус» в карточке только для чтения.
@@ -691,6 +777,19 @@ class DoorProductionService
 
         if (! $movingForward) {
             return;
+        }
+
+        // Блокировка финансов держит сделку до отгрузки: цех работает, а вперёд
+        // за «Передано в производство» заказ не уходит, пока клиент должен.
+        if (! $deal->isFactoryOrder() && $deal->isShipmentBlocked()) {
+            $trigger = FactoryStage::query()
+                ->ofPipeline(PipelineType::Sales)
+                ->where('triggers_production', true)
+                ->first();
+
+            if ($trigger && $to->order > $trigger->order) {
+                throw ProductionException::shipmentBlocked($deal);
+            }
         }
 
         if ($from !== null) {

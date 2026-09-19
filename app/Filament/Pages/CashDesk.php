@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
-use App\Enums\UserRole;
+use App\Enums\AccessLevel;
+use App\Enums\Permission;
 use App\Models\CashAccount;
 use App\Models\CashMovement;
+use App\Services\AccessControl;
 use App\Services\CashLedger;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use BackedEnum;
 use Carbon\CarbonImmutable;
@@ -22,7 +25,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,7 +55,7 @@ class CashDesk extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::FinanceCash);
     }
 
     public function getTitle(): string
@@ -118,7 +120,8 @@ class CashDesk extends Page implements HasTable
                     DatePicker::make('at')->label('Дата')->default(now())->maxDate(now())->displayFormat('d.m.Y')->required(),
                     Textarea::make('reason')->label('Причина')->required()->rows(2),
                 ])
-                ->authorize(fn (): bool => auth()->user()?->role === UserRole::Admin)
+                ->authorize(fn (): bool => AccessControl::can(Permission::FinanceCash, AccessLevel::Full)
+                    && AccessControl::can(Permission::FinanceApprove, AccessLevel::Full))
                 ->action(function (array $data, CashLedger $ledger): void {
                     try {
                         $ledger->adjust(
@@ -159,10 +162,14 @@ class CashDesk extends Page implements HasTable
             ])
             ->filters([
                 SelectFilter::make('account_id')->label('Счёт')->options(fn (): array => CashAccount::query()->pluck('name', 'id')->all()),
-                Filter::make('month')
-                    ->label('Этот месяц')
-                    ->query(fn (Builder $query) => $query->whereBetween('happened_at', [now()->startOfMonth(), now()->endOfMonth()])),
+                SelectFilter::make('direction')
+                    ->label('Движение')
+                    ->options([CashMovement::IN => 'Приход', CashMovement::OUT => 'Расход']),
+
+                TableFilters::month('happened_at'),
+                TableFilters::period('happened_at', 'Дата движения'),
             ])
+            ->filtersFormColumns(2)
             ->paginated([25, 50, 100])
             ->emptyStateHeading('Движений пока нет')
             ->emptyStateDescription('Примите оплату по сделке или подтвердите расход — движение появится само.');

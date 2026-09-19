@@ -12,6 +12,8 @@
         $stages = $this->getStages()->values();
         $symbol = $this->getCurrencySymbol();
         $showMoney = $this->canSeeMoney();
+        // Итог по колонке — сводный показатель: менеджеру видны суммы своих карточек, но не воронки.
+        $showTotals = $this->canSeeTotals();
     @endphp
 
     <div
@@ -85,7 +87,7 @@
                         </div>
 
                         <div class="gravit-column__meta">
-                            @if ($showMoney && $sum > 0)
+                            @if ($showTotals && $sum > 0)
                                 <span>{{ number_format($sum, 0, ',', ' ') }} {{ $symbol }}</span>
                             @endif
                             @if ($stage->triggers_production)
@@ -104,7 +106,7 @@
                             @php($waiting = $deal->isFactoryOrder() ? null : $deal->activeProductionOrder())
                             {{-- Права решает политика: рабочему доска видна, но двигать и открывать карточки он не может. --}}
                             @php($canMove = auth()->user()?->can('move', $deal) ?? false)
-                            @php($canOpen = auth()->user()?->can('update', $deal) ?? false)
+                            @php($canOpen = auth()->user()?->can('view', $deal) ?? false)
 
                             <article
                                 draggable="{{ $waiting || ! $canMove ? 'false' : 'true' }}"
@@ -172,6 +174,12 @@
                                     </p>
                                 @endif
 
+                                @if ($deal->isShipmentBlocked())
+                                    <p class="gravit-card__alert" title="{{ $deal->shipment_block_reason }}">
+                                        Отгрузка заблокирована{{ $deal->shipment_block_reason ? ': '.$deal->shipment_block_reason : '' }}
+                                    </p>
+                                @endif
+
                                 @if ($waiting)
                                     <p class="gravit-card__waiting" title="Дальше сделку переведёт производство">
                                         Ждёт завод{{ $waiting->currentStage ? ': '.$waiting->currentStage->name : '' }}
@@ -220,7 +228,7 @@
                                     @endif
 
                                     @if ($canOpen)
-                                        <a href="{{ \App\Filament\Resources\Deals\DealResource::getUrl('edit', ['record' => $deal]) }}"
+                                        <a href="{{ \App\Filament\Resources\Deals\DealResource::cardUrl($deal) }}"
                                            class="gravit-card__link">Открыть</a>
                                     @endif
                                     <a href="{{ route('track.show', $deal->qr_code_hash) }}" target="_blank"

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccessLevel;
 use App\Enums\ExpenseCategory;
 use App\Enums\ExpenseStatus;
+use App\Enums\Permission;
 use App\Enums\UserRole;
 use App\Filament\Resources\Expenses\Pages\ManageExpenses;
 use App\Models\Expense;
 use App\Models\User;
+use App\Services\AccessControl;
 use App\Services\FinanceSummary;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,28 +31,34 @@ class FinanceExpensesTest extends TestCase
 
     private User $manager;
 
+    private User $accountant;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->admin = User::factory()->create(['role' => UserRole::Admin->value, 'salary' => 0]);
         $this->manager = User::factory()->create(['role' => UserRole::Manager->value, 'salary' => 0]);
+        $this->accountant = User::factory()->create(['role' => UserRole::Accountant->value, 'salary' => 0]);
         $this->actingAs($this->admin);
     }
 
-    public function test_office_sees_expenses_and_the_workshop_does_not(): void
+    public function test_only_finance_roles_see_expenses(): void
     {
-        $this->actingAs($this->manager);
+        $this->actingAs($this->accountant);
         $this->get('/admin/expenses')->assertOk();
 
-        $this->actingAs(User::factory()->create(['role' => UserRole::Master->value]));
-        $this->get('/admin/expenses')->assertForbidden();
+        // Менеджеру продаж и цеху расходы компании не положены.
+        foreach ([$this->manager, User::factory()->create(['role' => UserRole::Master->value])] as $stranger) {
+            $this->actingAs($stranger);
+            $this->get('/admin/expenses')->assertForbidden();
+        }
     }
 
-    public function test_manager_creates_a_pending_expense_from_the_page(): void
+    public function test_accountant_creates_a_pending_expense_from_the_page(): void
     {
         Storage::fake('public');
-        $this->actingAs($this->manager);
+        $this->actingAs($this->accountant);
 
         Livewire::test(ManageExpenses::class)
             ->callAction('create', data: [
@@ -67,15 +76,21 @@ class FinanceExpensesTest extends TestCase
         Storage::disk('public')->assertExists($expense->receipt_path);
 
         $this->assertSame(ExpenseStatus::Pending, $expense->status);
-        $this->assertSame($this->manager->id, $expense->user_id);
+        $this->assertSame($this->accountant->id, $expense->user_id);
         $this->assertEqualsWithDelta(0, FinanceSummary::allTime()->approvedExpensesByCategory()['rent'] ?? 0, 0.01, 'Неподтверждённый расход не в сводке');
     }
 
-    public function test_manager_cannot_approve_but_admin_can(): void
+    public function test_approval_needs_the_separate_right(): void
     {
-        $expense = Expense::factory()->create(['user_id' => $this->manager->id]);
+        $expense = Expense::factory()->create(['user_id' => $this->accountant->id]);
 
         $this->assertFalse($this->manager->can('approve', $expense));
+        $this->assertTrue($this->accountant->can('approve', $expense));
+
+        // Сняв «Подтверждение», директор оставляет проверку за собой.
+        AccessControl::set(UserRole::Accountant, Permission::FinanceApprove, AccessLevel::None);
+        $this->assertFalse($this->accountant->fresh()->can('approve', $expense));
+        AccessControl::reset(UserRole::Accountant);
 
         Livewire::test(ManageExpenses::class)
             ->callAction(TestAction::make('approve')->table($expense))
@@ -137,15 +152,14 @@ class FinanceExpensesTest extends TestCase
         $this->assertTrue($expense->canBeDeleted());
     }
 
-    public function test_manager_edits_only_own_pending_expenses(): void
+    public function test_approved_expense_is_not_editable_and_strangers_edit_nothing(): void
     {
-        $own = Expense::factory()->create(['user_id' => $this->manager->id]);
-        $foreign = Expense::factory()->create(['user_id' => $this->admin->id]);
-        $approved = Expense::factory()->approved()->create(['user_id' => $this->manager->id]);
+        $pending = Expense::factory()->create(['user_id' => $this->accountant->id]);
+        $approved = Expense::factory()->approved()->create(['user_id' => $this->accountant->id]);
 
-        $this->assertTrue($this->manager->can('update', $own));
-        $this->assertFalse($this->manager->can('update', $foreign));
-        $this->assertFalse($this->manager->can('update', $approved));
+        $this->assertTrue($this->accountant->can('update', $pending));
+        $this->assertFalse($this->accountant->can('update', $approved), 'Подтверждённый расход правят только отклонением');
+        $this->assertFalse($this->manager->can('update', $pending));
     }
 
     public function test_approved_expenses_land_in_the_overview_by_category_and_period(): void

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\Permission;
 use App\Models\Setting;
+use App\Services\AccessControl;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -31,7 +33,7 @@ class FinanceSettings extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return AccessControl::can(Permission::SettingsFinance);
     }
 
     public function getTitle(): string

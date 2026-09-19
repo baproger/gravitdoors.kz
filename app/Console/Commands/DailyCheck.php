@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Enums\UserRole;
+use App\Enums\Permission;
 use App\Filament\Pages\OverdueDeals;
 use App\Filament\Resources\MaterialStocks\MaterialStockResource;
 use App\Models\Deal;
 use App\Models\MaterialStock;
 use App\Models\User;
+use App\Services\AccessControl;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Console\Command;
@@ -97,7 +98,7 @@ class DailyCheck extends Command
                     ->url(MaterialStockResource::getUrl())
                     ->markAsRead(),
             ])
-            ->sendToDatabase($this->recipients([UserRole::Admin, UserRole::Manager, UserRole::Master]));
+            ->sendToDatabase($this->recipients(Permission::WorkMaterials));
 
         $this->warn("Отправлено уведомление о {$materials->count()} позициях склада.");
     }
@@ -119,20 +120,23 @@ class DailyCheck extends Command
                     ->url(OverdueDeals::getUrl(['mode' => 'stage']))
                     ->markAsRead(),
             ])
-            ->sendToDatabase($this->recipients([UserRole::Admin, UserRole::Manager, UserRole::Master]));
+            ->sendToDatabase($this->recipients(Permission::WorkOverdue));
 
         $this->warn("Отправлено уведомление о {$orders->count()} просроченных этапах.");
     }
 
     /**
-     * @param  list<UserRole>  $roles
+     * Кому уходит сводка: тем, кому открыт соответствующий раздел.
+     * Список ролей здесь не зашит — иначе он разошёлся бы с матрицей доступа.
+     *
      * @return Collection<int, User>
      */
-    private function recipients(array $roles): Collection
+    private function recipients(Permission $permission): Collection
     {
         return User::query()
             ->where('is_active', true)
-            ->whereIn('role', array_map(fn (UserRole $role): string => $role->value, $roles))
-            ->get();
+            ->get()
+            ->filter(fn (User $user): bool => AccessControl::allows($user, $permission))
+            ->values();
     }
 }

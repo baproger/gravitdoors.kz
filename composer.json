@@ -3,7 +3,10 @@
     "name": "laravel/laravel",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "keywords": [
+        "laravel",
+        "framework"
+    ],
     "license": "MIT",
     "require": {
         "php": "^8.2",
@@ -70,6 +73,16 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "test:mysql": [
+            "mysql -uroot -e \"CREATE DATABASE IF NOT EXISTS gravit_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci\"",
+            "@putenv DB_CONNECTION=mysql",
+            "@putenv DB_HOST=127.0.0.1",
+            "@putenv DB_PORT=3306",
+            "@putenv DB_DATABASE=gravit_test",
+            "@putenv DB_USERNAME=root",
+            "@putenv DB_PASSWORD=",
+            "@php artisan test"
         ]
     },
     "extra": {
@@ -87,5 +100,8 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "scripts-descriptions": {
+        "test:mysql": "Прогнать все тесты на локальном MySQL (база gravit_test), как на hoster.kz"
+    }
 }

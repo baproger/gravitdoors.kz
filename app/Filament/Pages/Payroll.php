@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\Permission;
 use App\Enums\ProductionStatus;
 use App\Enums\UserRole;
 use App\Models\ProductionLog;
 use App\Models\User;
+use App\Services\AccessControl;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Pages\Page;
@@ -40,7 +42,7 @@ class Payroll extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::FinancePayrollShop);
     }
 
     public function mount(): void

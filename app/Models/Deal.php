@@ -8,8 +8,10 @@ use App\Enums\ClientType;
 use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\Permission;
 use App\Enums\PipelineType;
 use App\Observers\DealObserver;
+use App\Services\AccessControl;
 use Database\Factories\DealFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +48,9 @@ use Illuminate\Support\Str;
  * @property Carbon|null $stage_entered_at
  * @property Carbon|null $production_started_at
  * @property Carbon|null $production_finished_at
+ * @property Carbon|null $shipment_blocked_at
+ * @property string|null $shipment_block_reason
+ * @property int|null $shipment_blocked_by
  * @property string|null $notes
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -150,6 +155,7 @@ class Deal extends Model
         'status_id', 'pipeline_type', 'current_stage_id',
         'qr_code_hash', 'parent_deal_id', 'manager_id', 'due_date',
         'stage_entered_at', 'production_started_at', 'production_finished_at', 'notes',
+        'shipment_blocked_at', 'shipment_block_reason', 'shipment_blocked_by',
     ];
 
     protected function casts(): array
@@ -172,6 +178,7 @@ class Deal extends Model
             'stage_entered_at' => 'datetime',
             'production_started_at' => 'datetime',
             'production_finished_at' => 'datetime',
+            'shipment_blocked_at' => 'datetime',
         ];
     }
 
@@ -318,6 +325,39 @@ class Deal extends Model
         $query->where('pipeline_type', PipelineType::Factory->value);
     }
 
+    /**
+     * Что пользователю вообще видно: воронки по правам и «только свои» —
+     * по владельцу. Один scope на список, канбан, поиск и просроченные,
+     * иначе ограничение легко забыть в очередном экране.
+     *
+     * @param  Builder<Deal>  $query
+     */
+    public function scopeVisibleTo(Builder $query, ?User $user): void
+    {
+        if (! $user) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $sales = AccessControl::levelFor($user, Permission::WorkSalesKanban);
+        $factory = AccessControl::levelFor($user, Permission::WorkFactoryKanban);
+
+        match (true) {
+            ! $sales->allows() && ! $factory->allows() => $query->whereRaw('1 = 0'),
+            ! $sales->allows() => $query->factoryOrders(),
+            ! $factory->allows() => $query->sales(),
+            default => null,
+        };
+
+        if (AccessControl::levelFor($user, Permission::WorkDeals)->isOwnOnly()) {
+            $query->where(function (Builder $inner) use ($user): void {
+                // Сделка без ответственного видна всем «своим»: иначе запись потеряется.
+                $inner->where('manager_id', $user->id)->orWhereNull('manager_id');
+            });
+        }
+    }
+
     /** @param Builder<Deal> $query */
     public function scopeOpen(Builder $query): void
     {
@@ -373,6 +413,12 @@ class Deal extends Model
             ->first();
 
         return $order;
+    }
+
+    /** Финансы придержали отгрузку: дальше «Готово к отгрузке» сделка не пойдёт. */
+    public function isShipmentBlocked(): bool
+    {
+        return $this->shipment_blocked_at !== null;
     }
 
     public function isFactoryOrder(): bool
@@ -459,19 +505,11 @@ class Deal extends Model
             return false;
         }
 
-        // Этап-«ворота» один на всю воронку; в списке и на канбане он нужен
-        // трижды на строку — запрашиваем один раз на запись.
-        if (! $this->measurementGateResolved) {
-            $this->measurementGate = FactoryStage::measurementGate();
-            $this->measurementGateResolved = true;
-        }
+        // Ворота одни на всю воронку и запоминаются на весь запрос (FactoryStage).
+        $gate = FactoryStage::measurementGate();
 
-        return $this->measurementGate !== null && ($this->currentStage->order ?? 0) < $this->measurementGate->order;
+        return $gate !== null && ($this->currentStage->order ?? 0) < $gate->order;
     }
-
-    private ?FactoryStage $measurementGate = null;
-
-    private bool $measurementGateResolved = false;
 
     public function measurementOverdueDays(): int
     {

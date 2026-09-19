@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\AccessLevel;
 use App\Enums\DealEventType;
 use App\Enums\PaymentMethod;
+use App\Enums\Permission;
+use App\Enums\PipelineType;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\CashAccount;
 use App\Models\Deal;
 use App\Models\DealEvent;
 use App\Models\DealPayment;
+use App\Models\FactoryStage;
 use App\Models\User;
+use App\Services\AccessControl;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use App\Support\Plural;
 use BackedEnum;
@@ -60,7 +66,7 @@ class Invoices extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::FinanceInvoices);
     }
 
     public function getTitle(): string
@@ -116,7 +122,7 @@ class Invoices extends Page implements HasTable
             ->columns([
                 TextColumn::make('number')
                     ->label('Сделка')
-                    ->url(fn (Deal $record): string => DealResource::getUrl('edit', ['record' => $record]))
+                    ->url(fn (Deal $record): string => DealResource::cardUrl($record))
                     ->description(fn (Deal $record): string => $record->clientTitle())
                     ->searchable(['number', 'title', 'client_name', 'client_company', 'client_phone'])
                     ->weight('semibold'),
@@ -139,14 +145,21 @@ class Invoices extends Page implements HasTable
             ])
             ->filters([
                 SelectFilter::make('manager_id')->label('Менеджер')->options(fn (): array => User::query()->whereHas('deals')->orderBy('name')->pluck('name', 'id')->all()),
+
+                SelectFilter::make('current_stage_id')
+                    ->label('Этап')
+                    ->options(fn (): array => FactoryStage::query()->ofPipeline(PipelineType::Sales)->ordered()->pluck('name', 'id')->all()),
+
+                TableFilters::period('due_date', 'Срок сдачи'),
             ])
+            ->filtersFormColumns(2)
             ->recordActions([
                 Action::make('pay')
                     ->label('Принять оплату')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
                     ->modalHeading(fn (Deal $record): string => "Оплата по {$record->number} — остаток ".Money::format($record->remainingPayment()))
-                    ->authorize(fn (Deal $record): bool => auth()->user()?->can('update', $record) ?? false)
+                    ->authorize(fn (): bool => AccessControl::can(Permission::FinanceIncomes, AccessLevel::Full))
                     ->visible(fn (Deal $record): bool => $record->remainingPayment() > 0 && ! $record->status_id->isClosed())
                     ->schema([
                         TextInput::make('amount')->label('Сумма')->numeric()->minValue(1)->required()->default(fn (Deal $record): float => $record->remainingPayment())->suffix(config('gravit.currency.symbol')),
@@ -191,7 +204,7 @@ class Invoices extends Page implements HasTable
                     ->requiresConfirmation()
                     ->modalHeading('Отметить напоминание об оплате?')
                     ->modalDescription('В историю сделки ляжет запись «напомнили об оплате» с датой и вашим именем. Отправка сообщения клиенту — следующий шаг плана.')
-                    ->authorize(fn (Deal $record): bool => auth()->user()?->can('update', $record) ?? false)
+                    ->authorize(fn (): bool => AccessControl::can(Permission::FinanceInvoices, AccessLevel::Full))
                     ->visible(fn (Deal $record): bool => $record->remainingPayment() > 0 && ! $record->status_id->isClosed())
                     ->action(function (Deal $record): void {
                         DealEvent::record($record, DealEventType::PaymentReminder,

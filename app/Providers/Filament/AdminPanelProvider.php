@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace App\Providers\Filament;
 
 use App\Filament\Auth\EditProfile;
-use App\Filament\Widgets\LowStockWidget;
-use App\Filament\Widgets\PipelineOverview;
+use App\Filament\Pages\Dashboard;
 use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -49,6 +47,8 @@ class AdminPanelProvider extends PanelProvider
                 'success' => Color::Emerald,
                 'danger' => Color::Rose,
                 'info' => Color::Sky,
+                // Кадры: отдельный цвет, чтобы роль HR и её события не путались с менеджерскими.
+                'violet' => Color::Violet,
             ])
             ->font('Inter')
             // ТЗ: Light SaaS. Переключатель темы у пользователя остаётся.
@@ -68,11 +68,15 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
-            ->widgets([
-                PipelineOverview::class,
-                LowStockWidget::class,
-            ])
+            // Виджетов нет: показатели собраны на своей инфопанели (App\Filament\Pages\Dashboard),
+            // где они связаны общим периодом и правами доступа.
+            ->widgets([])
             ->databaseNotifications()
+            // По умолчанию Filament опрашивает уведомления каждые 30 секунд из
+            // каждой открытой вкладки: десять вкладок — двадцать запросов в минуту
+            // на пустом месте, а PHP-процессов на сервере три. Раз в две минуты
+            // достаточно: уведомления здесь дневные (склад, просрочка), не чат.
+            ->databaseNotificationsPolling('120s')
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

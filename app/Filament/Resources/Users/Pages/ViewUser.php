@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Enums\DealStatus;
+use App\Enums\Permission;
 use App\Enums\ProductionStatus;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\Bonus;
@@ -12,6 +13,7 @@ use App\Models\Deal;
 use App\Models\DealEvent;
 use App\Models\ProductionLog;
 use App\Models\User;
+use App\Services\AccessControl;
 use Carbon\CarbonImmutable;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
@@ -216,7 +218,7 @@ class ViewUser extends ViewRecord
     public function canSeeMoney(): bool
     {
         return auth()->id() === $this->employee()->id
-            || (auth()->user()?->isAdmin() ?? false);
+            || AccessControl::can(Permission::EmployeesFinance);
     }
 
     /** @return array{CarbonImmutable, CarbonImmutable} */

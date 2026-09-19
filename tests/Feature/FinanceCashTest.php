@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccessLevel;
 use App\Enums\CashAccountType;
 use App\Enums\DealStatus;
 use App\Enums\ExpenseStatus;
+use App\Enums\Permission;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
 use App\Filament\Pages\CashDesk;
@@ -17,6 +19,7 @@ use App\Models\DealPayment;
 use App\Models\Expense;
 use App\Models\FactoryStage;
 use App\Models\User;
+use App\Services\AccessControl;
 use App\Services\CashLedger;
 use App\Services\FinanceSummary;
 use Database\Seeders\CashAccountSeeder;
@@ -100,7 +103,7 @@ class FinanceCashTest extends TestCase
         $ledger->adjust($this->cash, 0, now(), 'пусто', null);
     }
 
-    public function test_adjustment_is_admin_only_and_keeps_its_reason(): void
+    public function test_adjustment_needs_the_approve_right_and_keeps_its_reason(): void
     {
         Livewire::test(CashDesk::class)
             ->callAction('adjust', data: ['account' => $this->cash->id, 'amount' => -5_000, 'at' => now()->toDateString(), 'reason' => 'Недостача при пересчёте'])
@@ -109,8 +112,17 @@ class FinanceCashTest extends TestCase
         $this->assertEqualsWithDelta(-5_000, $this->cash->balance(), 0.01);
         $this->assertStringContainsString('Недостача', CashMovement::query()->firstOrFail()->comment);
 
-        $this->actingAs(User::factory()->create(['role' => UserRole::Manager->value]));
+        // Бухгалтеру касса открыта, но без «Подтверждения» корректировать нельзя.
+        $this->actingAs(User::factory()->create(['role' => UserRole::Accountant->value]));
+        Livewire::test(CashDesk::class)->assertActionVisible('adjust');
+
+        AccessControl::set(UserRole::Accountant, Permission::FinanceApprove, AccessLevel::None);
         Livewire::test(CashDesk::class)->assertActionHidden('adjust');
+        AccessControl::reset(UserRole::Accountant);
+
+        // Менеджеру продаж касса не открывается вовсе.
+        $this->actingAs(User::factory()->create(['role' => UserRole::Manager->value]));
+        $this->get('/admin/cash')->assertForbidden();
     }
 
     public function test_backfill_covers_old_records_once(): void

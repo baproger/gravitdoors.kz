@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\Permission;
+use App\Services\AccessControl;
 use App\Services\FinanceSummary;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -35,7 +37,7 @@ class FinanceOverview extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::FinanceOverview);
     }
 
     public function getTitle(): string

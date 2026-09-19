@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\AccessLevel;
+use App\Enums\Permission;
 use App\Enums\ProductionStatus;
 use App\Models\Bonus;
 use App\Models\ProductionLog;
 use App\Models\SalarySheet;
+use App\Services\AccessControl;
 use App\Services\PayrollService;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -36,6 +39,12 @@ class MySalary extends Page
 
     #[Url]
     public string $month = '';
+
+    /** Своя зарплата — у каждой роли, но право можно снять в матрице. */
+    public static function canAccess(): bool
+    {
+        return AccessControl::can(Permission::FinanceMySalary, AccessLevel::Full);
+    }
 
     public function mount(): void
     {

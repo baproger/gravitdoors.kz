@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Bonuses\Tables;
 use App\Enums\BonusStatus;
 use App\Models\Bonus;
 use App\Models\User;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -32,9 +33,12 @@ class BonusesTable
                 TextColumn::make('status')->label('Статус')->badge(),
                 TextColumn::make('author.name')->label('Предложил')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->filtersFormColumns(2)
             ->filters([
                 SelectFilter::make('user_id')->label('Сотрудник')->options(fn (): array => User::query()->orderBy('name')->pluck('name', 'id')->all()),
                 SelectFilter::make('month')->label('Месяц')->options(fn (): array => Bonus::query()->distinct()->orderByDesc('month')->pluck('month', 'month')->all()),
+                SelectFilter::make('status')->label('Статус')->options(BonusStatus::class),
+                TableFilters::period('created_at', 'Дата начисления'),
             ])
             ->recordActions([
                 Action::make('approve')

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\Permission;
 use App\Enums\PipelineType;
+use App\Services\AccessControl;
 use App\Support\Filament\KanbanBoardPage;
 use BackedEnum;
 use Filament\Support\Icons\Heroicon;
@@ -30,7 +32,7 @@ class SalesKanban extends KanbanBoardPage
     /** Воронка продаж цеху не нужна и не положена. */
     public static function canAccess(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::WorkSalesKanban);
     }
 
     public function getTitle(): string

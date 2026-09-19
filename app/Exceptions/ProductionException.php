@@ -25,6 +25,13 @@ class ProductionException extends DomainException
         ));
     }
 
+    public static function shipmentBlocked(Deal $deal): self
+    {
+        $reason = $deal->shipment_block_reason ? ": {$deal->shipment_block_reason}" : '';
+
+        return new self("Отгрузка сделки {$deal->number} заблокирована финансами{$reason}. Снимите блокировку после расчёта с клиентом.");
+    }
+
     public static function dealClosed(Deal $deal): self
     {
         return new self("Сделка {$deal->number} закрыта ({$deal->status_id->getLabel()}) — движение по воронке недоступно.");

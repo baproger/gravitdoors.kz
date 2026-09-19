@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
+use App\Enums\AccessLevel;
+use App\Enums\Permission;
 use App\Models\MaterialStock;
 use App\Models\User;
+use App\Services\AccessControl;
 
 class MaterialStockPolicy
 {
-    /** Остатки видят руководство и мастер: без них нельзя понять, чем закрывать наряд. */
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, [UserRole::Admin, UserRole::Manager, UserRole::Master], true);
+        return AccessControl::allows($user, Permission::WorkMaterials);
     }
 
     public function view(User $user, MaterialStock $material): bool
@@ -23,7 +24,7 @@ class MaterialStockPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->role, [UserRole::Admin, UserRole::Manager, UserRole::Master], true);
+        return AccessControl::allows($user, Permission::WorkMaterials, AccessLevel::Full);
     }
 
     public function update(User $user, MaterialStock $material): bool
@@ -37,11 +38,11 @@ class MaterialStockPolicy
      */
     public function delete(User $user, MaterialStock $material): bool
     {
-        return $user->role === UserRole::Admin && $material->canBeDeleted();
+        return $this->create($user) && $material->canBeDeleted();
     }
 
     public function deleteAny(User $user): bool
     {
-        return $user->role === UserRole::Admin;
+        return $this->create($user);
     }
 }

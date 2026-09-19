@@ -4,74 +4,132 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
+use App\Enums\AccessLevel;
+use App\Enums\Permission;
 use App\Models\Deal;
 use App\Models\User;
+use App\Services\AccessControl;
 
 /**
- * Кто и что делает со сделками.
+ * Кто и что делает со сделками и нарядами.
  *
- * Цех видит наряды, но не сделки продаж и не деньги — ограничение по воронке
- * живёт в DealResource::getEloquentQuery(), здесь только права на действия.
+ * Роли здесь не перечисляются: уровень доступа берётся из реестра прав, а он
+ * правится в «Настройки → Роли и доступы». У записи два измерения — список
+ * сделок (`work.deals`) и воронка, к которой она относится: сделку продаж
+ * ведут через `work.sales_kanban`, наряд — через `work.factory_kanban`.
  */
 class DealPolicy
 {
-    /** Замерщику список сделок не положен: его работа — уведомления о замерах. */
     public function viewAny(User $user): bool
     {
-        return $user->role !== UserRole::Surveyor;
+        return AccessControl::allows($user, Permission::WorkDeals);
     }
 
     public function view(User $user, Deal $deal): bool
     {
-        // Рабочему и мастеру доступны только производственные наряды:
-        // по прямой ссылке на сделку продаж они получат 403.
-        return $user->role->seesMoney() || $deal->isFactoryOrder();
+        $level = $this->levelFor($user, $deal);
+
+        return $level->allows() && (! $level->isOwnOnly() || $this->owns($user, $deal));
     }
 
+    /** Заводит сделки тот, кто ведёт воронку продаж. */
     public function create(User $user): bool
     {
-        return in_array($user->role, [UserRole::Admin, UserRole::Manager], true);
+        return $this->weakest(
+            AccessControl::levelFor($user, Permission::WorkDeals),
+            AccessControl::levelFor($user, Permission::WorkSalesKanban),
+        )->canWrite();
     }
 
     public function update(User $user, Deal $deal): bool
     {
-        if (in_array($user->role, [UserRole::Admin, UserRole::Manager], true)) {
-            return true;
+        $level = $this->levelFor($user, $deal);
+
+        if (! $level->canWrite()) {
+            return false;
         }
 
-        // Мастер правит только наряды своего цеха — комментарии, исполнителей.
-        return $user->role === UserRole::Master && $deal->isFactoryOrder();
+        return $level === AccessLevel::Full || $this->owns($user, $deal);
     }
 
     /**
-     * Удаление сделки — только администратор: это разрыв связи с нарядом и историей.
-     * Пока наряд в цеху, сделку не удалить — иначе на заводе остался бы наряд-сирота
-     * с невозвращёнными материалами; сначала отмена наряда. Сам наряд не удаляется
-     * вовсе, пока он не закрыт: он отменяется.
+     * Удаление — отдельное право: это разрыв связи с нарядом и историей.
+     * Живой наряд и сделка с нарядом в цеху не удаляются вовсе (`canBeDeleted`).
      */
     public function delete(User $user, Deal $deal): bool
     {
-        return $user->role === UserRole::Admin && $deal->canBeDeleted();
+        return AccessControl::allows($user, Permission::DealsDelete, AccessLevel::Full) && $deal->canBeDeleted();
     }
 
     public function deleteAny(User $user): bool
     {
-        return $user->role === UserRole::Admin;
+        return AccessControl::allows($user, Permission::DealsDelete, AccessLevel::Full);
     }
 
     /**
-     * Двигать по воронке: продажи — своих сделок, цех — своих нарядов.
-     * Менеджер наряды не закрывает: закрытие этапа — это сдельная оплата,
-     * а её начисляет цех.
+     * Двигать по воронке: решает право на саму воронку, а не на список.
+     * Поэтому цех двигает наряды, не имея полного доступа к карточкам сделок.
      */
     public function move(User $user, Deal $deal): bool
     {
-        return match ($user->role) {
-            UserRole::Admin => true,
-            UserRole::Manager => ! $deal->isFactoryOrder(),
-            UserRole::Master => $deal->isFactoryOrder(),
-            default => false,
-        };
+        $level = AccessControl::levelFor($user, $this->pipelineRight($deal));
+
+        if (! $level->canWrite()) {
+            return false;
+        }
+
+        return $level === AccessLevel::Full || $this->owns($user, $deal);
+    }
+
+    /** Отказ клиента: сделка закрывается со статусом «Отменена». */
+    public function cancel(User $user, Deal $deal): bool
+    {
+        if ($deal->isFactoryOrder()) {
+            return false;
+        }
+
+        $level = AccessControl::levelFor($user, Permission::DealsCancel);
+
+        if (! $level->canWrite()) {
+            return false;
+        }
+
+        return $level === AccessLevel::Full || $this->owns($user, $deal);
+    }
+
+    /** Отметка оплаты и блокировка отгрузки — полномочие финансов. */
+    public function flagPayment(User $user, Deal $deal): bool
+    {
+        return ! $deal->isFactoryOrder()
+            && AccessControl::allows($user, Permission::DealsPaymentFlag, AccessLevel::Full);
+    }
+
+    /** Ответственный менеджер сделки; для наряда — менеджер его сделки. */
+    public function owns(User $user, Deal $deal): bool
+    {
+        $ownerId = $deal->salesDeal()->manager_id;
+
+        // Сделка без ответственного не должна пропасть из системы: пока менеджер
+        // не назначен, её видит каждый, кто работает на уровне «только свои».
+        return $ownerId === null || $ownerId === $user->id;
+    }
+
+    /** Слабейший из двух уровней: список и воронка ограничивают друг друга. */
+    private function levelFor(User $user, Deal $deal): AccessLevel
+    {
+        return $this->weakest(
+            AccessControl::levelFor($user, Permission::WorkDeals),
+            AccessControl::levelFor($user, $this->pipelineRight($deal)),
+        );
+    }
+
+    private function pipelineRight(Deal $deal): Permission
+    {
+        return $deal->isFactoryOrder() ? Permission::WorkFactoryKanban : Permission::WorkSalesKanban;
+    }
+
+    private function weakest(AccessLevel $a, AccessLevel $b): AccessLevel
+    {
+        return $a->weight() <= $b->weight() ? $a : $b;
     }
 }

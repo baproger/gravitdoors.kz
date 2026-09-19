@@ -4,19 +4,21 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
+use App\Enums\AccessLevel;
+use App\Enums\Permission;
 use App\Models\Expense;
 use App\Models\User;
+use App\Services\AccessControl;
 
 /**
- * Расходы видят и вносят продажи и администратор; подтверждает — администратор.
- * Менеджер правит только свои неподтверждённые записи.
+ * Расходы. Подтверждение — отдельное право: сняв его, директор оставляет
+ * проверку за собой, а раздел остаётся доступным для ввода.
  */
 class ExpensePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->role->seesMoney();
+        return AccessControl::allows($user, Permission::FinanceExpenses);
     }
 
     public function view(User $user, Expense $expense): bool
@@ -26,33 +28,28 @@ class ExpensePolicy
 
     public function create(User $user): bool
     {
-        return $user->role->seesMoney();
+        return AccessControl::allows($user, Permission::FinanceExpenses, AccessLevel::Full);
     }
 
+    /** Подтверждённый расход — уже деньги в отчёте: его отклоняют, а не правят. */
     public function update(User $user, Expense $expense): bool
     {
-        if ($user->role === UserRole::Admin) {
-            return true;
-        }
-
-        return $user->role === UserRole::Manager
-            && ! $expense->isApproved()
-            && ($expense->user_id === null || $expense->user_id === $user->id);
+        return $this->create($user) && ! $expense->isApproved();
     }
 
     public function delete(User $user, Expense $expense): bool
     {
-        return $user->role === UserRole::Admin && $expense->canBeDeleted();
+        return $this->create($user) && $expense->canBeDeleted();
     }
 
     public function deleteAny(User $user): bool
     {
-        return $user->role === UserRole::Admin;
+        return $this->create($user);
     }
 
-    /** Подтверждение и отклонение — только администратор: это признание денег потраченными. */
     public function approve(User $user, Expense $expense): bool
     {
-        return $user->role === UserRole::Admin;
+        return $this->create($user)
+            && AccessControl::allows($user, Permission::FinanceApprove, AccessLevel::Full);
     }
 }

@@ -125,6 +125,12 @@
         </p>
     @endif
 
+    @if ($record->isShipmentBlocked())
+        <p class="gravit-stepper__hint gravit-stepper__hint--overdue">
+            Отгрузка заблокирована финансами{{ $record->shipment_block_reason ? ': '.$record->shipment_block_reason : '' }}. Дальше «Передано в производство» сделка не пойдёт, пока блокировку не снимут.
+        </p>
+    @endif
+
     @if ($record->isOverdue())
         <p class="gravit-stepper__hint gravit-stepper__hint--overdue">
             Срок сдачи {{ $record->due_date->format('d.m.Y') }} прошёл — просрочка {{ $record->overdueDays() }} {{ \App\Support\Plural::choose($record->overdueDays(), 'день', 'дня', 'дней') }}.

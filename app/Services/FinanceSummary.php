@@ -20,6 +20,7 @@ use App\Models\ProductionLog;
 use App\Models\SalarySheet;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Support\Concerns\RemembersResults;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -34,6 +35,8 @@ use Illuminate\Support\Collection;
  */
 class FinanceSummary
 {
+    use RemembersResults;
+
     /** Период: null — за всё время, иначе месяц. */
     public function __construct(
         private readonly ?CarbonImmutable $from = null,
@@ -60,37 +63,49 @@ class FinanceSummary
     /** Сумма договоров: все сделки продаж, кроме отменённых. За месяц — созданные в нём. */
     public function contracts(): float
     {
-        return round((float) $this->salesDeals()->sum('total_price'), 2);
+        return $this->once('contracts', function () {
+            return round((float) $this->salesDeals()->sum('total_price'), 2);
+        });
     }
 
     public function contractsCount(): int
     {
-        return $this->salesDeals()->count();
+        return $this->once('contractsCount', function () {
+            return $this->salesDeals()->count();
+        });
     }
 
     /** Дебиторка: сколько клиенты ещё должны по открытым сделкам (без привязки к периоду). */
     public function receivables(): float
     {
-        return round((float) Deal::query()->sales()->open()
-            ->selectRaw('SUM(CASE WHEN total_price > prepayment THEN total_price - prepayment ELSE 0 END) as due')
-            ->value('due'), 2);
+        return $this->once('receivables', function () {
+            return round((float) Deal::query()->sales()->open()
+                ->selectRaw('SUM(CASE WHEN total_price > prepayment THEN total_price - prepayment ELSE 0 END) as due')
+                ->value('due'), 2);
+        });
     }
 
     public function receivablesCount(): int
     {
-        return Deal::query()->sales()->open()->whereColumn('total_price', '>', 'prepayment')->count();
+        return $this->once('receivablesCount', function () {
+            return Deal::query()->sales()->open()->whereColumn('total_price', '>', 'prepayment')->count();
+        });
     }
 
     /** Поступления: платежи по сделкам с чеком. */
     public function receipts(): float
     {
-        return round((float) $this->payments()->sum('amount'), 2);
+        return $this->once('receipts', function () {
+            return round((float) $this->payments()->sum('amount'), 2);
+        });
     }
 
     /** Наличные поступления — то, что лежит в кассе. */
     public function receiptsCash(): float
     {
-        return round((float) $this->payments()->where('method', PaymentMethod::Cash->value)->sum('amount'), 2);
+        return $this->once('receiptsCash', function () {
+            return round((float) $this->payments()->where('method', PaymentMethod::Cash->value)->sum('amount'), 2);
+        });
     }
 
     /** Безналичные (карта, Kaspi, перевод) — банк. */
@@ -102,26 +117,30 @@ class FinanceSummary
     /** @return array<string, float> способ оплаты → сумма */
     public function receiptsByMethod(): array
     {
-        return $this->payments()
-            ->selectRaw('method, SUM(amount) as total')
-            ->groupBy('method')
-            ->pluck('total', 'method')
-            ->map(fn ($v): float => round((float) $v, 2))
-            ->all();
+        return $this->once('receiptsByMethod', function () {
+            return $this->payments()
+                ->selectRaw('method, SUM(amount) as total')
+                ->groupBy('method')
+                ->pluck('total', 'method')
+                ->map(fn ($v): float => round((float) $v, 2))
+                ->all();
+        });
     }
 
     /** Сдельная оплата цеха по закрытым этапам. */
     public function piecework(): float
     {
-        $query = ProductionLog::query()
-            ->where('status', ProductionStatus::Done->value)
-            ->whereNotNull('worker_id');
+        return $this->once('piecework', function () {
+            $query = ProductionLog::query()
+                ->where('status', ProductionStatus::Done->value)
+                ->whereNotNull('worker_id');
 
-        if ($this->from) {
-            $query->whereBetween('finished_at', [$this->from, $this->to]);
-        }
+            if ($this->from) {
+                $query->whereBetween('finished_at', [$this->from, $this->to]);
+            }
 
-        return round((float) $query->sum('payout'), 2);
+            return round((float) $query->sum('payout'), 2);
+        });
     }
 
     /**
@@ -130,35 +149,39 @@ class FinanceSummary
      */
     public function salaries(): float
     {
-        $users = User::query()->where('is_active', true)->where('salary', '>', 0)->get();
+        return $this->once('salaries', function () {
+            $users = User::query()->where('is_active', true)->where('salary', '>', 0)->get();
 
-        if ($this->from) {
-            $to = $this->to;
+            if ($this->from) {
+                $to = $this->to;
 
-            return round((float) $users
-                ->filter(fn (User $u): bool => $u->hired_at === null || $u->hired_at->lte($to))
-                ->sum(fn (User $u): float => (float) $u->salary), 2);
-        }
+                return round((float) $users
+                    ->filter(fn (User $u): bool => $u->hired_at === null || $u->hired_at->lte($to))
+                    ->sum(fn (User $u): float => (float) $u->salary), 2);
+            }
 
-        return round((float) $users->sum(function (User $u): float {
-            $months = $u->hired_at ? max(1, (int) $u->hired_at->diffInMonths(now()) + 1) : 1;
+            return round((float) $users->sum(function (User $u): float {
+                $months = $u->hired_at ? max(1, (int) $u->hired_at->diffInMonths(now()) + 1) : 1;
 
-            return (float) $u->salary * $months;
-        }), 2);
+                return (float) $u->salary * $months;
+            }), 2);
+        });
     }
 
     /** Закуп материалов: приход на склад не по наряду (возвраты по нарядам — не закуп). */
     public function purchases(): float
     {
-        $query = StockMovement::query()
-            ->where('type', StockMovement::TYPE_IN)
-            ->whereNull('deal_id');
+        return $this->once('purchases', function () {
+            $query = StockMovement::query()
+                ->where('type', StockMovement::TYPE_IN)
+                ->whereNull('deal_id');
 
-        if ($this->from) {
-            $query->whereBetween('created_at', [$this->from, $this->to]);
-        }
+            if ($this->from) {
+                $query->whereBetween('created_at', [$this->from, $this->to]);
+            }
 
-        return round((float) $query->selectRaw('SUM(quantity * price_per_unit) as total')->value('total'), 2);
+            return round((float) $query->selectRaw('SUM(quantity * price_per_unit) as total')->value('total'), 2);
+        });
     }
 
     /**
@@ -168,29 +191,35 @@ class FinanceSummary
      */
     public function approvedExpensesByCategory(): array
     {
-        $query = Expense::query()->approved();
+        return $this->once('approvedExpensesByCategory', function () {
+            $query = Expense::query()->approved();
 
-        if ($this->from) {
-            $query->whereBetween('spent_at', [$this->from->toDateString(), $this->to->toDateString()]);
-        }
+            if ($this->from) {
+                $query->whereBetween('spent_at', [$this->from->toDateString(), $this->to->toDateString()]);
+            }
 
-        return $query->selectRaw('category, SUM(amount) as total')
-            ->groupBy('category')
-            ->orderByDesc('total')
-            ->pluck('total', 'category')
-            ->map(fn ($v): float => round((float) $v, 2))
-            ->all();
+            return $query->selectRaw('category, SUM(amount) as total')
+                ->groupBy('category')
+                ->orderByDesc('total')
+                ->pluck('total', 'category')
+                ->map(fn ($v): float => round((float) $v, 2))
+                ->all();
+        });
     }
 
     /** Сумма утверждённых ведомостей за период (оклад + сдельно + бонусы − удержания). */
     public function payrollSheets(): float
     {
-        return round((float) $this->sheetsQuery()->sum('total'), 2);
+        return $this->once('payrollSheets', function () {
+            return round((float) $this->sheetsQuery()->sum('total'), 2);
+        });
     }
 
     public function hasPayrollSheets(): bool
     {
-        return $this->sheetsQuery()->exists();
+        return $this->once('hasPayrollSheets', function () {
+            return $this->sheetsQuery()->exists();
+        });
     }
 
     /** @return Builder<SalarySheet> */
@@ -208,30 +237,32 @@ class FinanceSummary
     /** @return list<array{label: string, value: float}> */
     public function expenseLines(): array
     {
-        // Есть утверждённая ведомость — она и есть зарплата (оклад, сдельно, бонусы в ней).
-        // Нет — оценка по окладам и сдельная оплата по закрытым этапам.
-        $lines = $this->hasPayrollSheets()
-            ? [['label' => 'Зарплата по ведомости', 'value' => $this->payrollSheets()]]
-            : [
-                ['label' => 'Сдельная оплата цеха', 'value' => $this->piecework()],
-                ['label' => 'Оклады (оценка)', 'value' => $this->salaries()],
-            ];
+        return $this->once('expenseLines', function () {
+            // Есть утверждённая ведомость — она и есть зарплата (оклад, сдельно, бонусы в ней).
+            // Нет — оценка по окладам и сдельная оплата по закрытым этапам.
+            $lines = $this->hasPayrollSheets()
+                ? [['label' => 'Зарплата по ведомости', 'value' => $this->payrollSheets()]]
+                : [
+                    ['label' => 'Сдельная оплата цеха', 'value' => $this->piecework()],
+                    ['label' => 'Оклады (оценка)', 'value' => $this->salaries()],
+                ];
 
-        $lines[] = ['label' => 'Закуп материалов', 'value' => $this->purchases()];
+            $lines[] = ['label' => 'Закуп материалов', 'value' => $this->purchases()];
 
-        foreach ($this->approvedExpensesByCategory() as $category => $total) {
-            // Выплаты зарплаты — расходы категории «Зарплата»; в отчёте они уже учтены ведомостью.
-            if ($category === ExpenseCategory::Salary->value) {
-                continue;
+            foreach ($this->approvedExpensesByCategory() as $category => $total) {
+                // Выплаты зарплаты — расходы категории «Зарплата»; в отчёте они уже учтены ведомостью.
+                if ($category === ExpenseCategory::Salary->value) {
+                    continue;
+                }
+
+                $lines[] = [
+                    'label' => ExpenseCategory::tryFrom((string) $category)?->getLabel() ?? (string) $category,
+                    'value' => $total,
+                ];
             }
 
-            $lines[] = [
-                'label' => ExpenseCategory::tryFrom((string) $category)?->getLabel() ?? (string) $category,
-                'value' => $total,
-            ];
-        }
-
-        return $lines;
+            return $lines;
+        });
     }
 
     public function expenses(): float
@@ -248,41 +279,55 @@ class FinanceSummary
     /** Остаток по всем активным счетам типа «касса» на конец периода. */
     public function cashBalance(): float
     {
-        return $this->balanceOf(CashAccountType::Cash);
+        return $this->once('cashBalance', function () {
+            return $this->balanceOf(CashAccountType::Cash);
+        });
     }
 
     /** Остаток по всем активным банковским счетам на конец периода. */
     public function bankBalance(): float
     {
-        return $this->balanceOf(CashAccountType::Bank);
+        return $this->once('bankBalance', function () {
+            return $this->balanceOf(CashAccountType::Bank);
+        });
     }
 
     /** Долги компании: остаток по открытым (без привязки к периоду). */
     public function debts(): float
     {
-        return round((float) Debt::query()->open()->selectRaw('SUM(amount - paid_amount) as due')->value('due'), 2);
+        return $this->once('debts', function () {
+            return round((float) Debt::query()->open()->selectRaw('SUM(amount - paid_amount) as due')->value('due'), 2);
+        });
     }
 
     public function debtsCount(): int
     {
-        return Debt::query()->open()->count();
+        return $this->once('debtsCount', function () {
+            return Debt::query()->open()->count();
+        });
     }
 
     /** @return Collection<int, Debt> */
     public function openDebts(): Collection
     {
-        return Debt::query()->open()->orderBy('due_at')->get();
+        return $this->once('openDebts', function () {
+            return Debt::query()->open()->orderBy('due_at')->get();
+        });
     }
 
     /** @return Collection<int, CashAccount> */
     public function accounts(): Collection
     {
-        return CashAccount::query()->where('is_active', true)->orderBy('type')->orderBy('id')->get();
+        return $this->once('accounts', function () {
+            return CashAccount::query()->where('is_active', true)->orderBy('type')->orderBy('id')->get();
+        });
     }
 
     public function hasAccounts(): bool
     {
-        return CashAccount::query()->where('is_active', true)->exists();
+        return $this->once('hasAccounts', function () {
+            return CashAccount::query()->where('is_active', true)->exists();
+        });
     }
 
     private function balanceOf(CashAccountType $type): float
@@ -294,8 +339,10 @@ class FinanceSummary
     /** Стоимость остатков склада по учётной цене. */
     public function stockValue(): float
     {
-        return round((float) MaterialStock::query()->where('is_active', true)
-            ->selectRaw('SUM(quantity * price_per_unit) as total')->value('total'), 2);
+        return $this->once('stockValue', function () {
+            return round((float) MaterialStock::query()->where('is_active', true)
+                ->selectRaw('SUM(quantity * price_per_unit) as total')->value('total'), 2);
+        });
     }
 
     /** @return Builder<Deal> */

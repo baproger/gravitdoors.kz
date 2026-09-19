@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\Permission;
 use App\Models\Setting;
+use App\Services\AccessControl;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -31,7 +33,7 @@ class WorkshopAccess extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return AccessControl::can(Permission::SettingsWorkshop);
     }
 
     public function mount(): void

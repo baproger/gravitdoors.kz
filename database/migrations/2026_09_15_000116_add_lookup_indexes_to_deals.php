@@ -25,11 +25,18 @@ return new class extends Migration
 
     public function down(): void
     {
+        // MySQL: когда появляется индекс, пригодный для внешнего ключа, он молча
+        // удаляет свой служебный индекс ключа и переводит ключ на новый. Поэтому
+        // удалить наш индекс можно только сняв ключ, а после — вернув его.
         Schema::table('deals', function (Blueprint $table): void {
+            $table->dropForeign(['parent_deal_id']);
+            $table->dropForeign(['current_stage_id']);
             $table->dropIndex(['parent_deal_id']);
             $table->dropIndex(['current_stage_id']);
             $table->dropIndex(['pipeline_type', 'status_id']);
             $table->dropIndex(['due_date']);
+            $table->foreign('parent_deal_id')->references('id')->on('deals')->cascadeOnDelete();
+            $table->foreign('current_stage_id')->references('id')->on('factory_stages')->nullOnDelete();
         });
     }
 };

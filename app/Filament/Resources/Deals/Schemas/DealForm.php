@@ -10,12 +10,14 @@ use App\Enums\DealStatus;
 use App\Enums\DoorCategory;
 use App\Enums\DoorModel;
 use App\Enums\PaymentMethod;
+use App\Enums\Permission;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
 use App\Models\CashAccount;
 use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\User;
+use App\Services\AccessControl;
 use App\Support\Money;
 use App\Support\Validation;
 use Carbon\Carbon;
@@ -74,7 +76,7 @@ class DealForm
 
                         Tab::make('Оплата')
                             ->icon('heroicon-o-banknotes')
-                            ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false)
+                            ->visible(fn (): bool => AccessControl::can(Permission::KanbanMoney))
                             ->schema(self::paymentFields()),
 
                         Tab::make('Договор')
@@ -369,7 +371,7 @@ class DealForm
     {
         return Section::make('Сводка')
             ->icon('heroicon-o-calculator')
-            ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false)
+            ->visible(fn (): bool => AccessControl::can(Permission::KanbanMoney))
             ->schema([
                 Placeholder::make('summary')
                     ->hiddenLabel()

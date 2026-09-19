@@ -114,7 +114,7 @@
                     <ul class="gravit-list">
                         @forelse ($this->deals() as $deal)
                             <li class="gravit-list__row">
-                                <a href="{{ \App\Filament\Resources\Deals\DealResource::getUrl('edit', ['record' => $deal]) }}"
+                                <a href="{{ \App\Filament\Resources\Deals\DealResource::cardUrl($deal) }}"
                                    class="gravit-list__main">
                                     <span class="gravit-list__title">{{ $deal->number }} · {{ $deal->clientTitle() }}</span>
                                     <span class="gravit-list__sub">

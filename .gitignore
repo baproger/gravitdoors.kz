@@ -13,7 +13,9 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
+# public/build хранится в git намеренно: на сервере с 1 ГБ памяти Vite не собирается,
+# фронтенд собирается локально (npm run build) и коммитится вместе с кодом.
+# /public/build
 /public/css/filament
 /public/fonts/filament
 /public/hot

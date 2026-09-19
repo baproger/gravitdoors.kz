@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Enums\Permission;
 use App\Enums\UserRole;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
+use App\Services\AccessControl;
 use App\Support\Money;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -16,6 +18,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class UsersTable
@@ -49,7 +52,7 @@ class UsersTable
                     ->formatStateUsing(fn ($state): string => Money::format($state))
                     ->alignEnd()
                     ->visibleFrom('lg')
-                    ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
+                    ->visible(fn (): bool => AccessControl::can(Permission::EmployeesFinance)),
 
                 TextColumn::make('payout')
                     ->label('Сдельно за месяц')
@@ -63,7 +66,13 @@ class UsersTable
                     ->disabled(fn (User $record): bool => ! (auth()->user()?->can('update', $record) ?? false)),
             ])
             ->filters([
-                SelectFilter::make('role')->label('Роль')->options(UserRole::class),
+                SelectFilter::make('role')->label('Роль')->options(UserRole::class)->multiple(),
+
+                TernaryFilter::make('is_active')
+                    ->label('Доступ в систему')
+                    ->placeholder('Все сотрудники')
+                    ->trueLabel('Только работающие')
+                    ->falseLabel('Только отключённые'),
             ])
             ->recordActions([EditAction::make()->iconButton(), DeleteAction::make()->iconButton()])
             ->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);

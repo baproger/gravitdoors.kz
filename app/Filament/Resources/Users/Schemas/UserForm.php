@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Enums\AccessLevel;
+use App\Enums\Permission;
 use App\Enums\UserRole;
 use App\Models\Setting;
+use App\Services\AccessControl;
 use App\Support\Validation;
 use Closure;
 use Filament\Forms\Components\DatePicker;
@@ -102,7 +105,7 @@ class UserForm
 
             Section::make('Условия работы')
                 ->description('Видит и правит только администратор')
-                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->visible(fn (): bool => AccessControl::can(Permission::EmployeesFinance, AccessLevel::Full))
                 ->columns(3)
                 ->schema([
                     TextInput::make('salary')

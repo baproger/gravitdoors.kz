@@ -32,6 +32,8 @@ class FinanceBonusAccrualTest extends TestCase
 
     private User $manager;
 
+    private User $hr;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -39,6 +41,7 @@ class FinanceBonusAccrualTest extends TestCase
         $this->seed([FactoryStageSeeder::class]);
         $this->admin = User::factory()->create(['role' => UserRole::Admin->value, 'salary' => 0]);
         $this->manager = User::factory()->create(['role' => UserRole::Manager->value, 'salary' => 0]);
+        $this->hr = User::factory()->create(['role' => UserRole::Hr->value, 'salary' => 0]);
         $this->actingAs($this->admin);
     }
 

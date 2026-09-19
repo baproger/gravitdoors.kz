@@ -20,9 +20,23 @@
 
 ---
 
-# ЧАСТЬ A. Роли и права
+# ЧАСТЬ A. Роли и права — ВЫПОЛНЕНА
 
-## Шаг 1. Новые роли
+> Файлы: `app/Enums/{Permission,AccessLevel,UserRole}.php`, `app/Services/AccessControl.php`,
+> `app/Models/RolePermission.php`, миграции `create_role_permissions_table` и
+> `add_shipment_block_to_deals`, `app/Filament/Pages/AccessMatrix.php` (+ blade и стили `am-*`),
+> `app/Filament/Resources/Deals/Pages/ViewDeal.php`, `Deal::scopeVisibleTo()`,
+> `DoorProductionService::{setShipmentBlock,adjustMaterials}`, все политики в `app/Policies`.
+> Тесты: `AccessControlTest`, `AccessMatrixPageTest`, `RoleMatrixAcceptanceTest`, `OwnScopeTest`,
+> `ReadOnlyAccessTest`, `ShipmentBlockTest`, `FactoryMaterialsTest`.
+>
+> Отличия от первоначального плана:
+> - добавлено право `finance.approve` («Подтверждение расходов, бонусов и выплат»): без него
+>   уровень «Полный» в разделе означал бы и ввод, и самопроверку одним человеком;
+> - вместо «выключенной формы» для читателей сделана отдельная страница просмотра карточки;
+> - сделка без ответственного остаётся видимой на уровне «только свои», чтобы не потеряться.
+
+## Шаг 1. Новые роли — СДЕЛАНО
 
 `app/Enums/UserRole.php` — добавить, не меняя значения существующих (в базе уже лежат строки):
 
@@ -42,7 +56,7 @@
 - `Department::forRole()` (`app/Enums/Department.php:54`) — `Accountant`, `Hr` → `Department::Sales`? Нет: завести `Department::Finance` и `Department::Hr` с ярлыками «Финансы» и «Кадры», чтобы история сделки не врала об отделе.
 - `database/seeders/DemoDataSeeder.php` — добавить `accountant@gravit.kz` и `hr@gravit.kz` (пароль `password`), как сделано для `worker@gravit.kz`. Обновить список доступов в `project.md` §2 и `README.md`.
 
-## Шаг 2. Реестр прав: что вообще можно разрешать
+## Шаг 2. Реестр прав — СДЕЛАНО
 
 **`app/Enums/AccessLevel.php`** (string enum, `HasLabel`, `HasColor`):
 
@@ -100,7 +114,7 @@ employees.finance      Оклады, ставки, бонусный %           
 factory.materials      Отметка фактических материалов        none full
 ```
 
-## Шаг 3. Хранилище и сервис доступа
+## Шаг 3. Хранилище и сервис доступа — СДЕЛАНО
 
 **Миграция `create_role_permissions_table`**: `role` (string 20), `permission` (string 40), `level` (string 10), `updated_by`, timestamps, `unique(role, permission)`.
 В базе хранятся **только отличия от значений по умолчанию** — система работает сразу после установки, а «Сбросить к рекомендуемым» = удалить строки роли.
@@ -120,7 +134,7 @@ reset(UserRole $role): void
 
 **Фасад для удобства**: хелпер `can_access(Permission::WorkDeals, AccessLevel::Full)` в `app/Support/helpers.php` (подключить в `composer.json` → `autoload.files`), чтобы blade-шаблоны не тянули сервис руками.
 
-## Шаг 4. Экран «Настройки → Роли и доступы»
+## Шаг 4. Экран «Настройки → Роли и доступы» — СДЕЛАНО
 
 `app/Filament/Pages/AccessMatrix.php` (`/admin/access`), `canAccess()` — только `settings.access` = Full (по умолчанию только Директор).
 
@@ -131,7 +145,7 @@ reset(UserRole $role): void
 
 **Правила сервера**: нельзя выключить `settings.access` у Директора; нельзя выдать уровень, которого нет в `levels()`; менять матрицу может только тот, у кого `settings.access` = Full.
 
-## Шаг 5. Перевести весь код на реестр
+## Шаг 5. Перевести весь код на реестр — СДЕЛАНО
 
 Механическая, но обязательная часть. По каждому файлу заменить проверку роли на `AccessControl`:
 
@@ -147,7 +161,7 @@ reset(UserRole $role): void
 
 Проверка шага: `grep -rn "UserRole::" app | grep -vE "Enums/(UserRole|Permission|Department)|Services/AccessControl"` → пусто.
 
-## Шаг 6. «Только свои» (уровень `Own`)
+## Шаг 6. «Только свои» — СДЕЛАНО
 
 Где это должно работать:
 
@@ -158,21 +172,21 @@ reset(UserRole $role): void
 - **`Invoices`, `Incomes`**: при `Own` — только сделки, где он менеджер.
 - **`deals.cancel` = Own**: менеджер может отменить только свою сделку; удаление (`deals.delete`) ему недоступно — вместо удаления «Отказ» с обязательной причиной (действие `cancelDeal` в `EditDeal` уже есть, добавить обязательный выбор причины из справочника «Причины отказа», шаг 13).
 
-## Шаг 7. Режим «Только чтение»
+## Шаг 7. Режим «Только чтение» — СДЕЛАНО
 
 - **Канбан**: при `Read` карточки не перетаскиваются, стрелки «←→» и «Готово ✓» скрыты (в blade уже есть `$canMove` — свести к `AccessControl`), кнопка «Открыть» ведёт на карточку в режиме просмотра.
 - **Карточка сделки**: при `Read` форма открывается с `disabled()` на всех полях (в `DealResource` — `canEdit()`), полоса этапов не кликается, шапка без «Отменить сделку» и «Удалить».
 - **Списки**: при `Read` скрыты `CreateAction`, `EditAction`, `DeleteAction` и массовые действия (у всех уже есть `->authorize()`, достаточно завести их на права).
 - **Склад**: при `Read` — без «Прихода», правки остатков и удаления.
 
-## Шаг 8. Полномочия внутри Канбана по ролям
+## Шаг 8. Полномочия внутри Канбана по ролям — СДЕЛАНО
 
 - **Бухгалтер** (`deals.payment_flag` = Full): на карточке сделки и в списке — действие «Отметить оплату» (уже есть приём оплаты) и **флаг блокировки отгрузки**: новое поле `deals.shipment_blocked` + причина. Пока флаг стоит, `DoorProductionService::guardTransition()` не пускает сделку на этап с `completes_production`/отгрузку — бросает `ProductionException::shipmentBlocked()`. Снимает флаг тот же, кто ставил (или Директор). На канбане — красная пилюля «Отгрузка заблокирована: долг».
 - **HR** (`work.deals` = Read + `finance.salary_sheets` Full): на карточках видит автора, исполнителей и время на этапе (уже есть), но без сумм — выдаётся через `kanban.money` = None.
 - **Производство** (`factory.materials` = Full): в карточке наряда — вкладка «Материалы» с фактическим списанием (кнопка «Отметить фактический расход»: корректировка `stock_movements` с комментарием и автором). Плановый расход уже считает `DoorProductionService::materialRequirements()` — показать план и факт рядом.
 - **Менеджер**: `work.factory_kanban` = Read — видит, где его заказ в цеху, но не двигает.
 
-## Шаг 9. Финансы и сотрудники по матрице
+## Шаг 9. Финансы и сотрудники по матрице — СДЕЛАНО
 
 - **Бухгалтер** получает всё финансовое, включая подтверждение расходов и выплаты (сейчас это жёстко «только admin» в `ExpensePolicy::approve`, `DebtPolicy::pay`, `SalarySheetPolicy::approve/pay`) → перевести на права `finance.expenses`/`finance.debts`/`finance.salary_sheets` = Full.
 - **HR** получает `finance.payroll_shop`, `finance.salary_sheets`, `finance.bonuses` = Full и `settings.employees` = Full, но `finance.overview/cash/invoices/...` = None. Проверить, что страница «Зарплата» не тянет запрещённые данные (она берёт только ведомости — ок).
@@ -302,7 +316,10 @@ Enum'ы **не удалять**: оставить как значения по �
 7. `README.md` + `project.md`.
 8. Коммит `feat(access): <шаг>` / `feat(settings): <шаг>` — только если владелец просит коммитить.
 
-## Проверка всей части A (приёмка)
+## Проверка всей части A (приёмка) — автоматизирована
+
+`tests/Feature/RoleMatrixAcceptanceTest.php` проходит все 21 пункт меню каждой из семи ролей
+и требует ровно 200 или 403. Ручной сценарий ниже оставлен для проверки глазами.
 
 Завести по одному пользователю каждой роли и пройти сценарий:
 - Менеджер: видит свою сделку и не видит чужую (список, канбан, просроченные, поиск, прямой URL → 403); не видит итог воронки; не может удалить сделку; «Моя зарплата» открывается, «Обзор финансов» — 403.

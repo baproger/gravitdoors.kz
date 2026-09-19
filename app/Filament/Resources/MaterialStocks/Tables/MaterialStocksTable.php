@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaterialStocks\Tables;
 
+use App\Enums\Permission;
 use App\Models\MaterialStock;
 use App\Models\StockMovement;
+use App\Services\AccessControl;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -16,6 +18,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -54,18 +58,29 @@ class MaterialStocksTable
                     ->formatStateUsing(fn ($state): string => Money::format($state))
                     ->sortable()
                     ->alignEnd()
-                    ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
+                    ->visible(fn (): bool => AccessControl::can(Permission::KanbanMoney)),
 
                 TextColumn::make('stock_value')
                     ->label('Стоимость остатка')
                     ->state(fn (MaterialStock $record): float => $record->stockValue())
                     ->formatStateUsing(fn ($state): string => Money::format($state))
                     ->alignEnd()
-                    ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
+                    ->visible(fn (): bool => AccessControl::can(Permission::KanbanMoney)),
 
                 TextColumn::make('supplier')->label('Поставщик')->toggleable()->placeholder('—'),
             ])
             ->filters([
+                TernaryFilter::make('is_active')
+                    ->label('В обороте')
+                    ->placeholder('Все позиции')
+                    ->trueLabel('Только в обороте')
+                    ->falseLabel('Только снятые'),
+
+                SelectFilter::make('supplier')
+                    ->label('Поставщик')
+                    ->options(fn (): array => MaterialStock::query()->whereNotNull('supplier')
+                        ->distinct()->orderBy('supplier')->pluck('supplier', 'supplier')->all()),
+
                 Filter::make('below_limit')
                     ->label('Ниже минимума')
                     ->query(fn ($query) => $query->belowLimit()),
@@ -73,6 +88,7 @@ class MaterialStocksTable
             ->recordActions([
                 Action::make('receipt')
                     ->label('Приход')
+                    ->authorize(fn (MaterialStock $record): bool => auth()->user()?->can('update', $record) ?? false)
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
                     ->modalHeading(fn (MaterialStock $record): string => "Приход: {$record->name}")
@@ -91,7 +107,7 @@ class MaterialStocksTable
                             ->minValue(0)
                             ->default(fn (MaterialStock $record): string => (string) $record->price_per_unit)
                             ->suffix(config('gravit.currency.symbol'))
-                            ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
+                            ->visible(fn (): bool => AccessControl::can(Permission::KanbanMoney)),
 
                         TextInput::make('comment')->label('Комментарий')->placeholder('Накладная №…'),
                     ])

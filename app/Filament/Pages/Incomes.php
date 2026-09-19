@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\AccessLevel;
 use App\Enums\PaymentMethod;
+use App\Enums\Permission;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\CashAccount;
 use App\Models\Deal;
 use App\Models\DealPayment;
 use App\Models\User;
+use App\Services\AccessControl;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use BackedEnum;
 use Carbon\CarbonImmutable;
@@ -59,7 +63,7 @@ class Incomes extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::FinanceIncomes);
     }
 
     public function getTitle(): string
@@ -116,7 +120,7 @@ class Incomes extends Page implements HasTable
                 ->label('Добавить поступление')
                 ->icon('heroicon-o-plus')
                 ->modalHeading('Новое поступление')
-                ->authorize(fn (): bool => auth()->user()?->can('create', Deal::class) ?? false)
+                ->authorize(fn (): bool => AccessControl::can(Permission::FinanceIncomes, AccessLevel::Full))
                 ->schema([
                     Select::make('deal_id')
                         ->label('Сделка')
@@ -178,7 +182,7 @@ class Incomes extends Page implements HasTable
                 TextColumn::make('paid_at')->label('Дата')->date('d.m.Y')->sortable(),
                 TextColumn::make('deal.number')
                     ->label('Сделка')
-                    ->url(fn (DealPayment $record): string => DealResource::getUrl('edit', ['record' => $record->deal]))
+                    ->url(fn (DealPayment $record): string => DealResource::cardUrl($record->deal))
                     ->description(fn (DealPayment $record): string => $record->deal->clientTitle())
                     ->searchable(['deals.number', 'deals.client_name', 'deals.client_company'])
                     ->weight('semibold'),
@@ -195,8 +199,15 @@ class Incomes extends Page implements HasTable
                 TextColumn::make('user.name')->label('Принял')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('comment')->label('Комментарий')->placeholder('—')->wrap()->toggleable(),
             ])
+            ->filtersFormColumns(2)
             ->filters([
                 SelectFilter::make('method')->label('Способ')->options(PaymentMethod::class),
+                SelectFilter::make('account_id')
+                    ->label('Счёт')
+                    ->options(fn (): array => CashAccount::query()->orderBy('id')->pluck('name', 'id')->all()),
+
+                TableFilters::period('paid_at', 'Дата оплаты'),
+
                 SelectFilter::make('manager')
                     ->label('Менеджер')
                     ->options(fn (): array => User::query()->whereHas('deals')->orderBy('name')->pluck('name', 'id')->all())

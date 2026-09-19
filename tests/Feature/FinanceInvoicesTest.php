@@ -31,7 +31,8 @@ class FinanceInvoicesTest extends TestCase
         parent::setUp();
 
         $this->seed([FactoryStageSeeder::class, CashAccountSeeder::class]);
-        $this->actingAs(User::factory()->create(['role' => UserRole::Manager->value, 'salary' => 0]));
+        // Счета — раздел финансов: менеджер видит остаток в своей карточке сделки.
+        $this->actingAs(User::factory()->create(['role' => UserRole::Accountant->value, 'salary' => 0]));
     }
 
     public function test_tabs_split_deals_by_payment_state(): void
@@ -53,8 +54,10 @@ class FinanceInvoicesTest extends TestCase
 
         $this->get('/admin/invoices?mode=overdue')->assertOk()->assertSee($overdue->number)->assertDontSee($awaiting->number);
 
-        $this->actingAs(User::factory()->create(['role' => UserRole::Master->value]));
-        $this->get('/admin/invoices')->assertForbidden();
+        foreach ([UserRole::Master, UserRole::Manager, UserRole::Hr] as $role) {
+            $this->actingAs(User::factory()->create(['role' => $role->value]));
+            $this->get('/admin/invoices')->assertForbidden();
+        }
     }
 
     public function test_payment_from_the_list_and_reminder_in_history(): void

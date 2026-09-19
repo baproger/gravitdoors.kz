@@ -8,6 +8,7 @@ use App\Enums\ExpenseCategory;
 use App\Enums\ExpenseStatus;
 use App\Enums\PaymentMethod;
 use App\Models\Expense;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -17,7 +18,6 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -59,10 +59,11 @@ class ExpensesTable
             ->filters([
                 SelectFilter::make('category')->label('Категория')->options(ExpenseCategory::class)->multiple(),
                 SelectFilter::make('method')->label('Способ')->options(PaymentMethod::class),
-                Filter::make('month')
-                    ->label('Этот месяц')
-                    ->query(fn (Builder $query) => $query->whereBetween('spent_at', [now()->startOfMonth(), now()->endOfMonth()])),
+                SelectFilter::make('status')->label('Статус')->options(ExpenseStatus::class),
+                TableFilters::month('spent_at'),
+                TableFilters::period('spent_at', 'Дата расхода'),
             ])
+            ->filtersFormColumns(2)
             ->recordActions([
                 Action::make('receipt')
                     ->label('Чек')

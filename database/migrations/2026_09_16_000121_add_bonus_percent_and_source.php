@@ -25,7 +25,12 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('bonuses', fn (Blueprint $table) => $table->dropColumn('source'));
+        // Сначала индекс, потом колонка: SQLite не удаляет колонку, на которую
+        // ещё смотрит индекс, и откат падал.
+        Schema::table('bonuses', function (Blueprint $table): void {
+            $table->dropIndex(['source']);
+            $table->dropColumn('source');
+        });
         Schema::table('users', fn (Blueprint $table) => $table->dropColumn('bonus_percent'));
     }
 };

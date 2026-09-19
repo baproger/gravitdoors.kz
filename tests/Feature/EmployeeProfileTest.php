@@ -69,18 +69,25 @@ class EmployeeProfileTest extends TestCase
         $this->get('/admin/users')->assertForbidden();
     }
 
-    public function test_manager_sees_colleagues_but_not_their_salary(): void
+    public function test_colleague_card_is_for_hr_and_the_director_only(): void
     {
         $manager = User::factory()->create(['role' => UserRole::Manager->value]);
         $colleague = User::factory()->create(['role' => UserRole::Master->value, 'salary' => 999_111]);
 
+        // Свою карточку открывает каждый, чужую — только кадры и директор.
         $this->actingAs($manager);
+        $this->get("/admin/users/{$manager->id}")->assertOk();
+        $this->get("/admin/users/{$colleague->id}")->assertForbidden();
 
-        $this->get("/admin/users/{$colleague->id}")->assertOk()->assertDontSee('999 111');
+        $hr = User::factory()->create(['role' => UserRole::Hr->value]);
+        $this->actingAs($hr);
+        $this->get("/admin/users/{$colleague->id}")->assertOk()->assertSee('999 111');
 
-        $this->assertFalse(
-            Livewire::test(ViewUser::class, ['record' => $colleague->id])->instance()->canSeeMoney(),
-        );
+        // Бухгалтер видит карточку и оклад, но список сотрудников — только для чтения.
+        $accountant = User::factory()->create(['role' => UserRole::Accountant->value]);
+        $this->actingAs($accountant);
+        $this->assertTrue(Livewire::test(ViewUser::class, ['record' => $colleague->id])->instance()->canSeeMoney());
+        $this->assertFalse($accountant->can('update', $colleague));
     }
 
     public function test_everyone_can_open_their_own_card_and_see_their_salary(): void

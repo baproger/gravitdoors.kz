@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Deals\Pages;
 
 use App\Enums\DealStatus;
+use App\Enums\Permission;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
+use App\Services\AccessControl;
 use App\Support\Money;
 use App\Support\Plural;
 use Filament\Actions\CreateAction;
@@ -61,7 +63,7 @@ class ListDeals extends ListRecords
      */
     public function summary(): array
     {
-        $open = Deal::query()->sales()->open();
+        $open = Deal::query()->visibleTo(auth()->user())->sales()->open();
 
         $inWork = (clone $open)->count();
         $inWorkSum = (float) (clone $open)->sum('total_price');
@@ -128,19 +130,21 @@ class ListDeals extends ListRecords
         }
 
         return [
+            // Вкладка и её счётчик должны показывать одно и то же: в рабочих
+            // вкладках только открытые записи, закрытые — в «Все».
             'sales' => Tab::make('Отдел продаж')
                 ->icon('heroicon-o-briefcase')
-                ->badge(Deal::query()->sales()->open()->count())
-                ->modifyQueryUsing(fn ($query) => $query->sales()),
+                ->badge(Deal::query()->visibleTo(auth()->user())->sales()->open()->count())
+                ->modifyQueryUsing(fn ($query) => $query->sales()->open()),
 
             'factory' => Tab::make('Завод')
                 ->icon('heroicon-o-cog-6-tooth')
-                ->badge(Deal::query()->factoryOrders()->open()->count())
-                ->modifyQueryUsing(fn ($query) => $query->factoryOrders()),
+                ->badge(Deal::query()->visibleTo(auth()->user())->factoryOrders()->open()->count())
+                ->modifyQueryUsing(fn ($query) => $query->factoryOrders()->open()),
 
             // Единственная вкладка с закрытыми сделками — иначе сумма вкладок не сходилась бы с «Все».
             'all' => Tab::make('Все, включая закрытые')
-                ->badge(Deal::query()->count()),
+                ->badge(Deal::query()->visibleTo(auth()->user())->count()),
         ];
     }
 
@@ -151,6 +155,6 @@ class ListDeals extends ListRecords
 
     private function seesSalesPipeline(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::WorkSalesKanban);
     }
 }

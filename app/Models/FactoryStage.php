@@ -73,6 +73,23 @@ class FactoryStage extends Model
     /** @use HasFactory<FactoryStageFactory> */
     use HasFactory;
 
+    private static ?self $gate = null;
+
+    private static bool $gateResolved = false;
+
+    /** Сбросить память о воротах замера: этапы поменялись или начался новый тест. */
+    public static function flushMemo(): void
+    {
+        self::$gate = null;
+        self::$gateResolved = false;
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::flushMemo());
+        static::deleted(fn () => self::flushMemo());
+    }
+
     protected $fillable = [
         'pipeline_type', 'code', 'name', 'order', 'estimated_hours', 'operation_cost',
         'color', 'icon', 'description', 'is_initial', 'is_final',
@@ -178,7 +195,14 @@ class FactoryStage extends Model
      */
     public static function measurementGate(): ?self
     {
-        return static::query()
+        // Этап-«ворота» спрашивают на каждой карточке канбана и строке списка.
+        if (self::$gateResolved) {
+            return self::$gate;
+        }
+
+        self::$gateResolved = true;
+
+        return self::$gate = static::query()
             ->ofPipeline(PipelineType::Sales)
             ->active()
             ->ordered()

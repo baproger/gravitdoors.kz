@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockMovements\Tables;
 
+use App\Enums\Permission;
+use App\Models\MaterialStock;
 use App\Models\StockMovement;
+use App\Services\AccessControl;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class StockMovementsTable
 {
@@ -54,7 +60,7 @@ class StockMovementsTable
                     ->label('Сумма')
                     ->state(fn (StockMovement $record): string => Money::format($record->total()))
                     ->alignEnd()
-                    ->visible(fn (): bool => auth()->user()?->role->seesMoney() ?? false),
+                    ->visible(fn (): bool => AccessControl::can(Permission::KanbanMoney)),
 
                 TextColumn::make('deal.number')
                     ->label('Наряд')
@@ -72,7 +78,20 @@ class StockMovementsTable
                         StockMovement::TYPE_IN => 'Приход',
                         StockMovement::TYPE_OUT => 'Расход',
                     ]),
+
+                SelectFilter::make('material_stock_id')
+                    ->label('Материал')
+                    ->options(fn (): array => MaterialStock::query()->orderBy('name')->pluck('name', 'id')->all())
+                    ->searchable(),
+
+                Filter::make('by_order')
+                    ->label('Только по нарядам')
+                    ->toggle()
+                    ->query(fn (Builder $query) => $query->whereNotNull('deal_id')),
+
+                TableFilters::period('created_at', 'Дата движения'),
             ])
+            ->filtersFormColumns(2)
             ->emptyStateHeading('Движений пока нет');
     }
 }

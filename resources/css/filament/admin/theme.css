@@ -3270,3 +3270,417 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 
 /* Таймер на этапе не переносится: «39.6 ч ↺2» — одна строка. */
 .gravit-step__timer { white-space: nowrap; }
+
+/* ---------- Матрица доступа (Настройки → Роли и доступы) ---------- */
+
+.am__scroll {
+    overflow-x: auto;
+    border: 1px solid var(--gravit-border);
+    border-radius: 0.75rem;
+    background: #fff;
+}
+
+.dark .am__scroll { background: rgb(15 23 42); }
+
+.am__table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.8125rem;
+}
+
+.am__table th,
+.am__table td {
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--gravit-border);
+}
+
+/* Название права не уезжает при горизонтальной прокрутке. */
+.am__corner,
+.am__permission {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 15rem;
+    background: #fff;
+    border-right: 1px solid var(--gravit-border);
+}
+
+.dark .am__corner,
+.dark .am__permission { background: rgb(15 23 42); }
+
+.am__corner,
+.am__role {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--gravit-glass-strong);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gravit-muted);
+    white-space: nowrap;
+}
+
+.am__corner { z-index: 3; }
+
+.am__role-name { display: block; color: var(--gravit-text); text-transform: none; font-size: 0.75rem; }
+
+.am__role-note {
+    display: block;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.6875rem;
+    color: var(--gravit-muted);
+}
+
+.am__role-note--changed { color: rgb(180 83 9); }
+
+.am__group th {
+    background: var(--gravit-glass);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gravit-muted);
+    position: sticky;
+    left: 0;
+}
+
+.am__permission-name { display: block; font-weight: 600; color: var(--gravit-text); }
+
+.am__permission-hint {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: var(--gravit-muted);
+}
+
+.am__cell { text-align: center; }
+
+.am__select {
+    width: 100%;
+    min-width: 7.5rem;
+    min-height: 1.9rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: 0.5rem;
+    background: var(--gravit-glass-strong);
+    color: var(--gravit-text);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.am__select--none { color: var(--gravit-muted); font-weight: 500; }
+.am__select--read { color: rgb(2 132 199); }
+.am__select--own { color: rgb(180 83 9); }
+.am__select--full { color: rgb(21 128 61); }
+
+.am__select--changed {
+    border-color: rgb(217 119 6);
+    box-shadow: 0 0 0 1px rgb(217 119 6 / 0.25);
+}
+
+.am__fixed {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.4rem;
+    background: rgb(22 163 74 / 0.12);
+    color: rgb(21 128 61);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.am__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.25rem;
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--gravit-muted);
+}
+
+.am__legend-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.am__legend-item--muted { flex-basis: 100%; }
+
+.am__dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    display: inline-block;
+}
+
+.am__dot--none { background: rgb(148 163 184); }
+.am__dot--read { background: rgb(2 132 199); }
+.am__dot--own { background: rgb(217 119 6); }
+.am__dot--full { background: rgb(22 163 74); }
+
+@media (max-width: 768px) {
+    .am__corner,
+    .am__permission { min-width: 11rem; }
+    .am__select { min-width: 6.5rem; }
+}
+
+/* ---------- «Переключить столбцы»: компактный список вместо простыни ---------- */
+
+/*
+   По умолчанию каждый столбец — строка высотой 40 px с большим отступом, и на
+   таблице сделок список не помещается в экран. Здесь та же панель в две колонки
+   с плотной строкой: всё видно сразу, без прокрутки внутри выпадающего меню.
+ */
+.fi-ta-col-manager {
+    min-width: 22rem;
+    max-width: 30rem;
+}
+
+.fi-ta-col-manager-header {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.fi-ta-col-manager-heading {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--gravit-muted);
+}
+
+.fi-ta-col-manager-items {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.1rem 0.6rem;
+    padding: 0.35rem 0.6rem 0.5rem;
+}
+
+.fi-ta-col-manager-group-items {
+    display: contents;
+}
+
+.fi-ta-col-manager-item {
+    min-height: 1.75rem;
+    padding: 0.1rem 0.15rem;
+    border-radius: 0.375rem;
+}
+
+.fi-ta-col-manager-item:hover {
+    background: var(--gravit-glass);
+}
+
+.fi-ta-col-manager-label {
+    font-size: 0.75rem;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fi-ta-col-manager-item .fi-checkbox-input {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+/* Ручку перетаскивания в компактном списке не показываем: порядок столбцов
+   меняют редко, а места она занимает как сам столбец. */
+.fi-ta-col-manager-reorder-handle {
+    display: none;
+}
+
+.fi-ta-col-manager-actions-ctn {
+    padding: 0.4rem 0.6rem;
+    border-top: 1px solid var(--gravit-border);
+}
+
+@media (max-width: 640px) {
+    .fi-ta-col-manager {
+        min-width: 15rem;
+    }
+
+    .fi-ta-col-manager-items {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ---------- Календарь: месяц списком, год отдельным полем ---------- */
+
+.fi-fo-date-time-picker-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.6rem 0.35rem;
+}
+
+.fi-fo-date-time-picker-month-select {
+    flex: 1 1 auto;
+    min-height: 2rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+/* Год — узкое поле справа: его вводят с клавиатуры, когда нужен 1985-й. */
+.fi-fo-date-time-picker-year-input {
+    flex: 0 0 4.5rem;
+    min-height: 2rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+/* ---------- Инфопанель ---------- */
+
+.db__period {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.9rem;
+}
+
+.db__chip {
+    min-height: 1.85rem;
+    padding: 0 0.7rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: 999px;
+    background: var(--gravit-glass-strong);
+    color: var(--gravit-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.db__chip:hover { color: var(--gravit-text); }
+
+.db__chip--active {
+    background: rgb(47 111 237);
+    border-color: rgb(47 111 237);
+    color: #fff;
+}
+
+.db__range { display: inline-flex; align-items: center; gap: 0.3rem; }
+
+.db__date {
+    min-height: 1.85rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--gravit-border);
+    border-radius: 0.5rem;
+    background: var(--gravit-glass-strong);
+    color: var(--gravit-text);
+    font-size: 0.75rem;
+}
+
+.db__dash { color: var(--gravit-muted); }
+
+.db__label {
+    margin-inline-start: auto;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--gravit-muted);
+}
+
+.db__tile--alert {
+    border-color: rgb(220 38 38 / 0.25);
+    background: rgb(254 242 242);
+}
+
+.dark .db__tile--alert { background: rgb(76 29 29 / 0.25); }
+
+/* Столбики «приход / расход» по месяцам */
+.db__chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.35rem;
+    height: 8.5rem;
+    margin-top: 0.75rem;
+}
+
+.db__bar-group {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    height: 100%;
+}
+
+.db__bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.15rem;
+    width: 100%;
+    height: 100%;
+}
+
+.db__bar {
+    flex: 1 1 0;
+    min-height: 2px;
+    border-radius: 0.2rem 0.2rem 0 0;
+}
+
+.db__bar--in { background: rgb(22 163 74); }
+.db__bar--out { background: rgb(220 38 38 / 0.75); }
+
+.db__bar-label {
+    font-size: 0.625rem;
+    color: var(--gravit-muted);
+    white-space: nowrap;
+}
+
+/* Полосы воронки и загрузки цеха */
+.db__funnel {
+    display: grid;
+    grid-template-columns: minmax(6rem, 10rem) 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.15rem 0;
+    font-size: 0.75rem;
+}
+
+.db__funnel-name {
+    color: var(--gravit-text);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.db__funnel-track {
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--gravit-glass);
+    overflow: hidden;
+}
+
+.db__funnel-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: rgb(47 111 237);
+}
+
+.db__funnel-fill--factory { background: rgb(217 119 6); }
+
+.db__funnel-value {
+    font-weight: 700;
+    color: var(--gravit-text);
+    white-space: nowrap;
+}
+
+.db__funnel-sum {
+    margin-inline-start: 0.35rem;
+    font-weight: 400;
+    color: var(--gravit-muted);
+}
+
+.gravit-dot--danger { background: rgb(220 38 38); }
+
+@media (max-width: 640px) {
+    .db__label { flex-basis: 100%; margin-inline-start: 0; }
+    .db__funnel { grid-template-columns: minmax(5rem, 1fr) 1fr auto; }
+    .db__chart { height: 6.5rem; }
+}

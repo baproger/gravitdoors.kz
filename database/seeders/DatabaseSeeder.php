@@ -33,6 +33,9 @@ class DatabaseSeeder extends Seeder
             CashAccountSeeder::class,
             DoorOptionSeeder::class,
             DemoDataSeeder::class,
+            // Последним: боевая цепочка цеха переименовывает демонстрационные
+            // этапы и достраивает остальные, не ломая уже созданные наряды.
+            GravitFactoryStagesSeeder::class,
         ]);
 
         // Демо-платежи созданы — разнести их по кассе и банку.

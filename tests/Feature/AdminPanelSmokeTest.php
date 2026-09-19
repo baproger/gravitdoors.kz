@@ -67,6 +67,7 @@ class AdminPanelSmokeTest extends TestCase
             'настройки финансов' => ['/admin/finance-settings'],
             'движения склада' => ['/admin/stock-movements'],
             'экран цеха' => ['/admin/workshop-access'],
+            'роли и доступы' => ['/admin/access'],
         ];
     }
 

@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\StockMovements;
 
+use App\Enums\Permission;
 use App\Filament\Resources\StockMovements\Pages\ListStockMovements;
 use App\Filament\Resources\StockMovements\Tables\StockMovementsTable;
-use App\Models\MaterialStock;
 use App\Models\StockMovement;
+use App\Services\AccessControl;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
@@ -59,6 +60,6 @@ class StockMovementResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('viewAny', MaterialStock::class) ?? false;
+        return AccessControl::can(Permission::WorkStockMovements);
     }
 }

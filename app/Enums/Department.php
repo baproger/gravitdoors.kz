@@ -15,6 +15,8 @@ enum Department: string implements HasColor, HasIcon, HasLabel
     case Survey = 'survey';
     case Factory = 'factory';
     case Warehouse = 'warehouse';
+    case Finance = 'finance';
+    case Hr = 'hr';
     case System = 'system';
 
     public function getLabel(): string
@@ -24,6 +26,8 @@ enum Department: string implements HasColor, HasIcon, HasLabel
             self::Survey => 'Замеры',
             self::Factory => 'Завод',
             self::Warehouse => 'Склад',
+            self::Finance => 'Финансы',
+            self::Hr => 'Кадры',
             self::System => 'Система',
         };
     }
@@ -35,6 +39,8 @@ enum Department: string implements HasColor, HasIcon, HasLabel
             self::Survey => 'success',
             self::Factory => 'warning',
             self::Warehouse => 'gray',
+            self::Finance => 'primary',
+            self::Hr => 'violet',
             self::System => 'gray',
         };
     }
@@ -46,6 +52,8 @@ enum Department: string implements HasColor, HasIcon, HasLabel
             self::Survey => 'heroicon-o-map-pin',
             self::Factory => 'heroicon-o-cog-6-tooth',
             self::Warehouse => 'heroicon-o-archive-box',
+            self::Finance => 'heroicon-o-banknotes',
+            self::Hr => 'heroicon-o-identification',
             self::System => 'heroicon-o-bolt',
         };
     }
@@ -55,6 +63,8 @@ enum Department: string implements HasColor, HasIcon, HasLabel
     {
         return match ($role) {
             UserRole::Admin, UserRole::Manager => self::Sales,
+            UserRole::Accountant => self::Finance,
+            UserRole::Hr => self::Hr,
             UserRole::Surveyor => self::Survey,
             UserRole::Master, UserRole::Worker => self::Factory,
             default => self::System,

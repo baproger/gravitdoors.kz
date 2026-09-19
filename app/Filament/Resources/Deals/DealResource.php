@@ -7,6 +7,7 @@ namespace App\Filament\Resources\Deals;
 use App\Filament\Resources\Deals\Pages\CreateDeal;
 use App\Filament\Resources\Deals\Pages\EditDeal;
 use App\Filament\Resources\Deals\Pages\ListDeals;
+use App\Filament\Resources\Deals\Pages\ViewDeal;
 use App\Filament\Resources\Deals\RelationManagers\EventsRelationManager;
 use App\Filament\Resources\Deals\RelationManagers\ProductionLogsRelationManager;
 use App\Filament\Resources\Deals\Schemas\DealForm;
@@ -72,21 +73,29 @@ class DealResource extends Resource
         return [
             'index' => ListDeals::route('/'),
             'create' => CreateDeal::route('/create'),
+            'view' => ViewDeal::route('/{record}'),
             'edit' => EditDeal::route('/{record}/edit'),
         ];
     }
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['currentStage', 'manager']);
+        // Ограничение стоит на запросе, поэтому действует и в списке,
+        // и в глобальном поиске, и по прямой ссылке на карточку.
+        return parent::getEloquentQuery()
+            ->with(['currentStage', 'manager'])
+            ->visibleTo(auth()->user());
+    }
 
-        // Мастер и рабочий работают с нарядами, а не со сделками отдела продаж:
-        // ограничение стоит на запросе, поэтому действует и в списке, и в поиске.
-        if (! auth()->user()?->role->seesMoney()) {
-            $query->factoryOrders();
-        }
-
-        return $query;
+    /**
+     * Ссылка на карточку: правка — тем, кто может править, остальным — просмотр.
+     * Одна точка, иначе часть ссылок в системе вела бы читателя на 403.
+     */
+    public static function cardUrl(Deal $record): string
+    {
+        return auth()->user()?->can('update', $record)
+            ? static::getUrl('edit', ['record' => $record])
+            : static::getUrl('view', ['record' => $record]);
     }
 
     public static function getRecordRouteBindingEloquentQuery(): Builder

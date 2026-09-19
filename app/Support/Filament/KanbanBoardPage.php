@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Support\Filament;
 
 use App\Enums\DealStatus;
+use App\Enums\Permission;
 use App\Enums\PipelineType;
 use App\Exceptions\ProductionException;
 use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\User;
+use App\Services\AccessControl;
 use App\Services\DoorProductionService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -51,6 +53,7 @@ abstract class KanbanBoardPage extends Page
             $this->managerId,
             $this->perColumn,
             $this->expandedStages,
+            $this->ownerId(),
         );
     }
 
@@ -73,9 +76,33 @@ abstract class KanbanBoardPage extends Page
         $this->expandedStages = [];
     }
 
+    /** Право на саму воронку — оно же решает, свои карточки или все. */
+    public static function permission(): Permission
+    {
+        return static::pipeline() === PipelineType::Sales
+            ? Permission::WorkSalesKanban
+            : Permission::WorkFactoryKanban;
+    }
+
+    /** Чьи карточки показывать: null — все. */
+    public function ownerId(): ?int
+    {
+        return AccessControl::ownOnly(static::permission()) ? auth()->id() : null;
+    }
+
+    /** Фильтр по менеджеру не нужен тому, кто и так видит только свои сделки. */
+    public function canFilterByManager(): bool
+    {
+        return $this->ownerId() === null;
+    }
+
     /** @return array<int, string> */
     public function getManagerOptions(): array
     {
+        if (! $this->canFilterByManager()) {
+            return [];
+        }
+
         return User::query()
             ->whereHas('deals')
             ->orderBy('name')
@@ -86,7 +113,13 @@ abstract class KanbanBoardPage extends Page
     /** Видит ли текущий пользователь суммы на карточках. */
     public function canSeeMoney(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::KanbanMoney);
+    }
+
+    /** Сводная сумма по колонке — отдельное право: менеджеру итог воронки не положен. */
+    public function canSeeTotals(): bool
+    {
+        return AccessControl::can(Permission::KanbanTotals);
     }
 
     public function moveDeal(int $dealId, int $stageId): void

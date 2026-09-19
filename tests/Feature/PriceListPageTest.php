@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccessLevel;
 use App\Enums\DealStatus;
+use App\Enums\Permission;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
 use App\Filament\Resources\DoorOptions\Pages\PriceList;
@@ -13,6 +15,7 @@ use App\Models\DoorConfiguration;
 use App\Models\DoorOption;
 use App\Models\FactoryStage;
 use App\Models\User;
+use App\Services\AccessControl;
 use Database\Seeders\DoorOptionSeeder;
 use Database\Seeders\FactoryStageSeeder;
 use Database\Seeders\MaterialStockSeeder;
@@ -44,9 +47,16 @@ class PriceListPageTest extends TestCase
             ->assertSee('Новая позиция');
     }
 
-    public function test_manager_sees_the_price_list_but_cannot_change_it(): void
+    public function test_price_list_is_closed_until_the_director_opens_it(): void
     {
-        $this->actingAs(User::factory()->create(['role' => UserRole::Manager->value]));
+        $manager = User::factory()->create(['role' => UserRole::Manager->value]);
+        $this->actingAs($manager);
+
+        // По матрице прайс — только у директора.
+        $this->get('/admin/door-options')->assertForbidden();
+
+        // Директор выдаёт чтение — раздел появляется, но правки недоступны.
+        AccessControl::set(UserRole::Manager, Permission::SettingsPrice, AccessLevel::Read);
 
         $this->get('/admin/door-options')
             ->assertOk()
@@ -56,6 +66,8 @@ class PriceListPageTest extends TestCase
         Livewire::test(PriceList::class)
             ->call('toggleActive', $this->option('metal_1_5')->id)
             ->assertForbidden();
+
+        AccessControl::reset(UserRole::Manager);
     }
 
     public function test_workshop_cannot_open_the_price_list(): void

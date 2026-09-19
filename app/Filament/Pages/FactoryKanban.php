@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\Permission;
 use App\Enums\PipelineType;
-use App\Enums\UserRole;
+use App\Services\AccessControl;
 use App\Support\Filament\KanbanBoardPage;
 use BackedEnum;
 use Filament\Support\Icons\Heroicon;
@@ -28,12 +29,9 @@ class FactoryKanban extends KanbanBoardPage
         return PipelineType::Factory;
     }
 
-    /** Канбан завода — инструмент цеха и администратора; продажи ход работ видят в карточке сделки. */
     public static function canAccess(): bool
     {
-        $role = auth()->user()?->role;
-
-        return $role === UserRole::Admin || $role === UserRole::Master || $role === UserRole::Worker;
+        return AccessControl::can(Permission::WorkFactoryKanban);
     }
 
     public function getTitle(): string

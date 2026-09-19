@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccessLevel;
 use App\Enums\CashAccountType;
 use App\Enums\DebtStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\Permission;
 use App\Enums\UserRole;
 use App\Filament\Resources\Debts\DebtResource;
 use App\Filament\Resources\Debts\Pages\ManageDebts;
@@ -14,6 +16,7 @@ use App\Models\CashAccount;
 use App\Models\Debt;
 use App\Models\Expense;
 use App\Models\User;
+use App\Services\AccessControl;
 use App\Services\CashLedger;
 use App\Services\FinanceSummary;
 use Database\Seeders\CashAccountSeeder;
@@ -89,20 +92,27 @@ class FinanceDebtsTest extends TestCase
         $debt->forceFill(['status' => DebtStatus::Paid])->save();
     }
 
-    public function test_manager_sees_debts_but_only_admin_pays(): void
+    public function test_accountant_pays_and_other_roles_do_not_see_debts(): void
     {
         $debt = Debt::factory()->create();
-        $manager = User::factory()->create(['role' => UserRole::Manager->value]);
+        $accountant = User::factory()->create(['role' => UserRole::Accountant->value]);
 
-        $this->assertTrue($manager->can('create', Debt::class));
-        $this->assertFalse($manager->can('pay', $debt));
+        $this->assertTrue($accountant->can('create', Debt::class));
+        $this->assertTrue($accountant->can('pay', $debt));
 
-        $this->actingAs($manager);
+        $this->actingAs($accountant);
         $this->get('/admin/debts')->assertOk()->assertSee($debt->counterparty);
-        Livewire::test(ManageDebts::class)->assertActionHidden(TestAction::make('pay')->table($debt));
+        Livewire::test(ManageDebts::class)->assertActionVisible(TestAction::make('pay')->table($debt));
 
-        $this->actingAs(User::factory()->create(['role' => UserRole::Master->value]));
-        $this->get('/admin/debts')->assertForbidden();
+        // Без права «Подтверждение» раздел остаётся, а платить нельзя.
+        AccessControl::set(UserRole::Accountant, Permission::FinanceApprove, AccessLevel::None);
+        $this->assertFalse($accountant->fresh()->can('pay', $debt->fresh()));
+        AccessControl::reset(UserRole::Accountant);
+
+        foreach ([UserRole::Manager, UserRole::Hr, UserRole::Master] as $role) {
+            $this->actingAs(User::factory()->create(['role' => $role->value]));
+            $this->get('/admin/debts')->assertForbidden();
+        }
     }
 
     public function test_overview_shows_open_debts_and_the_overdue_badge(): void

@@ -10,6 +10,7 @@ use App\Enums\PaymentMethod;
 use App\Models\CashAccount;
 use App\Models\Debt;
 use App\Services\CashLedger;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use App\Support\Plural;
 use Carbon\CarbonImmutable;
@@ -22,6 +23,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -62,8 +64,15 @@ class DebtsTable
                 TextColumn::make('status')->label('Статус')->badge(),
             ])
             ->filters([
-                SelectFilter::make('category')->label('Категория')->options(DebtCategory::class),
+                SelectFilter::make('category')->label('Категория')->options(DebtCategory::class)->multiple(),
+                SelectFilter::make('status')->label('Статус')->options(DebtStatus::class),
+                Filter::make('overdue')
+                    ->label('Просроченные')
+                    ->toggle()
+                    ->query(fn (Builder $query) => $query->where('status', DebtStatus::Open->value)->whereDate('due_at', '<', today())),
+                TableFilters::period('due_at', 'Срок оплаты'),
             ])
+            ->filtersFormColumns(2)
             ->recordActions([
                 Action::make('pay')
                     ->label('Оплатить')

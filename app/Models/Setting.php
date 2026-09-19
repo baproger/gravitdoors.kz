@@ -52,25 +52,49 @@ class Setting extends Model
         return static::get(self::MANAGER_BONUS_AUTO_APPROVE, '0') === '1';
     }
 
+    /**
+     * Прочитанные за запрос значения: символ валюты и ставки спрашивают на каждой
+     * строке таблицы, и без этой копии каждый раз шло бы чтение кэша.
+     *
+     * @var array<string, string|null>
+     */
+    private static array $memo = [];
+
     public static function get(string $key, ?string $default = null): ?string
     {
-        return Cache::rememberForever(
-            "setting.{$key}",
-            fn () => static::query()->where('key', $key)->value('value'),
-        ) ?? $default;
+        if (! array_key_exists($key, self::$memo)) {
+            self::$memo[$key] = Cache::rememberForever(
+                "setting.{$key}",
+                fn () => static::query()->where('key', $key)->value('value'),
+            );
+        }
+
+        return self::$memo[$key] ?? $default;
     }
 
     public static function put(string $key, ?string $value): void
     {
         static::updateOrCreate(['key' => $key], ['value' => $value]);
 
+        self::forget($key);
+    }
+
+    /** Сбросить копию в памяти — для тестов и после записи. */
+    public static function flushMemo(): void
+    {
+        self::$memo = [];
+    }
+
+    private static function forget(string $key): void
+    {
+        unset(self::$memo[$key]);
         Cache::forget("setting.{$key}");
     }
 
     protected static function booted(): void
     {
-        static::saved(fn (Setting $setting) => Cache::forget("setting.{$setting->key}"));
-        static::deleted(fn (Setting $setting) => Cache::forget("setting.{$setting->key}"));
+        static::saved(fn (Setting $setting) => self::forget($setting->key));
+        static::deleted(fn (Setting $setting) => self::forget($setting->key));
     }
 
     /** Код планшета цеха. Если не задан — генерируется при первом обращении. */

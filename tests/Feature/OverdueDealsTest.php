@@ -125,11 +125,16 @@ class OverdueDealsTest extends TestCase
 
     public function test_workshop_sees_only_its_overdue_orders(): void
     {
-        $this->actingAs(User::factory()->create(['role' => UserRole::Worker->value]));
         $this->deal('Продажи', now()->subDays(3));
 
+        // Начальник производства видит просрочку нарядов, но не сделок продаж.
+        $this->actingAs(User::factory()->create(['role' => UserRole::Master->value]));
         Livewire::test(OverdueDeals::class)->assertCountTableRecords(0);
         $this->assertNull(OverdueDeals::getNavigationBadge());
+
+        // Рабочему раздел не положен вовсе.
+        $this->actingAs(User::factory()->create(['role' => UserRole::Worker->value]));
+        $this->get('/admin/overdue-deals')->assertForbidden();
     }
 
     private function deal(string $title, $due, DealStatus $status = DealStatus::InWork): Deal

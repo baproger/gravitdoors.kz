@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\AccessLevel;
 use App\Enums\PaymentMethod;
+use App\Enums\Permission;
 use App\Enums\SalarySheetStatus;
-use App\Enums\UserRole;
 use App\Models\CashAccount;
 use App\Models\SalarySheet;
+use App\Services\AccessControl;
 use App\Services\PayrollService;
 use App\Support\Money;
 use BackedEnum;
@@ -54,7 +56,7 @@ class SalarySheets extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->role->seesMoney() ?? false;
+        return AccessControl::can(Permission::FinanceSalarySheets);
     }
 
     public function mount(): void
@@ -116,7 +118,7 @@ class SalarySheets extends Page implements HasTable
                 ->requiresConfirmation()
                 ->modalHeading(fn (): string => 'Сформировать ведомость за '.($this->monthOptions()[$this->month] ?? $this->month).'?')
                 ->modalDescription('Черновики пересчитаются из оклада, закрытых этапов и утверждённых бонусов. Утверждённые ведомости не изменятся.')
-                ->authorize(fn (): bool => auth()->user()?->role === UserRole::Admin)
+                ->authorize(fn (): bool => AccessControl::can(Permission::FinanceSalarySheets, AccessLevel::Full))
                 ->action(function (PayrollService $payroll): void {
                     $sheets = $payroll->build($this->month);
                     $this->resetTable();
@@ -129,7 +131,8 @@ class SalarySheets extends Page implements HasTable
                 ->color('success')
                 ->requiresConfirmation()
                 ->modalDescription('После утверждения цифры фиксируются: пересчёт и правка удержаний недоступны.')
-                ->authorize(fn (): bool => auth()->user()?->role === UserRole::Admin)
+                ->authorize(fn (): bool => AccessControl::can(Permission::FinanceSalarySheets, AccessLevel::Full)
+                    && AccessControl::can(Permission::FinanceApprove, AccessLevel::Full))
                 ->visible(fn (): bool => SalarySheet::query()->where('month', $this->month)->where('status', SalarySheetStatus::Draft->value)->exists())
                 ->action(function (PayrollService $payroll): void {
                     $drafts = SalarySheet::query()->where('month', $this->month)->where('status', SalarySheetStatus::Draft->value)->get();

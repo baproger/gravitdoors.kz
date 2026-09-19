@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
+use App\Enums\AccessLevel;
+use App\Enums\Permission;
 use App\Models\Debt;
 use App\Models\User;
+use App\Services\AccessControl;
 
 class DebtPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->role->seesMoney();
+        return AccessControl::allows($user, Permission::FinanceDebts);
     }
 
     public function view(User $user, Debt $debt): bool
@@ -22,27 +24,29 @@ class DebtPolicy
 
     public function create(User $user): bool
     {
-        return $user->role->seesMoney();
+        return AccessControl::allows($user, Permission::FinanceDebts, AccessLevel::Full);
     }
 
     public function update(User $user, Debt $debt): bool
     {
-        return $user->role->seesMoney() && ! $debt->status->isClosed();
+        return $this->create($user) && ! $debt->status->isClosed();
     }
 
     public function delete(User $user, Debt $debt): bool
     {
-        return $user->role === UserRole::Admin && $debt->canBeDeleted();
+        return $this->create($user) && $debt->canBeDeleted();
     }
 
     public function deleteAny(User $user): bool
     {
-        return $user->role === UserRole::Admin;
+        return $this->create($user);
     }
 
-    /** Платит по долгам администратор: это подтверждённый расход. */
+    /** Платёж по долгу — это подтверждённый расход и списание со счёта. */
     public function pay(User $user, Debt $debt): bool
     {
-        return $user->role === UserRole::Admin && ! $debt->status->isClosed();
+        return $this->create($user)
+            && ! $debt->status->isClosed()
+            && AccessControl::allows($user, Permission::FinanceApprove, AccessLevel::Full);
     }
 }

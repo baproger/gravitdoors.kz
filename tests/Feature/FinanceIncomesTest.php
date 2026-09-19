@@ -31,7 +31,8 @@ class FinanceIncomesTest extends TestCase
         parent::setUp();
 
         $this->seed([FactoryStageSeeder::class, CashAccountSeeder::class]);
-        $this->actingAs(User::factory()->create(['role' => UserRole::Manager->value, 'salary' => 0]));
+        // Поступления ведёт бухгалтер: у менеджера продаж финансовые разделы закрыты.
+        $this->actingAs(User::factory()->create(['role' => UserRole::Accountant->value, 'salary' => 0]));
     }
 
     public function test_page_lists_payments_with_totals_and_hides_from_the_workshop(): void
@@ -50,8 +51,10 @@ class FinanceIncomesTest extends TestCase
 
         $this->get('/admin/incomes')->assertOk()->assertSee($deal->number);
 
-        $this->actingAs(User::factory()->create(['role' => UserRole::Worker->value]));
-        $this->get('/admin/incomes')->assertForbidden();
+        foreach ([UserRole::Worker, UserRole::Manager, UserRole::Hr] as $role) {
+            $this->actingAs(User::factory()->create(['role' => $role->value]));
+            $this->get('/admin/incomes')->assertForbidden();
+        }
     }
 
     public function test_adding_a_receipt_updates_the_deal_and_the_cash_desk(): void

@@ -136,6 +136,21 @@ class DealsListTest extends TestCase
         return $deal->refresh();
     }
 
+    /** Счётчик вкладки и её содержимое должны сходиться: закрытые — только в «Все». */
+    public function test_working_tabs_show_open_records_and_closed_go_to_the_all_tab(): void
+    {
+        $open = $this->deal('Открытая сделка');
+        $closed = $this->deal('Закрытая сделка');
+        $closed->forceFill(['status_id' => DealStatus::Completed])->saveQuietly();
+
+        Livewire::test(ListDeals::class)
+            ->set('activeTab', 'sales')
+            ->assertCanSeeTableRecords([$open])
+            ->assertCanNotSeeTableRecords([$closed])
+            ->set('activeTab', 'all')
+            ->assertCanSeeTableRecords([$open, $closed]);
+    }
+
     private function stage(string $code): FactoryStage
     {
         return FactoryStage::query()->ofPipeline(PipelineType::Sales)->where('code', $code)->firstOrFail();

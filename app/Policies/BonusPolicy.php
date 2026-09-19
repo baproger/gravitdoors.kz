@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
+use App\Enums\AccessLevel;
+use App\Enums\Permission;
 use App\Models\Bonus;
 use App\Models\User;
+use App\Services\AccessControl;
 
-/** Бонусы предлагают продажи и администратор; утверждает администратор. */
 class BonusPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->role->seesMoney();
+        return AccessControl::allows($user, Permission::FinanceBonuses);
     }
 
+    /** Свой бонус сотрудник видит всегда — он часть его зарплаты. */
     public function view(User $user, Bonus $bonus): bool
     {
         return $this->viewAny($user) || $user->id === $bonus->user_id;
@@ -23,30 +25,28 @@ class BonusPolicy
 
     public function create(User $user): bool
     {
-        return $user->role->seesMoney();
+        return AccessControl::allows($user, Permission::FinanceBonuses, AccessLevel::Full);
     }
 
+    /** Утверждённый бонус уже в ведомости: его снимают с утверждения, а не правят. */
     public function update(User $user, Bonus $bonus): bool
     {
-        if ($user->role === UserRole::Admin) {
-            return ! $bonus->isApproved();
-        }
-
-        return $user->role === UserRole::Manager && ! $bonus->isApproved() && $bonus->created_by === $user->id;
+        return $this->create($user) && ! $bonus->isApproved();
     }
 
     public function delete(User $user, Bonus $bonus): bool
     {
-        return $user->role === UserRole::Admin && $bonus->canBeDeleted();
+        return $this->create($user) && $bonus->canBeDeleted();
     }
 
     public function deleteAny(User $user): bool
     {
-        return $user->role === UserRole::Admin;
+        return $this->create($user);
     }
 
     public function approve(User $user, Bonus $bonus): bool
     {
-        return $user->role === UserRole::Admin;
+        return $this->create($user)
+            && AccessControl::allows($user, Permission::FinanceApprove, AccessLevel::Full);
     }
 }

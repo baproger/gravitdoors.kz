@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
-use App\Enums\UserRole;
+use App\Enums\Permission;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
+use App\Services\AccessControl;
 use App\Support\Money;
 use App\Support\Plural;
 use BackedEnum;
@@ -45,10 +46,9 @@ class OverdueDeals extends Page implements HasTable
     #[Url(except: 'due')]
     public string $mode = 'due';
 
-    /** Замерщику просрочки не положены — у него нет ни сделок, ни нарядов. */
     public static function canAccess(): bool
     {
-        return auth()->user()?->role !== UserRole::Surveyor;
+        return AccessControl::can(Permission::WorkOverdue);
     }
 
     public function getTitle(): string
@@ -90,7 +90,7 @@ class OverdueDeals extends Page implements HasTable
 
     public function table(Table $table): Table
     {
-        $money = auth()->user()?->role->seesMoney() ?? false;
+        $money = AccessControl::can(Permission::KanbanMoney);
 
         return $table
             ->query(fn (): Builder => match ($this->mode) {
@@ -105,7 +105,7 @@ class OverdueDeals extends Page implements HasTable
             })
             // Рабочему карточка не открывается — строка без ссылки, а не 403.
             ->recordUrl(fn (Deal $record): ?string => auth()->user()?->can('update', $record)
-                ? DealResource::getUrl('edit', ['record' => $record])
+                ? DealResource::cardUrl($record)
                 : null)
             ->recordClasses('od-row')
             ->paginated([25, 50])
@@ -186,13 +186,13 @@ class OverdueDeals extends Page implements HasTable
      */
     private static function scopedQuery(bool $includeOrders = false): Builder
     {
-        $query = Deal::query();
+        $query = Deal::query()->visibleTo(auth()->user());
 
-        if (! (auth()->user()?->role->seesMoney() ?? false)) {
-            return $query->factoryOrders();
-        }
-
-        return $includeOrders ? $query : $query->sales();
+        // По сроку сдачи показываем сделки, а не их наряды: срок копируется,
+        // и один заказ считался бы просроченным дважды.
+        return $includeOrders || ! AccessControl::can(Permission::WorkSalesKanban)
+            ? $query
+            : $query->sales();
     }
 
     /**

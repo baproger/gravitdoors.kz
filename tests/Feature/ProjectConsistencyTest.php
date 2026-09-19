@@ -182,12 +182,18 @@ class ProjectConsistencyTest extends TestCase
     {
         $order = $this->dealInProduction()->refresh()->productionOrder;
         $manager = User::factory()->create(['role' => UserRole::Manager->value]);
+        $order->parentDeal->forceFill(['manager_id' => $manager->id])->saveQuietly();
 
-        $this->assertFalse($manager->can('move', $order));
-        $this->assertTrue($manager->can('move', $order->parentDeal));
+        $this->assertFalse($manager->can('move', $order), 'Наряды закрывает цех, а не продажи');
+        $this->assertTrue($manager->can('move', $order->parentDeal->refresh()), 'Свою сделку менеджер двигает');
 
+        // Воронка завода менеджеру открыта на чтение: он следит за своим заказом,
+        // но кнопок движения на карточках нет.
         $this->actingAs($manager);
-        $this->get('/admin/kanban/factory')->assertForbidden();
+        $this->get('/admin/kanban/factory')
+            ->assertOk()
+            ->assertDontSee('wire:click="moveDeal(', false)
+            ->assertDontSee("mountAction('completeStage'", false);
     }
 
     public function test_worker_cannot_close_a_stage_from_the_deal_list(): void
@@ -292,11 +298,12 @@ class ProjectConsistencyTest extends TestCase
         $this->dealInProduction();
         $this->actingAs(User::factory()->create(['role' => UserRole::Worker->value]));
 
+        // Кнопок движения нет, но карточку наряда рабочий открывает — на чтение.
         $this->get('/admin/kanban/factory')
             ->assertOk()
             ->assertDontSee('wire:click="moveDeal(', false)
             ->assertDontSee("mountAction('completeStage'", false)
-            ->assertDontSee('>Открыть<', false);
+            ->assertSee('>Открыть<', false);
 
         $this->actingAs(User::factory()->create(['role' => UserRole::Master->value]));
 

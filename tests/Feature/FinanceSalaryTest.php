@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\AccessLevel;
 use App\Enums\BonusStatus;
 use App\Enums\CashAccountType;
 use App\Enums\ExpenseCategory;
 use App\Enums\PaymentMethod;
+use App\Enums\Permission;
 use App\Enums\SalarySheetStatus;
 use App\Enums\UserRole;
 use App\Filament\Pages\SalarySheets;
@@ -18,6 +20,7 @@ use App\Models\Expense;
 use App\Models\ProductionLog;
 use App\Models\SalarySheet;
 use App\Models\User;
+use App\Services\AccessControl;
 use App\Services\FinanceSummary;
 use App\Services\PayrollService;
 use Database\Seeders\CashAccountSeeder;
@@ -153,9 +156,10 @@ class FinanceSalaryTest extends TestCase
 
     public function test_bonus_workflow_and_access(): void
     {
+        $hr = User::factory()->create(['role' => UserRole::Hr->value]);
         $manager = User::factory()->create(['role' => UserRole::Manager->value]);
         $worker = User::factory()->create(['role' => UserRole::Worker->value]);
-        $this->actingAs($manager);
+        $this->actingAs($hr);
 
         Livewire::test(ManageBonuses::class)
             ->callAction('create', data: ['user_id' => $worker->id, 'month' => now()->format('Y-m'), 'amount' => 15_000, 'reason' => 'Сдал заказ раньше срока'])
@@ -163,11 +167,17 @@ class FinanceSalaryTest extends TestCase
 
         $bonus = Bonus::query()->firstOrFail();
         $this->assertSame(BonusStatus::Pending, $bonus->status);
-        $this->assertSame($manager->id, $bonus->created_by);
-        $this->assertFalse($manager->can('approve', $bonus));
-        Livewire::test(ManageBonuses::class)->assertActionHidden(TestAction::make('approve')->table($bonus));
+        $this->assertSame($hr->id, $bonus->created_by);
 
-        $this->actingAs($this->admin);
+        // Менеджеру продаж бонусы не положены вовсе.
+        $this->assertFalse($manager->can('approve', $bonus));
+        $this->assertFalse($manager->can('create', Bonus::class));
+
+        // Кадры утверждают; без права «Подтверждение» кнопка пропадает.
+        AccessControl::set(UserRole::Hr, Permission::FinanceApprove, AccessLevel::None);
+        Livewire::test(ManageBonuses::class)->assertActionHidden(TestAction::make('approve')->table($bonus));
+        AccessControl::reset(UserRole::Hr);
+
         Livewire::test(ManageBonuses::class)->callAction(TestAction::make('approve')->table($bonus))->assertHasNoErrors();
 
         $bonus->refresh();
