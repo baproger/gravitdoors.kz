@@ -12,6 +12,39 @@
         </select>
     </div>
 
+    @php($activeFilters = $this->activeFilters())
+
+    <div class="gravit-toolbar">
+        <label class="gravit-field">
+            <span class="gravit-field__label">Сотрудник</span>
+            <select wire:model.live="workerId" class="gravit-select">
+                <option value="">Все рабочие</option>
+                @foreach ($this->workerOptions() as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                @endforeach
+            </select>
+        </label>
+
+        <label class="gravit-field">
+            <span class="gravit-field__label">Этап цеха</span>
+            <select wire:model.live="stageId" class="gravit-select">
+                <option value="">Все этапы</option>
+                @foreach ($this->stageOptions() as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                @endforeach
+            </select>
+        </label>
+
+        <label class="gravit-field gravit-field--check">
+            <input type="checkbox" wire:model.live="onlyPaid" class="gravit-checkbox" />
+            <span>Только с выработкой</span>
+        </label>
+
+        @if ($activeFilters > 0)
+            <button type="button" wire:click="resetFilters" class="gravit-filter-reset">Сбросить</button>
+        @endif
+    </div>
+
     <div class="gravit-bento">
         <div class="gravit-tile gravit-tile--third">
             <p class="gravit-tile__label">Начислено за месяц</p>

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\DealSource;
+use App\Enums\PaymentMethod;
 use App\Enums\Permission;
 use App\Enums\PipelineType;
 use App\Filament\Actions\DealActions;
@@ -12,6 +14,7 @@ use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\User;
 use App\Services\AccessControl;
+use App\Support\Cities;
 use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use App\Support\Plural;
@@ -21,6 +24,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -139,7 +143,29 @@ class Invoices extends Page implements HasTable
                     ->label('Этап')
                     ->options(fn (): array => FactoryStage::query()->ofPipeline(PipelineType::Sales)->ordered()->pluck('name', 'id')->all()),
 
+                SelectFilter::make('city')
+                    ->label('Город')
+                    ->options(fn (): array => Cities::options())
+                    ->searchable(),
+
+                SelectFilter::make('source')
+                    ->label('Источник')
+                    ->options(DealSource::class),
+
+                SelectFilter::make('payment_method')
+                    ->label('Способ оплаты')
+                    ->options(PaymentMethod::class)
+                    ->multiple(),
+
+                // Крупные долги вперёд мелких: на них бухгалтер тратит время.
+                Filter::make('big_debt')
+                    ->label('Долг от 500 000')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query
+                        ->whereRaw('total_price - prepayment >= ?', [500_000])),
+
                 TableFilters::period('due_date', 'Срок сдачи'),
+                TableFilters::period('created_at', 'Сделка заведена'),
             ])
             ->filtersFormColumns(2)
             ->recordActions([

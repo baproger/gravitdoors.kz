@@ -7,14 +7,20 @@ namespace Tests\Feature;
 use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\PipelineType;
+use App\Enums\SalarySheetStatus;
 use App\Enums\UserRole;
 use App\Filament\Pages\FactoryKanban;
+use App\Filament\Pages\FinanceOverview;
+use App\Filament\Pages\Invoices;
 use App\Filament\Pages\OverdueDeals;
+use App\Filament\Pages\Payroll;
+use App\Filament\Pages\SalarySheets;
 use App\Filament\Pages\SalesKanban;
 use App\Filament\Resources\MaterialStocks\Pages\ManageMaterialStocks;
 use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Models\MaterialStock;
+use App\Models\SalarySheet;
 use App\Models\User;
 use App\Services\DoorProductionService;
 use App\Support\BoardFilter;
@@ -196,6 +202,116 @@ class PageFiltersTest extends TestCase
             ->filterTable('unused', true)
             ->assertCanSeeTableRecords([$unused])
             ->assertCanNotSeeTableRecords([$used]);
+    }
+
+    /** Бухгалтеру в конце месяца важнее всего: кому ещё не выплатили. */
+    public function test_salary_sheets_filter_by_status_and_unpaid(): void
+    {
+        $month = now()->format('Y-m');
+        $paid = $this->sheet($month, ['total' => 100_000, 'paid_amount' => 100_000, 'status' => SalarySheetStatus::Paid]);
+        $owed = $this->sheet($month, ['total' => 80_000, 'paid_amount' => 20_000, 'status' => SalarySheetStatus::Approved]);
+
+        Livewire::test(SalarySheets::class)
+            ->set('month', $month)
+            ->assertCanSeeTableRecords([$paid, $owed])
+            ->filterTable('unpaid', true)
+            ->assertCanSeeTableRecords([$owed])
+            ->assertCanNotSeeTableRecords([$paid]);
+    }
+
+    public function test_salary_sheets_filter_by_position(): void
+    {
+        $month = now()->format('Y-m');
+        $worker = $this->sheet($month, [], UserRole::Worker);
+        $manager = $this->sheet($month, [], UserRole::Manager);
+
+        Livewire::test(SalarySheets::class)
+            ->set('month', $month)
+            ->filterTable('role', [UserRole::Worker->value])
+            ->assertCanSeeTableRecords([$worker])
+            ->assertCanNotSeeTableRecords([$manager]);
+    }
+
+    /** Зарплата цеха — своя страница, фильтр сужает сами строки отчёта. */
+    public function test_shop_payroll_filters_by_worker(): void
+    {
+        $page = Livewire::test(Payroll::class);
+
+        $this->assertSame(0, $page->instance()->activeFilters());
+
+        $page->set('workerId', $this->admin->id);
+
+        $this->assertSame(1, $page->instance()->activeFilters());
+        $page->assertOk()->assertSee('Только с выработкой');
+
+        $page->call('resetFilters');
+        $this->assertSame(0, $page->instance()->activeFilters());
+    }
+
+    /**
+     * Произвольный период в обзоре финансов.
+     *
+     * Все суммы внутри считаются «между двумя датами», поэтому открытая граница
+     * подставляется сама — иначе одна пустая дата уронила бы запрос.
+     */
+    public function test_finance_overview_accepts_a_custom_period(): void
+    {
+        $page = Livewire::test(FinanceOverview::class)
+            ->set('from', now()->startOfYear()->toDateString())
+            ->set('to', now()->toDateString());
+
+        $page->assertOk();
+        $this->assertSame('', $page->instance()->month, 'Выбор дат отменяет выбор месяца');
+
+        // Открытый конец: «с начала года и дальше» не должно падать.
+        Livewire::test(FinanceOverview::class)
+            ->set('from', now()->startOfYear()->toDateString())
+            ->assertOk();
+
+        // И открытое начало.
+        Livewire::test(FinanceOverview::class)
+            ->set('to', now()->toDateString())
+            ->assertOk();
+    }
+
+    public function test_finance_overview_month_and_period_do_not_mix(): void
+    {
+        $page = Livewire::test(FinanceOverview::class)
+            ->set('from', now()->subMonth()->toDateString())
+            ->set('month', now()->format('Y-m'));
+
+        $this->assertNull($page->instance()->from, 'Выбор месяца сбрасывает произвольный период');
+    }
+
+    public function test_invoices_filter_by_city(): void
+    {
+        $almaty = $this->deal('Счёт Алматы', ['city' => 'Алматы', 'total_price' => 100, 'prepayment' => 0]);
+        $astana = $this->deal('Счёт Астана', ['city' => 'Астана', 'total_price' => 100, 'prepayment' => 0]);
+
+        Livewire::test(Invoices::class)
+            ->assertCanSeeTableRecords([$almaty, $astana])
+            ->filterTable('city', 'Алматы')
+            ->assertCanSeeTableRecords([$almaty])
+            ->assertCanNotSeeTableRecords([$astana]);
+    }
+
+    /** @param  array<string, mixed>  $attributes */
+    private function sheet(string $month, array $attributes = [], UserRole $role = UserRole::Worker): SalarySheet
+    {
+        $user = User::factory()->create(['role' => $role->value]);
+
+        return SalarySheet::create(array_merge([
+            'user_id' => $user->id,
+            'month' => $month,
+            'salary' => 0,
+            'piecework' => 0,
+            'bonuses' => 0,
+            'deductions' => 0,
+            'advances' => 0,
+            'total' => 50_000,
+            'paid_amount' => 0,
+            'status' => SalarySheetStatus::Draft,
+        ], $attributes));
     }
 
     /** @param  list<Deal>  $expected */

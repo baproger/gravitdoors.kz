@@ -55,6 +55,31 @@ class FinanceSummary
         return new self($start, $start->endOfMonth());
     }
 
+    /**
+     * Произвольный период: «с 1 марта по вчера», квартал, полгода.
+     *
+     * Открытую границу подставляем сами, а не оставляем null: все суммы внутри
+     * считаются через `whereBetween`, и одна пустая дата уронила бы запрос.
+     * Открытое начало — от первой сделки в системе, открытый конец — сегодня.
+     */
+    public static function between(?string $from, ?string $to): self
+    {
+        if (blank($from) && blank($to)) {
+            return self::allTime();
+        }
+
+        $start = blank($from)
+            ? CarbonImmutable::parse(Deal::query()->min('created_at') ?? now())->startOfDay()
+            : CarbonImmutable::parse($from)->startOfDay();
+
+        $end = blank($to)
+            ? CarbonImmutable::now()->endOfDay()
+            : CarbonImmutable::parse($to)->endOfDay();
+
+        // Перепутанные местами даты — не ошибка пользователя, а две даты в любом порядке.
+        return $start->lessThanOrEqualTo($end) ? new self($start, $end) : new self($end, $start);
+    }
+
     public function isAllTime(): bool
     {
         return $this->from === null;

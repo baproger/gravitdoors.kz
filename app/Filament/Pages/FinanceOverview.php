@@ -10,6 +10,7 @@ use App\Services\FinanceSummary;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Carbon;
 use Livewire\Attributes\Url;
 use UnitEnum;
 
@@ -35,6 +36,11 @@ class FinanceOverview extends Page
     #[Url(except: '')]
     public string $month = '';
 
+    /** Произвольный период. Заполнен — перекрывает выбор месяца. */
+    public ?string $from = null;
+
+    public ?string $to = null;
+
     public static function canAccess(): bool
     {
         return AccessControl::can(Permission::FinanceOverview);
@@ -52,7 +58,36 @@ class FinanceOverview extends Page
 
     public function summary(): FinanceSummary
     {
+        if (filled($this->from) || filled($this->to)) {
+            return FinanceSummary::between($this->from, $this->to);
+        }
+
         return $this->month !== '' ? FinanceSummary::month($this->month) : FinanceSummary::allTime();
+    }
+
+    /** Выбор даты отменяет выбор месяца: два периода сразу — это неоднозначно. */
+    public function updatedFrom(): void
+    {
+        $this->month = '';
+    }
+
+    public function updatedTo(): void
+    {
+        $this->month = '';
+    }
+
+    /** И наоборот: выбрали месяц — произвольный период сбрасывается. */
+    public function updatedMonth(): void
+    {
+        $this->from = null;
+        $this->to = null;
+    }
+
+    public function resetPeriod(): void
+    {
+        $this->month = now()->format('Y-m');
+        $this->from = null;
+        $this->to = null;
     }
 
     /** @return array<string, string> */
@@ -70,6 +105,16 @@ class FinanceOverview extends Page
 
     public function periodLabel(): string
     {
+        if (filled($this->from) || filled($this->to)) {
+            $format = static fn (?string $date): ?string => blank($date) ? null : Carbon::parse($date)->format('d.m.Y');
+
+            return match (true) {
+                filled($this->from) && filled($this->to) => 'с '.$format($this->from).' по '.$format($this->to),
+                filled($this->from) => 'с '.$format($this->from),
+                default => 'по '.$format($this->to),
+            };
+        }
+
         return $this->month === '' ? 'за всё время' : 'за '.($this->monthOptions()[$this->month] ?? $this->month);
     }
 }

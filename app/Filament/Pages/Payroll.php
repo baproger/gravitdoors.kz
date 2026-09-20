@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Pages;
 
 use App\Enums\Permission;
+use App\Enums\PipelineType;
 use App\Enums\ProductionStatus;
+use App\Models\FactoryStage;
 use App\Models\ProductionLog;
 use App\Models\Role;
 use App\Models\User;
@@ -39,6 +41,15 @@ class Payroll extends Page
 
     /** Месяц в формате Y-m. */
     public string $month = '';
+
+    /** Кого показывать: пусто — всех. */
+    public ?int $workerId = null;
+
+    /** По какому этапу цеха считать: пусто — по всем. */
+    public ?int $stageId = null;
+
+    /** Прятать ли тех, у кого за месяц нет ни одного закрытого этапа. */
+    public bool $onlyPaid = false;
 
     public static function canAccess(): bool
     {
@@ -86,6 +97,8 @@ class Payroll extends Page
             ->whereNotNull('worker_id')
             ->where('status', ProductionStatus::Done->value)
             ->whereBetween('finished_at', [$from, $to])
+            ->when($this->workerId, fn ($query, int $id) => $query->where('worker_id', $id))
+            ->when($this->stageId, fn ($query, int $id) => $query->where('stage_id', $id))
             ->get()
             ->groupBy('worker_id');
 
@@ -114,9 +127,51 @@ class Payroll extends Page
         return round($this->rows()->sum('payout'), 2);
     }
 
-    /** Сотрудники цеха без выработки за месяц — их не должно потеряться в отчёте. */
+    /** Сколько условий сузило отчёт — для счётчика на кнопке «Фильтры». */
+    public function activeFilters(): int
+    {
+        return count(array_filter([$this->workerId, $this->stageId, $this->onlyPaid]));
+    }
+
+    public function resetFilters(): void
+    {
+        $this->workerId = null;
+        $this->stageId = null;
+        $this->onlyPaid = false;
+    }
+
+    /** Рабочие цеха — для выбора «кого показывать». @return array<int, string> */
+    public function workerOptions(): array
+    {
+        return User::query()
+            ->whereIn('role', Role::codesWith('is_factory_staff'))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    /** Этапы цеха — чтобы посмотреть выработку по одной операции. @return array<int, string> */
+    public function stageOptions(): array
+    {
+        return FactoryStage::query()
+            ->ofPipeline(PipelineType::Factory)
+            ->ordered()
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    /**
+     * Сотрудники цеха без выработки за месяц — их не должно потеряться в отчёте.
+     *
+     * Под фильтром список прячется: «кто ничего не сделал» имеет смысл по всему
+     * цеху за месяц, а не внутри выборки по одному этапу.
+     */
     public function idleWorkers(): Collection
     {
+        if ($this->onlyPaid || $this->activeFilters() > 0) {
+            return new Collection;
+        }
+
         $paid = $this->rows()->pluck('worker.id');
 
         return User::query()

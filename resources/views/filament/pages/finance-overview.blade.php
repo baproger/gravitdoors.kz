@@ -12,6 +12,20 @@
                 <option value="{{ $value }}">{{ $label }}</option>
             @endforeach
         </select>
+
+        <label class="gravit-field">
+            <span class="gravit-field__label">Или период с</span>
+            <input type="date" wire:model.live="from" class="gravit-select" />
+        </label>
+
+        <label class="gravit-field">
+            <span class="gravit-field__label">по</span>
+            <input type="date" wire:model.live="to" class="gravit-select" />
+        </label>
+
+        @if (filled($from) || filled($to))
+            <button type="button" wire:click="resetPeriod" class="gravit-filter-reset">Вернуть месяц</button>
+        @endif
     </div>
 
     <div class="gravit-bento">

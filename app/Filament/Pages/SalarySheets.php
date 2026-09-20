@@ -9,6 +9,7 @@ use App\Enums\PaymentMethod;
 use App\Enums\Permission;
 use App\Enums\SalarySheetStatus;
 use App\Models\CashAccount;
+use App\Models\Role;
 use App\Models\SalarySheet;
 use App\Services\AccessControl;
 use App\Services\PayrollService;
@@ -25,6 +26,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
@@ -162,6 +165,41 @@ class SalarySheets extends Page implements HasTable
                 TextColumn::make('paid_amount')->label('Выплачено')->state(fn (SalarySheet $s): string => Money::format($s->paid_amount))->color('success')->alignEnd(),
                 TextColumn::make('status')->label('Статус')->badge(),
             ])
+            ->filters([
+                SelectFilter::make('user_id')
+                    ->label('Сотрудник')
+                    ->relationship('user', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->multiple(),
+
+                SelectFilter::make('role')
+                    ->label('Должность')
+                    ->options(fn (): array => Role::assignable()->pluck('name', 'code')->all())
+                    ->multiple()
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        $data['values'] ?? [],
+                        fn (Builder $q, array $codes) => $q->whereHas('user', fn (Builder $u) => $u->whereIn('role', $codes))
+                    )),
+
+                SelectFilter::make('status')
+                    ->label('Статус')
+                    ->options(SalarySheetStatus::class)
+                    ->multiple(),
+
+                // Главный вопрос бухгалтера в конце месяца: кому ещё не выплатили.
+                Filter::make('unpaid')
+                    ->label('Не выплачено полностью')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query->whereColumn('paid_amount', '<', 'total')),
+
+                Filter::make('with_deductions')
+                    ->label('С удержаниями или авансом')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query->where(fn (Builder $q) => $q
+                        ->where('deductions', '>', 0)->orWhere('advances', '>', 0))),
+            ])
+            ->filtersFormColumns(2)
             ->recordActions([
                 Action::make('adjust')
                     ->label('Удержания')
