@@ -4395,19 +4395,14 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 /* Форма входит раньше плиток: за ней пришли, ждать её нельзя. */
 .lg-form__inner { animation-delay: 120ms; }
 
-.lg-brand { display: flex; align-items: center; gap: 0.75rem; }
+.lg-brand { display: flex; align-items: center; gap: 0.9rem; }
 
-.lg-brand__mark {
-    display: grid;
-    place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 0.85rem;
-    background: rgb(255 255 255 / 0.12);
-    border: 1px solid rgb(255 255 255 / 0.18);
-    font-weight: 700;
-    font-size: 0.9rem;
-    letter-spacing: 0.04em;
+/* Логотип задаёт высоту, ширина следует за пропорцией. Так он не поедет,
+   если когда-нибудь заменят файл на другой по размеру. */
+.lg-brand__logo {
+    height: 2.5rem;
+    width: auto;
+    flex: 0 0 auto;
 }
 
 .lg-brand__text { display: flex; flex-direction: column; line-height: 1.25; }
@@ -4562,4 +4557,20 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 @keyframes lg-fade {
     from { opacity: 0; }
     to   { opacity: 1; }
+}
+
+
+/* ---------- Логотип в панели ---------- */
+
+/* Filament рисует обе версии сразу и показывает нужную по теме:
+   fi-logo-light — светлая тема, fi-logo-dark — тёмная. Высоту он задаёт
+   инлайном, ширину оставляем за пропорцией. */
+.fi-logo {
+    width: auto;
+}
+
+/* Светлая тема: знак остаётся чёрной плашкой — так он и нарисован, — но со
+   скруглением читается как элемент оформления, а не вставленная картинка. */
+.fi-logo-light {
+    border-radius: 0.6rem;
 }

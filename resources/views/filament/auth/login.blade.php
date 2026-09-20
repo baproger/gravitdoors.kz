@@ -12,12 +12,17 @@
         <div class="lg-stage__glow lg-stage__glow--bottom"></div>
 
         <div class="lg-stage__inner">
+            {{-- Логотип без фона: витрина слева синяя, чёрная плашка на ней
+                 читалась бы наклейкой. Подпись рядом — про систему, не про завод. --}}
             <div class="lg-brand">
-                <span class="lg-brand__mark">GR</span>
-                <span class="lg-brand__text">
-                    <b>Gravit</b>
-                    <i>ERP · Производство</i>
-                </span>
+                <img
+                    src="{{ asset('images/gravit-logo-light.png') }}"
+                    alt="Gravit — металлические входные двери"
+                    class="lg-brand__logo"
+                    width="620"
+                    height="178"
+                />
+                <span class="lg-brand__text"><i>ERP · Производство</i></span>
             </div>
 
             <div class="lg-pitch">

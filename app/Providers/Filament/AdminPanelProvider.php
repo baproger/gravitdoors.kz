@@ -50,6 +50,15 @@ class AdminPanelProvider extends PanelProvider
             // Роль и оклад остаются в разделе «Сотрудники» у администратора.
             ->profile(EditProfile::class, isSimple: false)
             ->brandName('Gravit ERP')
+            // Логотип завода вместо текста. Он белый с золотом на чёрном, поэтому
+            // в светлой теме идёт как есть — чёрной плашкой, а в тёмной тем же
+            // изображением без фона: на тёмном плашка была бы видна прямоугольником.
+            ->brandLogo(asset('images/gravit-logo.png'))
+            ->darkModeBrandLogo(asset('images/gravit-logo-light.png'))
+            ->brandLogoHeight('2rem')
+            // Значок вкладки — одна дверь из логотипа: надпись в 16 пикселей
+            // всё равно не читается.
+            ->favicon(asset('images/gravit-favicon.png'))
             ->colors([
                 // Готовая синяя палитра, а не Color::hex('#2F6FED'): из светлого hex
                 // Filament строил палитру, у которой тёмный тон не проходил проверку

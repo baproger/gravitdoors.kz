@@ -29,6 +29,38 @@ class LoginPageTest extends TestCase
         $this->assertSame(Login::class, Filament::getPanel('admin')->getLoginRouteAction());
     }
 
+    /**
+     * Логотип завода стоит в панели и на входе, и файлы на месте.
+     *
+     * Ссылку на картинку не ловит ни один обычный тест: страница откроется и с
+     * битым изображением, просто на месте знака будет рамка с крестиком.
+     * Переименуют файл — узнаем отсюда, а не от сотрудников.
+     */
+    public function test_brand_logo_is_wired_up_and_the_files_exist(): void
+    {
+        $panel = Filament::getPanel('admin');
+
+        $files = [
+            'светлая тема' => $panel->getBrandLogo(),
+            'тёмная тема' => $panel->getDarkModeBrandLogo(),
+            'значок вкладки' => $panel->getFavicon(),
+        ];
+
+        foreach ($files as $where => $url) {
+            $this->assertNotNull($url, "Логотип не задан: {$where}");
+
+            $path = public_path(parse_url((string) $url, PHP_URL_PATH) ?? '');
+
+            $this->assertFileExists($path, "Файл логотипа не найден ({$where})");
+            $this->assertGreaterThan(0, filesize($path), "Файл логотипа пуст ({$where})");
+        }
+
+        // Тёмная версия — без чёрной плашки: на витрине входа она синяя.
+        $this->get('/admin/login')
+            ->assertOk()
+            ->assertSee('gravit-logo-light.png', escape: false);
+    }
+
     public function test_login_page_opens_for_a_guest_and_shows_the_stage(): void
     {
         $this->get('/admin/login')
