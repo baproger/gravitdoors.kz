@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support\Filament;
 
+use App\Enums\DealSource;
 use App\Enums\DealStatus;
 use App\Enums\Permission;
 use App\Enums\PipelineType;
@@ -13,6 +14,8 @@ use App\Models\FactoryStage;
 use App\Models\User;
 use App\Services\AccessControl;
 use App\Services\DoorProductionService;
+use App\Support\BoardFilter;
+use App\Support\Cities;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -36,6 +39,22 @@ abstract class KanbanBoardPage extends Page
 
     public ?int $managerId = null;
 
+    public ?string $city = null;
+
+    public ?string $source = null;
+
+    public ?string $dueFrom = null;
+
+    public ?string $dueUntil = null;
+
+    public bool $overdueOnly = false;
+
+    /** 'paid' — рассчитались полностью, 'due' — есть остаток. */
+    public ?string $payment = null;
+
+    /** Панель фильтров свёрнута: над колонками место дороже, чем восемь полей. */
+    public bool $filtersOpen = false;
+
     /** Сколько карточек показывать в колонке до нажатия «Показать ещё». */
     public int $perColumn = 20;
 
@@ -49,11 +68,9 @@ abstract class KanbanBoardPage extends Page
     {
         return app(DoorProductionService::class)->board(
             static::pipeline(),
-            $this->search !== '' ? $this->search : null,
-            $this->managerId,
+            $this->criteria(),
             $this->perColumn,
             $this->expandedStages,
-            $this->ownerId(),
         );
     }
 
@@ -65,15 +82,64 @@ abstract class KanbanBoardPage extends Page
         }
     }
 
-    /** Смена фильтра сбрасывает «развёрнутость»: иначе лимит колонки утекал бы между выборками. */
-    public function updatedSearch(): void
+    /** Что выбрано в панели фильтров. */
+    public function criteria(): BoardFilter
     {
+        return BoardFilter::fromArray([
+            'search' => $this->search,
+            'managerId' => $this->managerId,
+            'city' => $this->city,
+            'source' => $this->source,
+            'dueFrom' => $this->dueFrom,
+            'dueUntil' => $this->dueUntil,
+            'overdueOnly' => $this->overdueOnly,
+            'payment' => $this->payment,
+        ], $this->ownerId());
+    }
+
+    /**
+     * Смена любого условия сбрасывает «развёрнутость» колонок.
+     *
+     * Иначе лимит утекал бы между выборками: развернули колонку на сотню
+     * карточек, сузили фильтр до трёх — и колонка осталась бы «развёрнутой».
+     */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['search', 'managerId', 'city', 'source', 'dueFrom', 'dueUntil', 'overdueOnly', 'payment'], true)) {
+            $this->expandedStages = [];
+        }
+    }
+
+    /** Сбросить всё, кроме «только своих» — это не выбор пользователя, а его права. */
+    public function resetFilters(): void
+    {
+        $this->search = '';
+        $this->managerId = null;
+        $this->city = null;
+        $this->source = null;
+        $this->dueFrom = null;
+        $this->dueUntil = null;
+        $this->overdueOnly = false;
+        $this->payment = null;
         $this->expandedStages = [];
     }
 
-    public function updatedManagerId(): void
+    /** Города, которые встречаются в этой воронке. Пустого списка не показываем. */
+    public function getCityOptions(): array
     {
-        $this->expandedStages = [];
+        return Cities::options();
+    }
+
+    /** @return array<string, string> */
+    public function getSourceOptions(): array
+    {
+        $options = [];
+
+        foreach (DealSource::cases() as $source) {
+            $options[$source->value] = $source->getLabel();
+        }
+
+        return $options;
     }
 
     /** Право на саму воронку — оно же решает, свои карточки или все. */

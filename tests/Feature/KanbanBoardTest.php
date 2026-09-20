@@ -9,6 +9,7 @@ use App\Enums\PipelineType;
 use App\Models\Deal;
 use App\Models\FactoryStage;
 use App\Services\DoorProductionService;
+use App\Support\BoardFilter;
 use Database\Seeders\FactoryStageSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -68,7 +69,7 @@ class KanbanBoardTest extends TestCase
         $this->makeDeals($stage, 3);
         Deal::query()->first()->update(['client_name' => 'Уникальный Заказчик']);
 
-        $column = app(DoorProductionService::class)->board(PipelineType::Sales, search: 'Уникальный')
+        $column = app(DoorProductionService::class)->board(PipelineType::Sales, new BoardFilter(search: 'Уникальный'))
             ->firstWhere('code', 'contract');
 
         $this->assertSame(1, $column->deals_count);

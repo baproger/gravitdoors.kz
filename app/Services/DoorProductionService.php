@@ -22,6 +22,7 @@ use App\Models\MaterialStock;
 use App\Models\ProductionLog;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Support\BoardFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -337,24 +338,17 @@ class DoorProductionService
      */
     public function board(
         PipelineType $pipeline,
-        ?string $search = null,
-        ?int $managerId = null,
+        ?BoardFilter $criteria = null,
         int $perColumn = 20,
         array $expandedStageIds = [],
-        ?int $ownerId = null,
     ): Collection {
-        $filter = function ($query) use ($pipeline, $search, $managerId, $ownerId): void {
-            $query->where('pipeline_type', $pipeline->value)
-                ->open()
-                // «Только свои»: сделка без ответственного остаётся видимой.
-                ->when($ownerId, fn ($q) => $q->where(fn ($inner) => $inner->where('manager_id', $ownerId)->orWhereNull('manager_id')))
-                ->when($managerId, fn ($q) => $q->where('manager_id', $managerId))
-                ->when($search, fn ($q) => $q->where(function ($inner) use ($search): void {
-                    $inner->where('title', 'like', "%{$search}%")
-                        ->orWhere('number', 'like', "%{$search}%")
-                        ->orWhere('client_name', 'like', "%{$search}%")
-                        ->orWhere('client_phone', 'like', "%{$search}%");
-                }));
+        $criteria ??= new BoardFilter;
+
+        // Одни и те же условия и для счётчика в шапке колонки, и для карточек:
+        // разойдись они — колонка показывала бы «12», а карточек было бы семь.
+        $filter = function ($query) use ($pipeline, $criteria): void {
+            $query->where('pipeline_type', $pipeline->value)->open();
+            $criteria->apply($query);
         };
 
         $stages = FactoryStage::query()

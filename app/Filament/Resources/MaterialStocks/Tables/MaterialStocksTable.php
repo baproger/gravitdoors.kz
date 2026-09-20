@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\MaterialStocks\Tables;
 
+use App\Enums\MaterialUnit;
 use App\Enums\Permission;
 use App\Models\MaterialStock;
 use App\Models\StockMovement;
 use App\Services\AccessControl;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -85,10 +87,31 @@ class MaterialStocksTable
                     ->options(fn (): array => MaterialStock::query()->whereNotNull('supplier')
                         ->distinct()->orderBy('supplier')->pluck('supplier', 'supplier')->all()),
 
+                SelectFilter::make('unit')
+                    ->label('Единица измерения')
+                    ->options(MaterialUnit::class)
+                    ->multiple(),
+
                 Filter::make('below_limit')
                     ->label('Ниже минимума')
+                    ->toggle()
                     ->query(fn ($query) => $query->belowLimit()),
+
+                Filter::make('out_of_stock')
+                    ->label('Закончились')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query->where('quantity', '<=', 0)),
+
+                // «Мёртвые» позиции: числятся на складе, но ни одна опция прайса
+                // их не расходует — значит, в себестоимость они не попадают.
+                Filter::make('unused')
+                    ->label('Не участвуют в прайсе')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query->whereDoesntHave('doorOptions')),
+
+                TableFilters::period('created_at', 'Заведён'),
             ])
+            ->filtersFormColumns(2)
             ->recordActions([
                 Action::make('receipt')
                     ->label('Приход')

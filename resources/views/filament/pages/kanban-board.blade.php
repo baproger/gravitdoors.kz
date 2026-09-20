@@ -37,13 +37,18 @@
         class="gravit-board"
     >
         {{-- Фильтры --}}
+        @php
+            $criteria = $this->criteria();
+            $activeFilters = $criteria->activeCount();
+        @endphp
+
         <div class="gravit-toolbar">
             <label class="gravit-search">
                 <x-filament::icon icon="heroicon-m-magnifying-glass" class="gravit-search__icon" />
                 <input
                     type="search"
                     wire:model.live.debounce.400ms="search"
-                    placeholder="Номер, клиент, телефон…"
+                    placeholder="Номер, клиент, компания, телефон…"
                     class="gravit-search__input"
                 />
             </label>
@@ -56,7 +61,80 @@
                     @endforeach
                 </select>
             @endif
+
+            <button
+                type="button"
+                wire:click="$toggle('filtersOpen')"
+                class="gravit-filter-toggle @if ($filtersOpen) gravit-filter-toggle--open @endif"
+                aria-expanded="{{ $filtersOpen ? 'true' : 'false' }}"
+            >
+                <x-filament::icon icon="heroicon-m-adjustments-horizontal" class="gravit-filter-toggle__icon" />
+                <span>Фильтры</span>
+                @if ($activeFilters > 0)
+                    <span class="gravit-filter-toggle__count">{{ $activeFilters }}</span>
+                @endif
+            </button>
+
+            @if ($activeFilters > 0)
+                <button type="button" wire:click="resetFilters" class="gravit-filter-reset">Сбросить</button>
+            @endif
         </div>
+
+        @if ($filtersOpen)
+            <div class="gravit-filters">
+                <label class="gravit-field">
+                    <span class="gravit-field__label">Город</span>
+                    <select wire:model.live="city" class="gravit-select">
+                        <option value="">Любой</option>
+                        @foreach ($this->getCityOptions() as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+
+                <label class="gravit-field">
+                    <span class="gravit-field__label">Источник</span>
+                    <select wire:model.live="source" class="gravit-select">
+                        <option value="">Любой</option>
+                        @foreach ($this->getSourceOptions() as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+
+                <label class="gravit-field">
+                    <span class="gravit-field__label">Срок сдачи с</span>
+                    <input type="date" wire:model.live="dueFrom" class="gravit-select" />
+                </label>
+
+                <label class="gravit-field">
+                    <span class="gravit-field__label">Срок сдачи по</span>
+                    <input type="date" wire:model.live="dueUntil" class="gravit-select" />
+                </label>
+
+                @if ($this->canSeeMoney())
+                    <label class="gravit-field">
+                        <span class="gravit-field__label">Оплата</span>
+                        <select wire:model.live="payment" class="gravit-select">
+                            <option value="">Любая</option>
+                            <option value="due">Есть остаток</option>
+                            <option value="paid">Оплачено полностью</option>
+                        </select>
+                    </label>
+                @endif
+
+                <label class="gravit-field gravit-field--check">
+                    <input type="checkbox" wire:model.live="overdueOnly" class="gravit-checkbox" />
+                    <span>Только просроченные</span>
+                </label>
+            </div>
+        @endif
+
+        @if ($activeFilters > 0)
+            <p class="gravit-filters__summary">
+                Показаны только: {{ implode(' · ', $criteria->labels()) }}
+            </p>
+        @endif
 
         {{-- Колонки --}}
         <div class="gravit-columns">

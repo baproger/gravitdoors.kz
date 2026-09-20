@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Enums\DealSource;
 use App\Enums\Permission;
+use App\Enums\PipelineType;
 use App\Filament\Resources\Deals\DealResource;
 use App\Models\Deal;
+use App\Models\FactoryStage;
 use App\Services\AccessControl;
+use App\Support\Cities;
+use App\Support\Filament\TableFilters;
 use App\Support\Money;
 use App\Support\Plural;
 use BackedEnum;
@@ -17,6 +22,8 @@ use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Url;
@@ -170,6 +177,43 @@ class OverdueDeals extends Page implements HasTable
                     ->placeholder('—')
                     ->visibleFrom('xl'),
             ])
+            ->filters([
+                SelectFilter::make('manager_id')
+                    ->label('Ответственный')
+                    ->relationship('manager', 'name')
+                    ->searchable()
+                    ->preload(),
+
+                SelectFilter::make('current_stage_id')
+                    ->label('Этап')
+                    ->options(fn (): array => FactoryStage::query()->active()->ordered()->pluck('name', 'id')->all())
+                    ->multiple(),
+
+                SelectFilter::make('city')
+                    ->label('Город')
+                    ->options(fn (): array => Cities::options())
+                    ->searchable(),
+
+                SelectFilter::make('pipeline_type')
+                    ->label('Воронка')
+                    ->options(PipelineType::class)
+                    // На вкладке «по сроку» наряды и так не показываются, а цех
+                    // видит только их — выбор был бы из одного варианта.
+                    ->visible(fn (): bool => $this->mode === 'stage' && AccessControl::can(Permission::WorkSalesKanban)),
+
+                SelectFilter::make('source')
+                    ->label('Источник')
+                    ->options(DealSource::class),
+
+                Filter::make('unpaid')
+                    ->label('Только с долгом')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query->whereColumn('prepayment', '<', 'total_price'))
+                    ->visible($money),
+
+                TableFilters::period('due_date', 'Срок сдачи'),
+            ])
+            ->filtersFormColumns(2)
             ->emptyStateIcon('heroicon-o-check-badge')
             ->emptyStateHeading('Просроченных нет')
             ->emptyStateDescription(match ($this->mode) {
