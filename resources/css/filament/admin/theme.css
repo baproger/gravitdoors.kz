@@ -4562,15 +4562,54 @@ a.gravit-list__main:hover .gravit-list__title { color: rgb(47 111 237); }
 
 /* ---------- Логотип в панели ---------- */
 
-/* Filament рисует обе версии сразу и показывает нужную по теме:
-   fi-logo-light — светлая тема, fi-logo-dark — тёмная. Высоту он задаёт
-   инлайном, ширину оставляем за пропорцией. */
+/* Filament задаёт высоту блока инлайном; ширину оставляем за содержимым. */
 .fi-logo {
     width: auto;
 }
 
-/* Светлая тема: знак остаётся чёрной плашкой — так он и нарисован, — но со
-   скруглением читается как элемент оформления, а не вставленная картинка. */
-.fi-logo-light {
-    border-radius: 0.6rem;
+.gv-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    height: 100%;
+}
+
+/* Круг, а не прямоугольная плашка: так знак читается иконкой приложения и
+   держит любой размер. Диаметр подобран под сам рисунок — дверь занимает
+   две трети круга, углы её рамки в обрезку не попадают. */
+.gv-brand__mark {
+    flex: 0 0 auto;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    /* Мягкая тень на светлом фоне и светлое кольцо на тёмном: круг чёрный,
+       и без кольца в тёмной теме он сливался бы с сайдбаром. */
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.18);
+}
+
+.dark .gv-brand__mark {
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16);
+}
+
+.gv-brand__text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    line-height: 1.1;
+}
+
+.gv-brand__text b {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--gravit-text);
+}
+
+.gv-brand__text i {
+    font-style: normal;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--gravit-muted);
 }

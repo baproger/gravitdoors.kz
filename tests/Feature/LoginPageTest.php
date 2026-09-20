@@ -30,35 +30,43 @@ class LoginPageTest extends TestCase
     }
 
     /**
-     * Логотип завода стоит в панели и на входе, и файлы на месте.
+     * Знак завода стоит и в панели, и на входе, а файлы под ним существуют.
      *
-     * Ссылку на картинку не ловит ни один обычный тест: страница откроется и с
-     * битым изображением, просто на месте знака будет рамка с крестиком.
-     * Переименуют файл — узнаем отсюда, а не от сотрудников.
+     * Битую картинку не ловит ни один обычный тест: страница откроется, просто
+     * вместо знака будет рамка с крестиком. Переименуют файл — узнаем отсюда,
+     * а не от сотрудников.
      */
-    public function test_brand_logo_is_wired_up_and_the_files_exist(): void
+    public function test_brand_is_wired_up_and_its_files_exist(): void
     {
-        $panel = Filament::getPanel('admin');
+        foreach (['gravit-icon.png', 'gravit-logo-light.png', 'gravit-favicon.png'] as $file) {
+            $path = public_path('images/'.$file);
 
-        $files = [
-            'светлая тема' => $panel->getBrandLogo(),
-            'тёмная тема' => $panel->getDarkModeBrandLogo(),
-            'значок вкладки' => $panel->getFavicon(),
-        ];
-
-        foreach ($files as $where => $url) {
-            $this->assertNotNull($url, "Логотип не задан: {$where}");
-
-            $path = public_path(parse_url((string) $url, PHP_URL_PATH) ?? '');
-
-            $this->assertFileExists($path, "Файл логотипа не найден ({$where})");
-            $this->assertGreaterThan(0, filesize($path), "Файл логотипа пуст ({$where})");
+            $this->assertFileExists($path, "Нет файла знака: {$file}");
+            $this->assertGreaterThan(0, filesize($path), "Файл знака пуст: {$file}");
         }
 
-        // Тёмная версия — без чёрной плашки: на витрине входа она синяя.
+        // Значок вкладки задан адресом, знак сайдбара — разметкой.
+        $this->assertStringContainsString(
+            'gravit-favicon.png',
+            (string) Filament::getPanel('admin')->getFavicon()
+        );
+
+        // Витрина входа синяя — там знак без чёрной плашки.
         $this->get('/admin/login')
             ->assertOk()
             ->assertSee('gravit-logo-light.png', escape: false);
+    }
+
+    /** В сайдбаре — круглая иконка и название, а не широкая картинка с надписью. */
+    public function test_sidebar_brand_is_a_round_mark_with_the_name(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin->value]);
+
+        $this->actingAs($admin)->get('/admin')
+            ->assertOk()
+            ->assertSee('gv-brand__mark', escape: false)
+            ->assertSee('gravit-icon.png', escape: false)
+            ->assertSee('Gravit');
     }
 
     public function test_login_page_opens_for_a_guest_and_shows_the_stage(): void
