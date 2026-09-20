@@ -1,171 +1,259 @@
-{{-- Финансы — обзор. Плитки — как на «Зарплате цеха»; цифры считает FinanceSummary. --}}
+{{--
+    Финансы — обзор в bento-сетке.
+
+    Та же система, что на инфопанели: список плиток с размерами, BentoLayout
+    раскладывает их без дыр, <x-db.tile> рисует. Своей сетки здесь нет
+    намеренно — два похожих, но разных обзора расходились бы в мелочах на
+    каждой правке, а выглядят они рядом в одном меню.
+
+    Порядок в $plan — порядок чтения: сначала итог, потом из чего он сложился,
+    потом на чём стоим (счета, долги, склад) и куда идти дальше.
+--}}
 <x-filament-panels::page>
     @php
         $s = $this->summary();
         $period = $this->periodLabel();
         $net = $s->net();
+
+        $m = fn ($v) => \App\Support\Money::format($v);
+        $mn = fn ($v) => new \Illuminate\Support\HtmlString('<span class="db-nowrap">'.e(\App\Support\Money::format($v)).'</span>');
+        $plural = fn (int $n, string ...$forms) => \App\Support\Plural::choose($n, ...$forms);
+
+        $hasDebts = $s->debtsCount() > 0;
+        $overdueDebt = $hasDebts && $s->openDebts()->contains(fn ($debt): bool => $debt->isOverdue());
+
+        $plan = collect([
+            'net' => [true, 'w'],
+            'receipts' => [true, 's'],
+            'receivables' => [true, 's'],
+            'expenses' => [true, 'w', true],
+            'contracts' => [true, 's'],
+            'stock' => [true, 's'],
+            'cash' => [$s->hasAccounts(), 'w'],
+            'debts' => [$hasDebts, 'w'],
+            'links' => [true, 'w'],
+        ])->filter(fn (array $t): bool => $t[0])
+            ->map(fn (array $t): array => ['size' => $t[1], 'tall' => $t[2] ?? false])
+            ->all();
+
+        $layout = \App\Support\BentoLayout::fill($plan);
+        $at = fn (string $key): array => [
+            'size' => $plan[$key]['size'],
+            'tall' => $plan[$key]['tall'],
+            'span' => $layout[$key]['span'],
+            'rows' => $layout[$key]['rows'],
+        ];
+        $show = fn (string $key): bool => isset($layout[$key]);
+
+        $url = [
+            'cash' => \App\Filament\Pages\CashDesk::getUrl(),
+            'debts' => \App\Filament\Resources\Debts\DebtResource::getUrl(),
+            'expenses' => \App\Filament\Resources\Expenses\ExpenseResource::getUrl(),
+            'deals' => \App\Filament\Resources\Deals\DealResource::getUrl(),
+            'overdue' => \App\Filament\Pages\OverdueDeals::getUrl(),
+            'salary' => \App\Filament\Pages\SalarySheets::getUrl(),
+            'bonuses' => \App\Filament\Resources\Bonuses\BonusResource::getUrl(),
+            'payroll' => \App\Filament\Pages\Payroll::getUrl(),
+            'stock' => \App\Filament\Resources\StockMovements\StockMovementResource::getUrl(),
+        ];
     @endphp
 
-    <div class="gravit-toolbar">
-        <select wire:model.live="month" class="gravit-select">
-            @foreach ($this->monthOptions() as $value => $label)
-                <option value="{{ $value }}">{{ $label }}</option>
-            @endforeach
-        </select>
+    <div class="db">
+        <div class="gravit-toolbar">
+            <select wire:model.live="month" class="gravit-select">
+                @foreach ($this->monthOptions() as $value => $label)
+                    <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+            </select>
 
-        <label class="gravit-field">
-            <span class="gravit-field__label">Или период с</span>
-            <input type="date" wire:model.live="from" class="gravit-select" />
-        </label>
+            <label class="gravit-field">
+                <span class="gravit-field__label">Или период с</span>
+                <input type="date" wire:model.live="from" class="gravit-select" />
+            </label>
 
-        <label class="gravit-field">
-            <span class="gravit-field__label">по</span>
-            <input type="date" wire:model.live="to" class="gravit-select" />
-        </label>
+            <label class="gravit-field">
+                <span class="gravit-field__label">по</span>
+                <input type="date" wire:model.live="to" class="gravit-select" />
+            </label>
 
-        @if (filled($from) || filled($to))
-            <button type="button" wire:click="resetPeriod" class="gravit-filter-reset">Вернуть месяц</button>
-        @endif
-    </div>
+            @if (filled($from) || filled($to))
+                <button type="button" wire:click="resetPeriod" class="gravit-filter-reset">Вернуть месяц</button>
+            @endif
+        </div>
 
-    <div class="gravit-bento">
-        @if ($s->hasAccounts() || $s->debtsCount() > 0)
-            {{-- ДДС: деньги на счетах слева, долги справа — как на образце, но из журнала, не руками. --}}
-            <div class="gravit-tile">
-                <p class="gravit-tile__label">ДДС — деньги и долги на сегодня</p>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1.5rem; margin-top: 0.75rem;">
-                    <div class="gravit-lines">
+        <div class="db-bento" wire:loading.class="db-bento--busy">
+            {{-- Итог первым и крупно: ради этой цифры страницу и открывают. --}}
+            @if ($show('net'))
+                <x-db.tile
+                    :layout="$at('net')"
+                    label="Результат {{ $period }}"
+                    tone="finance"
+                    icon="heroicon-o-scale"
+                    :state="$net < 0 ? 'alert' : 'accent'"
+                >
+                    <p class="db-tile__value db-tile__value--hero {{ $net >= 0 ? 'db-tile__value--good' : 'db-tile__value--bad' }}">{{ $m($net) }}</p>
+                    <p class="db-tile__foot">
+                        поступления {{ $mn($s->receipts()) }} − известные расходы {{ $mn($s->expenses()) }}
+                    </p>
+                </x-db.tile>
+            @endif
+
+            @if ($show('receipts'))
+                <x-db.tile :layout="$at('receipts')" label="Поступления {{ $period }}" tone="money" icon="heroicon-o-arrow-trending-up">
+                    <p class="db-tile__value db-tile__value--good">{{ $m($s->receipts()) }}</p>
+                    <p class="db-tile__foot">касса {{ $mn($s->receiptsCash()) }} · банк {{ $mn($s->receiptsBank()) }}</p>
+                </x-db.tile>
+            @endif
+
+            @if ($show('receivables'))
+                <x-db.tile
+                    :layout="$at('receivables')"
+                    label="Нам должны"
+                    tone="money"
+                    icon="heroicon-o-clock"
+                    :state="$s->receivables() > 0 ? 'alert' : null"
+                    :href="$url['deals']"
+                >
+                    <p class="db-tile__value {{ $s->receivables() > 0 ? 'db-tile__value--bad' : '' }}">{{ $m($s->receivables()) }}</p>
+                    <p class="db-tile__foot">
+                        {{ $s->receivablesCount() }} {{ $plural($s->receivablesCount(), 'открытая сделка', 'открытые сделки', 'открытых сделок') }} с остатком
+                    </p>
+                </x-db.tile>
+            @endif
+
+            {{-- Расходы высокие: под цифрой разбивка по статьям, ради неё и заходят. --}}
+            @if ($show('expenses'))
+                <x-db.tile :layout="$at('expenses')" label="Расходы {{ $period }}" tone="finance" icon="heroicon-o-arrow-trending-down">
+                    <p class="db-tile__value db-tile__value--bad">− {{ $m($s->expenses()) }}</p>
+
+                    <div class="db-tile__body gravit-lines">
+                        @forelse ($s->expenseLines() as $line)
+                            <div class="gravit-line">
+                                <span>{{ $line['label'] }}</span>
+                                <span>{{ $m($line['value']) }}</span>
+                            </div>
+                        @empty
+                            <p class="db-tile__foot">За период расходов не подтверждали.</p>
+                        @endforelse
+                    </div>
+
+                    <p class="db-tile__foot">
+                        @if ($s->hasPayrollSheets())
+                            Зарплата — по утверждённым ведомостям; выплаты категории «Зарплата» отдельно не считаются.
+                        @else
+                            {{ $s->isAllTime() ? 'Оклады — расчётно по датам приёма' : 'Оклады — сотрудники, принятые к концу месяца' }}; точнее — после ведомости.
+                        @endif
+                    </p>
+                </x-db.tile>
+            @endif
+
+            @if ($show('contracts'))
+                <x-db.tile :layout="$at('contracts')" label="Сумма договоров" tone="sales" icon="heroicon-o-document-text" :href="$url['deals']">
+                    <p class="db-tile__value">{{ $m($s->contracts()) }}</p>
+                    <p class="db-tile__foot">
+                        {{ $s->contractsCount() }} {{ $plural($s->contractsCount(), 'сделка', 'сделки', 'сделок') }} {{ $period }}, без отменённых
+                    </p>
+                </x-db.tile>
+            @endif
+
+            @if ($show('stock'))
+                <x-db.tile :layout="$at('stock')" label="Склад по учётной цене" tone="stock" icon="heroicon-o-cube" :href="$url['stock']">
+                    <p class="db-tile__value">{{ $m($s->stockValue()) }}</p>
+                    <p class="db-tile__foot">остатки активных материалов × цена за единицу</p>
+                </x-db.tile>
+            @endif
+
+            {{-- Счета: сколько денег есть прямо сейчас, по каждому счёту отдельно. --}}
+            @if ($show('cash'))
+                <x-db.tile :layout="$at('cash')" label="Касса и банк" tone="money" icon="heroicon-o-building-library" :href="$url['cash']">
+                    <div class="db-tile__row">
+                        <p class="db-tile__value">{{ $m($s->cashBalance() + $s->bankBalance()) }}</p>
+                        <p class="db-tile__aside">
+                            <span class="db-pill">касса {{ $m($s->cashBalance()) }}</span>
+                            <span class="db-pill">банк {{ $m($s->bankBalance()) }}</span>
+                        </p>
+                    </div>
+
+                    <div class="db-tile__body gravit-lines db-columns db-columns--wide">
                         @foreach ($s->accounts() as $account)
                             <div class="gravit-line">
                                 <span>{{ $account->name }}</span>
-                                <span>{{ \App\Support\Money::format($account->balance()) }}</span>
+                                <span>{{ $m($account->balance()) }}</span>
                             </div>
                         @endforeach
-                        <div class="gravit-line gravit-line--total">
-                            <span>На счетах</span>
-                            <span>{{ \App\Support\Money::format($s->cashBalance() + $s->bankBalance()) }}</span>
-                        </div>
-                        <div class="gravit-line">
-                            <span>Дебиторка — нам должны</span>
-                            <span>{{ \App\Support\Money::format($s->receivables()) }}</span>
-                        </div>
                     </div>
-                    <div class="gravit-lines">
-                        @forelse ($s->openDebts()->take(6) as $debt)
+
+                    <p class="db-tile__foot">{{ $s->isAllTime() ? 'Остатки на сегодня' : 'Остатки на конец периода' }} по журналу кассы и банка.</p>
+                </x-db.tile>
+            @endif
+
+            {{-- Долги показываем, только если они есть: пустая плитка «Мы должны 0» — шум. --}}
+            @if ($show('debts'))
+                <x-db.tile
+                    :layout="$at('debts')"
+                    label="Мы должны"
+                    tone="finance"
+                    icon="heroicon-o-exclamation-triangle"
+                    :state="$overdueDebt ? 'alert' : null"
+                    :href="$url['debts']"
+                >
+                    <p class="db-tile__value db-tile__value--bad">{{ $m($s->debts()) }}</p>
+
+                    <div class="db-tile__body gravit-lines db-columns db-columns--wide">
+                        @foreach ($s->openDebts()->take(6) as $debt)
                             <div class="gravit-line">
-                                <span>{{ $debt->counterparty }}@if ($debt->isOverdue()) <span style="color: rgb(185 28 28); font-weight: 400;">· просрочен</span>@endif</span>
-                                <span>{{ \App\Support\Money::format($debt->remaining()) }}</span>
+                                <span>
+                                    {{ $debt->counterparty }}
+                                    @if ($debt->isOverdue())
+                                        <span class="db-bad">· просрочен</span>
+                                    @endif
+                                </span>
+                                <span>{{ $m($debt->remaining()) }}</span>
                             </div>
-                        @empty
-                            <p class="gravit-tile__hint">Долгов нет</p>
-                        @endforelse
-                        <div class="gravit-line gravit-line--total">
-                            <span>Мы должны</span>
-                            <span style="color: rgb(185 28 28);">{{ \App\Support\Money::format($s->debts()) }}</span>
+                        @endforeach
+                    </div>
+
+                    <p class="db-tile__foot">
+                        {{ $s->debtsCount() }} {{ $plural($s->debtsCount(), 'открытый долг', 'открытых долга', 'открытых долгов') }} поставщикам и подрядчикам
+                    </p>
+                </x-db.tile>
+            @endif
+
+            {{-- Разделы: плитка целиком ссылкой быть не может — ссылок внутри много. --}}
+            @if ($show('links'))
+                <x-db.tile :layout="$at('links')" label="Куда идти дальше" tone="people" icon="heroicon-o-squares-2x2">
+                    <div class="db-tile__body gravit-lines db-columns db-columns--wide">
+                        <div class="gravit-line">
+                            <span><a href="{{ $url['deals'] }}" class="gravit-card__link">Сделки и счета →</a></span>
+                            <span class="db-muted">договоры, предоплата, остаток</span>
                         </div>
                         <div class="gravit-line">
-                            <span><a href="{{ \App\Filament\Resources\Debts\DebtResource::getUrl() }}" class="gravit-card__link">Задолженности →</a></span>
-                            <span></span>
+                            <span><a href="{{ $url['overdue'] }}" class="gravit-card__link">Просроченные →</a></span>
+                            <span class="db-muted">кто задерживает сдачу и оплату</span>
+                        </div>
+                        <div class="gravit-line">
+                            <span><a href="{{ $url['expenses'] }}" class="gravit-card__link">Расходы →</a></span>
+                            <span class="db-muted">на проверке и оплаченные</span>
+                        </div>
+                        <div class="gravit-line">
+                            <span><a href="{{ $url['salary'] }}" class="gravit-card__link">Зарплата — ведомость →</a></span>
+                            <span class="db-muted">оклад, сдельно, бонусы, выплаты</span>
+                        </div>
+                        <div class="gravit-line">
+                            <span><a href="{{ $url['bonuses'] }}" class="gravit-card__link">Бонусы →</a></span>
+                            <span class="db-muted">начисление и утверждение</span>
+                        </div>
+                        <div class="gravit-line">
+                            <span><a href="{{ $url['payroll'] }}" class="gravit-card__link">Зарплата цеха →</a></span>
+                            <span class="db-muted">сдельно по закрытым этапам</span>
+                        </div>
+                        <div class="gravit-line">
+                            <span><a href="{{ $url['stock'] }}" class="gravit-card__link">Движения склада →</a></span>
+                            <span class="db-muted">закуп, списания, возвраты</span>
                         </div>
                     </div>
-                </div>
-            </div>
-        @endif
-
-        <div class="gravit-tile gravit-tile--third">
-            <p class="gravit-tile__label">Сумма договоров</p>
-            <p class="gravit-tile__value">{{ \App\Support\Money::format($s->contracts()) }}</p>
-            <p class="gravit-tile__hint">{{ $s->contractsCount() }} {{ \App\Support\Plural::choose($s->contractsCount(), 'сделка', 'сделки', 'сделок') }} {{ $period }}, без отменённых</p>
-        </div>
-
-        <div class="gravit-tile gravit-tile--third" @if ($s->receivables() > 0) style="border-color: rgb(220 38 38 / 0.25); background: rgb(254 242 242);" @endif>
-            <p class="gravit-tile__label">Дебиторка — нам должны</p>
-            <p class="gravit-tile__value" @if ($s->receivables() > 0) style="color: rgb(185 28 28);" @endif>{{ \App\Support\Money::format($s->receivables()) }}</p>
-            <p class="gravit-tile__hint">{{ $s->receivablesCount() }} {{ \App\Support\Plural::choose($s->receivablesCount(), 'открытая сделка', 'открытые сделки', 'открытых сделок') }} с остатком</p>
-        </div>
-
-        <div class="gravit-tile gravit-tile--third">
-            <p class="gravit-tile__label">Поступления</p>
-            <p class="gravit-tile__value" style="color: rgb(21 128 61);">{{ \App\Support\Money::format($s->receipts()) }}</p>
-            <p class="gravit-tile__hint">касса {{ \App\Support\Money::format($s->receiptsCash()) }} · банк {{ \App\Support\Money::format($s->receiptsBank()) }}</p>
-        </div>
-
-        <div class="gravit-tile gravit-tile--third">
-            <p class="gravit-tile__label">Расходы {{ $period }}</p>
-            <p class="gravit-tile__value" style="color: rgb(185 28 28);">− {{ \App\Support\Money::format($s->expenses()) }}</p>
-            <div class="gravit-lines" style="margin-top: 0.6rem;">
-                @foreach ($s->expenseLines() as $line)
-                    <div class="gravit-line">
-                        <span>{{ $line['label'] }}</span>
-                        <span>{{ \App\Support\Money::format($line['value']) }}</span>
-                    </div>
-                @endforeach
-            </div>
-            <p class="gravit-tile__hint" style="margin-top: 0.6rem;">
-                @if ($s->hasPayrollSheets())
-                    зарплата — по утверждённым <a href="{{ \App\Filament\Pages\SalarySheets::getUrl() }}" class="gravit-card__link">ведомостям</a>; выплаты категории «Зарплата» отдельно не считаются.
-                @else
-                    {{ $s->isAllTime() ? 'оклады — расчётно по датам приёма' : 'оклады — сотрудники, принятые к концу месяца' }}; точнее — после <a href="{{ \App\Filament\Pages\SalarySheets::getUrl() }}" class="gravit-card__link">ведомости</a>.
-                @endif
-                Остальные строки — подтверждённые записи раздела <a href="{{ \App\Filament\Resources\Expenses\ExpenseResource::getUrl() }}" class="gravit-card__link">Расходы</a>.
-            </p>
-        </div>
-
-        <div class="gravit-tile gravit-tile--third" style="background: rgb(15 23 42); color: #fff; border-color: rgb(15 23 42);">
-            <p class="gravit-tile__label" style="color: rgb(203 213 225);">Результат {{ $period }}</p>
-            <p class="gravit-tile__value" style="color: {{ $net >= 0 ? 'rgb(74 222 128)' : 'rgb(252 165 165)' }};">{{ \App\Support\Money::format($net) }}</p>
-            <p class="gravit-tile__hint" style="color: rgb(148 163 184);">поступления − известные расходы</p>
-        </div>
-
-        @if ($s->hasAccounts())
-            <div class="gravit-tile gravit-tile--third">
-                <p class="gravit-tile__label">Касса и банк</p>
-                <p class="gravit-tile__value">{{ \App\Support\Money::format($s->cashBalance() + $s->bankBalance()) }}</p>
-                <p class="gravit-tile__hint">касса {{ \App\Support\Money::format($s->cashBalance()) }} · банк {{ \App\Support\Money::format($s->bankBalance()) }}{{ $s->isAllTime() ? '' : ' — на конец месяца' }} · <a href="{{ \App\Filament\Pages\CashDesk::getUrl() }}" class="gravit-card__link">журнал →</a></p>
-            </div>
-        @endif
-
-        <div class="gravit-tile gravit-tile--third">
-            <p class="gravit-tile__label">Склад по учётной цене</p>
-            <p class="gravit-tile__value">{{ \App\Support\Money::format($s->stockValue()) }}</p>
-            <p class="gravit-tile__hint">остатки активных материалов × цена за единицу</p>
-        </div>
-
-        <div class="gravit-tile">
-            <p class="gravit-tile__label">Разделы</p>
-            <div class="gravit-lines" style="margin-top: 0.75rem;">
-                <div class="gravit-line">
-                    <span><a href="{{ \App\Filament\Resources\Deals\DealResource::getUrl() }}" class="gravit-card__link">Сделки и счета →</a></span>
-                    <span><span style="color: var(--gravit-muted); font-weight: 400;">договоры, предоплата, остаток</span></span>
-                </div>
-                <div class="gravit-line">
-                    <span><a href="{{ \App\Filament\Pages\OverdueDeals::getUrl() }}" class="gravit-card__link">Просроченные →</a></span>
-                    <span><span style="color: var(--gravit-muted); font-weight: 400;">кто задерживает сдачу и оплату</span></span>
-                </div>
-                <div class="gravit-line">
-                    <span><a href="{{ \App\Filament\Resources\Expenses\ExpenseResource::getUrl() }}" class="gravit-card__link">Расходы →</a></span>
-                    <span><span style="color: var(--gravit-muted); font-weight: 400;">на проверке и оплаченные</span></span>
-                </div>
-                <div class="gravit-line">
-                    <span><a href="{{ \App\Filament\Pages\SalarySheets::getUrl() }}" class="gravit-card__link">Зарплата — ведомость →</a></span>
-                    <span><span style="color: var(--gravit-muted); font-weight: 400;">оклад + сдельно + бонусы, выплаты</span></span>
-                </div>
-                <div class="gravit-line">
-                    <span><a href="{{ \App\Filament\Resources\Bonuses\BonusResource::getUrl() }}" class="gravit-card__link">Бонусы →</a></span>
-                    <span><span style="color: var(--gravit-muted); font-weight: 400;">начисление и утверждение</span></span>
-                </div>
-                <div class="gravit-line">
-                    <span><a href="{{ \App\Filament\Pages\Payroll::getUrl() }}" class="gravit-card__link">Зарплата цеха →</a></span>
-                    <span><span style="color: var(--gravit-muted); font-weight: 400;">сдельно по закрытым этапам</span></span>
-                </div>
-                <div class="gravit-line">
-                    <span><a href="{{ \App\Filament\Resources\StockMovements\StockMovementResource::getUrl() }}" class="gravit-card__link">Движения склада →</a></span>
-                    <span><span style="color: var(--gravit-muted); font-weight: 400;">закуп, списания, возвраты</span></span>
-                </div>
-            </div>
-            <p class="gravit-tile__hint" style="margin-top: 0.75rem;">
-                Мои расходы, закуп как расход, отчёты — следующие шаги по finance-plan.md.
-            </p>
+                </x-db.tile>
+            @endif
         </div>
     </div>
 </x-filament-panels::page>

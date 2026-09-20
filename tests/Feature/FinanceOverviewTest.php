@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Enums\CashAccountType;
 use App\Enums\DealStatus;
+use App\Enums\DebtCategory;
+use App\Enums\DebtStatus;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
 use App\Filament\Pages\FinanceOverview;
+use App\Models\CashAccount;
 use App\Models\Deal;
 use App\Models\DealPayment;
+use App\Models\Debt;
 use App\Models\FactoryStage;
 use App\Models\MaterialStock;
 use App\Models\ProductionLog;
@@ -41,6 +46,65 @@ class FinanceOverviewTest extends TestCase
 
         $this->actingAs(User::factory()->create(['role' => UserRole::Master->value]));
         $this->get('/admin/finance')->assertForbidden();
+    }
+
+    /**
+     * Плитки, которые зависят от данных, появляются вместе с данными.
+     *
+     * «Касса и банк» без единого счёта и «Мы должны 0 ₸» — не информация, а
+     * шум: обзор открывают ради цифр, а не ради пустых рамок. Сетку при этом
+     * раскладывает `BentoLayout`, и дыру от спрятанной плитки он закрывает сам.
+     */
+    public function test_tiles_that_depend_on_data_appear_with_it(): void
+    {
+        $this->assertTiles(['Результат', 'Поступления', 'Расходы'], ['Касса и банк', 'Мы должны']);
+
+        CashAccount::create(['name' => 'Касса цеха', 'type' => CashAccountType::Cash, 'is_active' => true]);
+        Debt::create([
+            'counterparty' => 'Поставщик металла',
+            'category' => DebtCategory::Supplier,
+            'amount' => 300_000,
+            'paid_amount' => 0,
+            'due_at' => now()->addWeek(),
+            'status' => DebtStatus::Open,
+        ]);
+
+        $this->assertTiles(['Касса и банк', 'Мы должны'], []);
+        $this->get('/admin/finance')->assertSee('Касса цеха')->assertSee('Поставщик металла');
+    }
+
+    /**
+     * Плитки ищем по их заголовку в разметке, а не по тексту страницы: «Касса
+     * и банк» есть ещё и в меню слева, и обычный assertSee нашёл бы его там.
+     *
+     * @param  list<string>  $expected
+     * @param  list<string>  $absent
+     */
+    private function assertTiles(array $expected, array $absent): void
+    {
+        $html = $this->get('/admin/finance')->assertOk()->content();
+        $label = static fn (string $title): string => 'class="db-tile__label">'.$title;
+
+        foreach ($expected as $title) {
+            $this->assertStringContainsString($label($title), $html, "Нет плитки «{$title}»");
+        }
+
+        foreach ($absent as $title) {
+            $this->assertStringNotContainsString($label($title), $html, "Плитка «{$title}» лишняя, пока нет данных");
+        }
+    }
+
+    /** Итог — первая и самая крупная плитка: ради него страницу и открывают. */
+    public function test_the_result_is_the_headline_tile(): void
+    {
+        $html = $this->get('/admin/finance')->assertOk()->content();
+
+        $this->assertStringContainsString('db-tile__value--hero', $html, 'У итога нет крупного начертания');
+        $this->assertLessThan(
+            mb_strpos($html, 'Сумма договоров'),
+            mb_strpos($html, 'Результат'),
+            'Итог должен стоять выше остальных плиток'
+        );
     }
 
     public function test_summary_adds_up(): void
