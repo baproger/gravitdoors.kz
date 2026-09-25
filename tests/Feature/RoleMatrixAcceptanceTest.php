@@ -29,6 +29,7 @@ class RoleMatrixAcceptanceTest extends TestCase
         'factory_kanban' => '/admin/kanban/factory',
         'overdue' => '/admin/overdue-deals',
         'deals' => '/admin/deals',
+        'tenders' => '/admin/tenders',
         'materials' => '/admin/material-stocks',
         'stock_movements' => '/admin/stock-movements',
         'my_salary' => '/admin/my-salary',
@@ -68,10 +69,17 @@ class RoleMatrixAcceptanceTest extends TestCase
         ]);
     }
 
+    public function test_b2b_manager_sees_sales_work_tenders_and_own_salary(): void
+    {
+        $this->assertSections(UserRole::B2b, [
+            'sales_kanban', 'factory_kanban', 'overdue', 'deals', 'tenders', 'materials', 'stock_movements', 'my_salary',
+        ]);
+    }
+
     public function test_accountant_sees_all_money(): void
     {
         $this->assertSections(UserRole::Accountant, [
-            'sales_kanban', 'factory_kanban', 'overdue', 'deals', 'materials', 'stock_movements',
+            'sales_kanban', 'factory_kanban', 'overdue', 'deals', 'tenders', 'materials', 'stock_movements',
             'my_salary', 'finance', 'invoices', 'incomes', 'expenses', 'cash', 'debts',
             'payroll', 'salary', 'bonuses', 'finance_settings',
         ]);

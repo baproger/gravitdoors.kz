@@ -14,6 +14,8 @@ use App\Filament\Resources\Deals\RelationManagers\ProductionLogsRelationManager;
 use App\Models\Deal;
 use App\Models\DoorConfiguration;
 use App\Models\FactoryStage;
+use App\Models\Tender;
+use App\Models\TenderLot;
 use App\Models\User;
 use App\Services\DoorProductionService;
 use Database\Seeders\DoorOptionSeeder;
@@ -50,6 +52,8 @@ class AdminPanelSmokeTest extends TestCase
             'канбан завода' => ['/admin/kanban/factory'],
             'сделки' => ['/admin/deals'],
             'создание сделки' => ['/admin/deals/create'],
+            'тендеры' => ['/admin/tenders'],
+            'новый тендер' => ['/admin/tenders/create'],
             'этапы воронок' => ['/admin/factory-stages'],
             'прайс конфигуратора' => ['/admin/door-options'],
             'склад' => ['/admin/material-stocks'],
@@ -127,6 +131,19 @@ class AdminPanelSmokeTest extends TestCase
 
         $this->assertTrue(ProductionLogsRelationManager::canViewForRecord($order, EditDeal::class));
         $this->assertFalse(ProductionLogsRelationManager::canViewForRecord($deal, EditDeal::class));
+    }
+
+    public function test_tender_card_opens_with_lots(): void
+    {
+        $tender = Tender::factory()->create(['title' => 'Поставка дверей для школы']);
+        TenderLot::factory()->for($tender)->create(['name' => 'Дверь входная 2050×950']);
+
+        $this->get("/admin/tenders/{$tender->id}/edit")
+            ->assertOk()
+            ->assertSee('Поставка дверей для школы')
+            ->assertSee('Дверь входная 2050×950');
+
+        $this->get("/admin/tenders/{$tender->id}")->assertOk();
     }
 
     public function test_inactive_user_cannot_access_panel(): void

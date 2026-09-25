@@ -45,7 +45,7 @@ class AccessMatrix extends Page
     protected string $view = 'filament.pages.access-matrix';
 
     /** Палитра ролей — та же, что у этапов воронок. */
-    private const COLORS = ['gray', 'info', 'primary', 'success', 'warning', 'danger', 'violet'];
+    private const COLORS = ['gray', 'info', 'primary', 'success', 'warning', 'danger', 'violet', 'teal'];
 
     public static function canAccess(): bool
     {

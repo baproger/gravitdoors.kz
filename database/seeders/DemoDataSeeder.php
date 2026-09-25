@@ -12,10 +12,13 @@ use App\Enums\DoorModel;
 use App\Enums\OpeningSide;
 use App\Enums\PaymentMethod;
 use App\Enums\PipelineType;
+use App\Enums\TenderPlatform;
+use App\Enums\TenderStatus;
 use App\Enums\UserRole;
 use App\Models\Deal;
 use App\Models\DoorConfiguration;
 use App\Models\FactoryStage;
+use App\Models\Tender;
 use App\Models\User;
 use App\Services\DoorProductionService;
 use Illuminate\Database\Seeder;
@@ -51,6 +54,46 @@ class DemoDataSeeder extends Seeder
         return $path;
     }
 
+    /** Тендер с двумя лотами: подать заявку через два дня — чтобы было видно напоминание. */
+    private function demoTender(User $b2b): void
+    {
+        if (Tender::query()->where('announcement_number', '1234567-1')->exists()) {
+            return;
+        }
+
+        $tender = Tender::create([
+            'announcement_number' => '1234567-1',
+            'title' => 'Поставка металлических дверей для школы-гимназии № 45',
+            'platform' => TenderPlatform::Goszakup,
+            'customer_name' => 'КГУ «Школа-гимназия № 45»',
+            'customer_bin' => '150340012345',
+            'contact_name' => 'Сауле Бекова, отдел закупок',
+            'contact_phone' => '+7 (727) 300-45-45',
+            'city' => 'Алматы',
+            'delivery_address' => 'мкр. Орбита-2, 14',
+            'deadline_at' => now()->addDays(2)->setTime(10, 0),
+            'delivery_due_date' => now()->addDays(45),
+            'security_amount' => 110_000,
+            'status' => TenderStatus::Preparing,
+            'manager_id' => $b2b->id,
+        ]);
+
+        $tender->lots()->createMany([
+            [
+                'lot_number' => '1', 'name' => 'Дверь металлическая входная 2050×950',
+                'category' => DoorCategory::Comfort, 'model' => DoorModel::Lion,
+                'height' => 2050, 'width' => 950, 'quantity' => 24,
+                'budget_unit_price' => 185_000, 'bid_unit_price' => 172_000,
+            ],
+            [
+                'lot_number' => '2', 'name' => 'Дверь металлическая тамбурная 2050×1200',
+                'category' => DoorCategory::Comfort, 'model' => DoorModel::Lion,
+                'height' => 2050, 'width' => 1200, 'quantity' => 8,
+                'budget_unit_price' => 230_000,
+            ],
+        ]);
+    }
+
     public function run(DoorProductionService $production): void
     {
         $manager = User::firstOrCreate(
@@ -61,6 +104,17 @@ class DemoDataSeeder extends Seeder
                 'salary' => 250_000, 'hired_at' => now()->subMonths(19), 'birth_date' => '1994-03-12',
             ],
         );
+
+        $b2b = User::firstOrCreate(
+            ['email' => 'b2b@gravit.kz'],
+            [
+                'name' => 'Арман Тендерный', 'password' => Hash::make('password'),
+                'role' => UserRole::B2b->value, 'phone' => '+7 (701) 000-00-08',
+                'salary' => 270_000, 'hired_at' => now()->subMonths(9), 'birth_date' => '1991-06-14',
+            ],
+        );
+
+        $this->demoTender($b2b);
 
         User::firstOrCreate(
             ['email' => 'surveyor@gravit.kz'],

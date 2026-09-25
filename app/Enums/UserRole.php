@@ -8,7 +8,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Семь базовых ролей — те, на кодах которых держится код системы.
+ * Базовые роли — те, на кодах которых держится код системы.
  *
  * Сами роли живут в справочнике `roles` (`App\Models\Role`) и заводятся
  * директором из панели. Этот перечень остался как список «встроенных»: на
@@ -28,6 +28,7 @@ enum UserRole: string implements HasColor, HasLabel
     case Surveyor = 'surveyor';
     case Master = 'master';
     case Worker = 'worker';
+    case B2b = 'b2b';
 
     public function getLabel(): string
     {
@@ -39,6 +40,7 @@ enum UserRole: string implements HasColor, HasLabel
             self::Surveyor => 'Замерщик',
             self::Master => 'Начальник производства',
             self::Worker => 'Рабочий цеха',
+            self::B2b => 'Менеджер B2B',
         };
     }
 
@@ -52,6 +54,7 @@ enum UserRole: string implements HasColor, HasLabel
             self::Surveyor => 'success',
             self::Master => 'warning',
             self::Worker => 'gray',
+            self::B2b => 'teal',
         };
     }
 
@@ -66,6 +69,7 @@ enum UserRole: string implements HasColor, HasLabel
             self::Surveyor => 'Замеры по уведомлениям и своя зарплата',
             self::Master => 'Наряды цеха, склад, экран цеха',
             self::Worker => 'Планшет цеха и своя зарплата',
+            self::B2b => 'Юрлица и тендеры: свои тендеры, лоты и сделки, своя зарплата',
         };
     }
 

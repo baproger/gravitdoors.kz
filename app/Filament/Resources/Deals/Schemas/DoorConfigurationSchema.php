@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Deals\Schemas;
 
+use App\Enums\ClientType;
 use App\Enums\DoorCategory;
 use App\Enums\DoorModel;
 use App\Enums\DoorOptionCategory;
 use App\Enums\OpeningSide;
 use App\Models\DoorOption;
+use App\Models\TenderLot;
 use App\Services\DoorPriceCalculator;
 use App\Support\Money;
 use Filament\Forms\Components\CheckboxList;
@@ -29,6 +31,9 @@ use Illuminate\Support\HtmlString;
  */
 class DoorConfigurationSchema
 {
+    /** Потолок количества в позиции для физлица. */
+    public const RETAIL_MAX_QUANTITY = 50;
+
     /** @return list<mixed> */
     public static function components(): array
     {
@@ -51,11 +56,14 @@ class DoorConfigurationSchema
                         ->native(false)
                         ->live(),
 
+                    // Рознице хватает 50 — больше там только опечатка. Юрлицо
+                    // берёт партиями: на школу или ЖК — сотни дверей одной позицией.
                     TextInput::make('quantity')
                         ->label('Количество, шт')
                         ->numeric()
+                        ->integer()
                         ->minValue(1)
-                        ->maxValue(50)
+                        ->maxValue(fn (Get $get): int => self::isCompany($get('../../client_type')) ? TenderLot::MAX_QUANTITY : self::RETAIL_MAX_QUANTITY)
                         ->default(1)
                         ->required()
                         ->live(onBlur: true),
@@ -124,6 +132,13 @@ class DoorConfigurationSchema
                 ->content(fn (Get $get): HtmlString => self::preview($get))
                 ->columnSpanFull(),
         ];
+    }
+
+    private static function isCompany(mixed $state): bool
+    {
+        $type = $state instanceof ClientType ? $state : ClientType::tryFrom((string) ($state ?: ''));
+
+        return $type === ClientType::Company;
     }
 
     /** @return list<Select> */

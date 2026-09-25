@@ -76,7 +76,7 @@ enum Department: string implements HasColor, HasIcon, HasLabel
         };
 
         return match ($code) {
-            UserRole::Admin->value, UserRole::Manager->value => self::Sales,
+            UserRole::Admin->value, UserRole::Manager->value, UserRole::B2b->value => self::Sales,
             UserRole::Accountant->value => self::Finance,
             UserRole::Hr->value => self::Hr,
             UserRole::Surveyor->value => self::Survey,

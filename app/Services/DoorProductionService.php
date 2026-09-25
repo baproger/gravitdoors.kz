@@ -297,6 +297,9 @@ class DoorProductionService
 
     /**
      * Пересчитать спецификацию и перенести суммы в сделку (и в её наряд).
+     *
+     * У сделки из тендера цену дверей назначил тендер (`contract_price`): по
+     * прайсу считается только себестоимость, а сумма для клиента — по договору.
      */
     public function syncPricing(Deal $deal): Deal
     {
@@ -308,9 +311,11 @@ class DoorProductionService
 
         $summary = $this->calculator->applyToDeal($salesDeal->refresh());
 
+        $doors = $salesDeal->hasContractPrice() ? (float) $salesDeal->contract_price : $summary->total;
+
         // Доставка и монтаж — часть суммы для клиента, но не часть расчёта дверей:
         // они задаются в карточке и прибавляются к итогу поверх спецификации.
-        $total = round($summary->total + $salesDeal->servicesCost(), 2);
+        $total = round($doors + $salesDeal->servicesCost(), 2);
 
         $salesDeal->forceFill([
             'total_price' => $total,

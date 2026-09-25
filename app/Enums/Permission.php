@@ -26,6 +26,7 @@ enum Permission: string implements HasLabel
     case WorkDeals = 'work.deals';
     case WorkMaterials = 'work.materials';
     case WorkStockMovements = 'work.stock_movements';
+    case WorkTenders = 'work.tenders';
 
     // --- Финансы ------------------------------------------------------------
     case FinanceMySalary = 'finance.my_salary';
@@ -68,6 +69,7 @@ enum Permission: string implements HasLabel
             self::WorkDeals => 'Сделки и наряды',
             self::WorkMaterials => 'Склад материалов',
             self::WorkStockMovements => 'Движения склада',
+            self::WorkTenders => 'Тендеры',
 
             self::FinanceMySalary => 'Моя зарплата',
             self::FinanceOverview => 'Финансы — обзор',
@@ -104,6 +106,7 @@ enum Permission: string implements HasLabel
     {
         return match ($this) {
             self::WorkDeals => 'Список сделок и нарядов, карточка сделки',
+            self::WorkTenders => 'Тендеры, лоты и документы заявки; из выигранного лота — сделка',
             self::FinanceMySalary => 'Своя зарплата — чужие цифры недоступны на любом уровне',
             self::SettingsEmployees => 'Карточки сотрудников без финансовой части',
             self::EmployeesFinance => 'Секция «Условия работы» в карточке сотрудника',
@@ -144,7 +147,7 @@ enum Permission: string implements HasLabel
     public function levels(): array
     {
         return match ($this) {
-            self::WorkSalesKanban, self::WorkOverdue, self::WorkDeals => [
+            self::WorkSalesKanban, self::WorkOverdue, self::WorkDeals, self::WorkTenders => [
                 AccessLevel::None, AccessLevel::Read, AccessLevel::Own, AccessLevel::Full,
             ],
             self::DealsCancel, self::KanbanMoney => [
@@ -187,16 +190,19 @@ enum Permission: string implements HasLabel
         $full = AccessLevel::Full;
 
         return match ($this) {
-            self::WorkSalesKanban => ['manager' => $own, 'accountant' => $read],
-            self::WorkFactoryKanban => ['manager' => $read, 'accountant' => $read, 'hr' => $read, 'master' => $full, 'worker' => $read],
-            self::WorkOverdue => ['manager' => $own, 'accountant' => $read, 'hr' => $read, 'master' => $full],
-            self::WorkDeals => ['manager' => $own, 'accountant' => $full, 'master' => $read, 'worker' => $read],
-            self::WorkMaterials => ['manager' => $read, 'accountant' => $full, 'master' => $full],
-            self::WorkStockMovements => ['manager' => $read, 'accountant' => $full, 'master' => $full],
+            // B2B ведёт юрлиц как менеджер розницу — свои сделки в той же воронке.
+            self::WorkSalesKanban => ['manager' => $own, 'b2b' => $own, 'accountant' => $read],
+            self::WorkFactoryKanban => ['manager' => $read, 'b2b' => $read, 'accountant' => $read, 'hr' => $read, 'master' => $full, 'worker' => $read],
+            self::WorkOverdue => ['manager' => $own, 'b2b' => $own, 'accountant' => $read, 'hr' => $read, 'master' => $full],
+            self::WorkDeals => ['manager' => $own, 'b2b' => $own, 'accountant' => $full, 'master' => $read, 'worker' => $read],
+            self::WorkMaterials => ['manager' => $read, 'b2b' => $read, 'accountant' => $full, 'master' => $full],
+            self::WorkStockMovements => ['manager' => $read, 'b2b' => $read, 'accountant' => $full, 'master' => $full],
+            // Тендеры — работа B2B. Бухгалтер смотрит: обеспечение заявки — это деньги.
+            self::WorkTenders => ['b2b' => $own, 'accountant' => $read],
 
             // Своя зарплата — у всех: страница показывает только собственные цифры.
             self::FinanceMySalary => [
-                'manager' => $full, 'accountant' => $full, 'hr' => $full,
+                'manager' => $full, 'b2b' => $full, 'accountant' => $full, 'hr' => $full,
                 'surveyor' => $full, 'master' => $full, 'worker' => $full,
             ],
             self::FinanceOverview, self::FinanceInvoices, self::FinanceIncomes,
@@ -210,10 +216,10 @@ enum Permission: string implements HasLabel
             self::SettingsStages, self::SettingsPrice, self::SettingsCatalogs, self::SettingsAccess => [],
 
             self::DealsDelete => [],
-            self::DealsCancel => ['manager' => $own],
+            self::DealsCancel => ['manager' => $own, 'b2b' => $own],
             self::DealsPaymentFlag => ['accountant' => $full],
             self::KanbanTotals => ['accountant' => $full],
-            self::KanbanMoney => ['manager' => $own, 'accountant' => $full],
+            self::KanbanMoney => ['manager' => $own, 'b2b' => $own, 'accountant' => $full],
             self::FinanceApprove => ['accountant' => $full, 'hr' => $full],
             self::EmployeesFinance => ['accountant' => $full, 'hr' => $full],
             self::FactoryMaterials => ['master' => $full, 'worker' => $full],

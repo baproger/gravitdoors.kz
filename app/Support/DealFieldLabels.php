@@ -36,6 +36,7 @@ final class DealFieldLabels
         'measurement_done_at' => 'Замер проведён',
         'documents' => 'Документы',
         'total_price' => 'Сумма сделки',
+        'contract_price' => 'Цена по тендеру',
         'cost_price' => 'Себестоимость',
         'prepayment' => 'Предоплата',
         'payment_method' => 'Способ оплаты',

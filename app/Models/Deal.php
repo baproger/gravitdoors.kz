@@ -37,6 +37,7 @@ use Illuminate\Support\Str;
  * @property string|null $client_phone
  * @property string|null $client_address
  * @property numeric $total_price
+ * @property numeric|null $contract_price
  * @property numeric $cost_price
  * @property DealStatus $status_id
  * @property PipelineType $pipeline_type
@@ -159,7 +160,7 @@ class Deal extends Model
         'contract_number', 'contract_date', 'documents', 'measured_at',
         'measurement_height', 'measurement_width', 'measurement_comment',
         'measurement_done_at', 'measurement_by_id',
-        'total_price', 'cost_price', 'prepayment', 'payment_method',
+        'total_price', 'contract_price', 'cost_price', 'prepayment', 'payment_method',
         'delivery_cost', 'installation_cost',
         'status_id', 'pipeline_type', 'current_stage_id',
         'qr_code_hash', 'parent_deal_id', 'manager_id', 'due_date',
@@ -176,6 +177,7 @@ class Deal extends Model
             'source' => DealSource::class,
             'payment_method' => PaymentMethod::class,
             'total_price' => 'decimal:2',
+            'contract_price' => 'decimal:2',
             'cost_price' => 'decimal:2',
             'prepayment' => 'decimal:2',
             'delivery_cost' => 'decimal:2',
@@ -292,6 +294,16 @@ class Deal extends Model
     public function doorConfigurations(): HasMany
     {
         return $this->hasMany(DoorConfiguration::class)->orderBy('position')->orderBy('id');
+    }
+
+    /**
+     * Лот тендера, из которого заведена сделка.
+     *
+     * @return HasOne<TenderLot, $this>
+     */
+    public function tenderLot(): HasOne
+    {
+        return $this->hasOne(TenderLot::class);
     }
 
     /** @return HasMany<DealPayment, $this> */
@@ -545,6 +557,12 @@ class Deal extends Model
     public function isPaidInFull(): bool
     {
         return $this->remainingPayment() <= 0.0 && (float) $this->total_price > 0.0;
+    }
+
+    /** Цену дверей назначил тендер, а не прайс. */
+    public function hasContractPrice(): bool
+    {
+        return $this->contract_price !== null;
     }
 
     /** Услуги сверх стоимости самих дверей. */

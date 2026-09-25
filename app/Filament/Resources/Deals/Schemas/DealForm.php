@@ -14,6 +14,7 @@ use App\Enums\Permission;
 use App\Enums\PipelineType;
 use App\Enums\UserRole;
 use App\Filament\Actions\DealActions;
+use App\Filament\Resources\Tenders\TenderResource;
 use App\Models\CashAccount;
 use App\Models\Deal;
 use App\Models\FactoryStage;
@@ -271,6 +272,9 @@ class DealForm
                 ->schema(DoorConfigurationSchema::components())
                 ->itemLabel(fn (array $state): string => self::positionLabel($state))
                 ->addActionLabel('Добавить дверь')
+                // Копия позиции: в заказе юрлица двери часто отличаются только
+                // размером или количеством — не набирать характеристики заново.
+                ->cloneable()
                 ->defaultItems(1)
                 ->reorderable(false)
                 ->collapsible()
@@ -396,9 +400,21 @@ class DealForm
                     ->suffix(config('gravit.currency.symbol'))
                     ->live(onBlur: true),
 
+                TextInput::make('contract_price')
+                    ->label('Цена дверей по тендеру')
+                    ->helperText('Зафиксирована выигранным лотом: спецификация меняет себестоимость, но не цену для заказчика')
+                    ->numeric()
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->suffix(config('gravit.currency.symbol'))
+                    ->visible(fn (?Deal $record): bool => $record?->hasContractPrice() ?? false)
+                    ->columnSpanFull(),
+
                 TextInput::make('total_price')
                     ->label('Сумма сделки')
-                    ->helperText('Считается из спецификации и услуг при сохранении; руками не меняется')
+                    ->helperText(fn (?Deal $record): string => $record?->hasContractPrice()
+                        ? 'Цена по тендеру плюс услуги; руками не меняется'
+                        : 'Считается из спецификации и услуг при сохранении; руками не меняется')
                     ->numeric()
                     ->default(0)
                     // Только для чтения: сумма — результат расчёта, а не поле ввода.
@@ -415,6 +431,13 @@ class DealForm
     private static function contractFields(): array
     {
         return [
+            // Откуда сделка: документы заявки и протокол лежат в тендере,
+            // копировать их в сделку незачем — достаточно ссылки.
+            Placeholder::make('tender_origin')
+                ->label('Из тендера')
+                ->visible(fn (?Deal $record): bool => $record?->tenderLot !== null)
+                ->content(fn (?Deal $record): HtmlString => self::tenderOrigin($record)),
+
             Grid::make(2)->schema([
                 TextInput::make('contract_number')
                     ->label('№ договора')
@@ -484,7 +507,7 @@ class DealForm
                 Select::make('manager_id')
                     ->label('Ответственный')
                     ->options(fn (): array => User::query()
-                        ->whereIn('role', [UserRole::Manager->value, UserRole::Admin->value])
+                        ->whereIn('role', [UserRole::Manager->value, UserRole::B2b->value, UserRole::Admin->value])
                         ->where('is_active', true)
                         ->pluck('name', 'id')
                         ->all())
@@ -603,6 +626,22 @@ class DealForm
         return blank($value) ? null : $enum::tryFrom((string) $value)?->getLabel();
     }
 
+    private static function tenderOrigin(?Deal $record): HtmlString
+    {
+        $lot = $record?->tenderLot;
+
+        if (! $lot) {
+            return new HtmlString('');
+        }
+
+        $tender = $lot->tender;
+        $text = e($tender->displayName().' · '.$lot->displayName());
+
+        return new HtmlString(auth()->user()?->can('view', $tender)
+            ? '<a href="'.e(TenderResource::cardUrl($tender)).'" class="text-primary-600 hover:underline dark:text-primary-400">'.$text.'</a>'
+            : $text);
+    }
+
     /** Одной строкой: сколько по договору, сколько внесено, сколько осталось. */
     private static function paymentState(?Deal $record): HtmlString
     {
@@ -638,7 +677,9 @@ class DealForm
         $prepayment = self::paidSum($get('payments'));
 
         $rows = [
-            ['Двери по спецификации', Money::format($doors), false],
+            $record?->hasContractPrice()
+                ? ['Двери по тендеру', Money::format((float) $record->contract_price), false]
+                : ['Двери по спецификации', Money::format($doors), false],
             ['Доставка', Money::format($delivery), false],
             ['Монтаж', Money::format($installation), false],
             ['Сумма сделки', Money::format($total), true],

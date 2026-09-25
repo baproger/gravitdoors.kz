@@ -8,8 +8,10 @@ use App\Enums\AccessLevel;
 use App\Enums\Permission;
 use App\Filament\Pages\OverdueDeals;
 use App\Filament\Resources\MaterialStocks\MaterialStockResource;
+use App\Filament\Resources\Tenders\TenderResource;
 use App\Models\Deal;
 use App\Models\MaterialStock;
+use App\Models\Tender;
 use App\Models\User;
 use App\Services\AccessControl;
 use Filament\Actions\Action;
@@ -19,7 +21,8 @@ use Illuminate\Support\Collection;
 
 /**
  * Ежедневная проверка: то, что иначе замечают, когда уже поздно —
- * кончившийся материал и наряд, застрявший на этапе.
+ * кончившийся материал, наряд, застрявший на этапе, и тендер, по которому
+ * вот-вот закроется приём заявок.
  */
 class DailyCheck extends Command
 {
@@ -33,6 +36,7 @@ class DailyCheck extends Command
         $overdue = $this->overdueStages();
         $measurementsToday = Deal::query()->measurementToday()->with('manager')->get();
         $measurementsOverdue = Deal::query()->measurementOverdue()->with('manager')->get();
+        $tenders = Tender::query()->deadlineSoon()->where('deadline_at', '>', now())->orderBy('deadline_at')->get();
 
         $this->table(
             ['Проверка', 'Найдено'],
@@ -41,6 +45,7 @@ class DailyCheck extends Command
                 ['Этапы дольше норматива', $overdue->count()],
                 ['Замеры сегодня', $measurementsToday->count()],
                 ['Замеры просрочены', $measurementsOverdue->count()],
+                ['Тендеры: скоро срок', $tenders->count()],
             ],
         );
 
@@ -66,7 +71,11 @@ class DailyCheck extends Command
             $this->notifyMeasurementsOverdue($measurementsOverdue);
         }
 
-        if ($lowStock->isEmpty() && $overdue->isEmpty() && $measurementsToday->isEmpty() && $measurementsOverdue->isEmpty()) {
+        if ($tenders->isNotEmpty()) {
+            $this->notifyTenderDeadlines($tenders);
+        }
+
+        if ($lowStock->isEmpty() && $overdue->isEmpty() && $measurementsToday->isEmpty() && $measurementsOverdue->isEmpty() && $tenders->isEmpty()) {
             $this->info('Всё в порядке, уведомлять не о чем.');
         }
 
@@ -201,6 +210,49 @@ class DailyCheck extends Command
             ->sendToDatabase($recipients);
 
         $this->warn("Просроченные замеры ({$deals->count()}) отправлены {$recipients->count()} сотрудникам.");
+    }
+
+    /**
+     * Заявка не подана, а приём закрывается в ближайшие дни. Ответственному —
+     * его тендеры, тем, кто ведёт все тендеры, — весь список. Пропущенный срок
+     * на площадке не продлевают: тендер просто потерян.
+     *
+     * @param  Collection<int, Tender>  $tenders
+     */
+    private function notifyTenderDeadlines(Collection $tenders): void
+    {
+        $recipients = User::query()
+            ->where('is_active', true)
+            ->get()
+            ->filter(fn (User $user): bool => AccessControl::allows($user, Permission::WorkTenders, AccessLevel::Full)
+                || ($tenders->contains('manager_id', $user->id) && AccessControl::allows($user, Permission::WorkTenders)))
+            ->values();
+
+        foreach ($recipients as $user) {
+            $own = AccessControl::allows($user, Permission::WorkTenders, AccessLevel::Full)
+                ? $tenders
+                : $tenders->where('manager_id', $user->id)->values();
+
+            $lines = $own->take(5)
+                ->map(fn (Tender $tender): string => $tender->displayName().' — до '.$tender->deadline_at->format('d.m H:i'))
+                ->implode('; ');
+            $more = $own->count() > 5 ? ' и ещё '.($own->count() - 5) : '';
+
+            Notification::make()
+                ->title('Срок подачи заявки близко: '.$own->count())
+                ->body($lines.$more)
+                ->icon('heroicon-o-trophy')
+                ->warning()
+                ->actions([
+                    Action::make('open')
+                        ->label('Открыть тендеры')
+                        ->url(TenderResource::getUrl('index', ['activeTab' => 'soon']))
+                        ->markAsRead(),
+                ])
+                ->sendToDatabase($user);
+        }
+
+        $this->warn("Напоминание о {$tenders->count()} тендерах отправлено {$recipients->count()} сотрудникам.");
     }
 
     /**
